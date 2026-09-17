@@ -1,0 +1,57 @@
+HK School Timetable v84 — Automate-ready
+========================================
+
+今版目的
+--------
+原有 GitHub Pages + Firebase Web App 照常使用；新增一層只供 Android Automate 讀取的「今日摘要」。
+其他使用者毋須安裝 Automate，正常開網站亦不會見到額外介面。
+
+自動同步方式（v84 更新版）
+--------------------------
+1. 你正常開 Web App。
+2. 如果你已登入 Firebase，網站會在背景建立一個不可見的同源頁面。
+3. 背景頁會打開「當日課表」、整理今日課節／當值／循環資料。
+4. 摘要寫入：users/{uid}/automate/current
+5. 可見頁面不會跳轉，亦不會打斷操作。
+6. 為免重複讀寫，預設最多約每 10 分鐘自動更新一次。
+
+注意：不需要把任何新檔案手動放上 Firebase。
+Firebase 在這裡只是儲存 Web App 自動產生的今日摘要。
+
+Firestore 文件格式
+-------------------
+users/{uid}/automate/current
+
+欄位：
+- payload: JSON 字串（Automate 主要讀取）
+- date: YYYY-MM-DD
+- updatedAt: ISO 時間
+- source: 資料來源版本
+- version: 摘要格式版本
+
+手動測試同步
+------------
+仍保留專用測試網址：
+  https://你的GitHubPages網址/?automate=sync
+
+如果想靜默測試：
+  https://你的GitHubPages網址/?automate=sync&silent=1
+
+Automate V1 建議流程
+-------------------
+A. 使用 Firebase Auth REST API 以你自己的帳戶登入，取得 idToken。
+B. 用 idToken 讀取 Firestore：users/{uid}/automate/current
+C. 取出 fields.payload.stringValue。
+D. JSON decode payload。
+E. 將 badges、items 等資料組成 Android 通知。
+
+安全原則
+--------
+- 不要把 Firebase service account / Admin SDK 私鑰放入 Automate。
+- Automate 只使用你自己的 Firebase 使用者登入 token。
+- Firestore Rules 應限制 users/{uid}/... 只能由 request.auth.uid == uid 存取。
+
+原有使用者
+----------
+完全不需要改用法。GitHub Pages、Firebase 登入、雲端備份、課表、月曆等原有功能保留。
+未登入 Firebase 的使用者不會執行 Automate 背景同步。

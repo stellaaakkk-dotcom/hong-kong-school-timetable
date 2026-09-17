@@ -1,0 +1,12 @@
+香港教師教學日誌・PWA／離線版
+
+離線使用：
+1. 解壓縮 ZIP。
+2. 保留所有檔案在同一資料夾，再開啟 index.html。
+
+GitHub Pages PWA：
+1. 將資料夾內所有檔案上載到 GitHub repository 同一層。
+2. 開啟 GitHub Pages 網址。
+3. 在 Chrome／Edge 選擇「安裝 App」或「加到主畫面」。
+
+資料會儲存在目前瀏覽器；建議定期匯出 JSON 完整備份。清除瀏覽器資料可能會刪除記錄。
