@@ -68,7 +68,7 @@
 
     return {
       version: 2,
-      source: 'HK School Timetable v84 Automate-ready',
+      source: 'HK School Timetable v84.1 Automate-ready',
       date: dateInput?.value || hkDateString(),
       title,
       badges: badgeText,
@@ -79,7 +79,7 @@
 
   async function ensureTodayPage() {
     if (document.querySelector('.today-board')) return;
-    const btn = await waitFor(() => findButtonByText('當日課表'));
+    const btn = await waitFor(() => findButtonByText('今日課表') || findButtonByText('當日課表'));
     btn.click();
     await waitFor(() => document.querySelector('.today-board'));
   }

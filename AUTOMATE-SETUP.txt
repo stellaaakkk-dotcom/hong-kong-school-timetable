@@ -55,3 +55,6 @@ E. 將 badges、items 等資料組成 Android 通知。
 ----------
 完全不需要改用法。GitHub Pages、Firebase 登入、雲端備份、課表、月曆等原有功能保留。
 未登入 Firebase 的使用者不會執行 Automate 背景同步。
+
+
+v84.1 修正：Automate bridge 現會辨認「今日課表」或「當日課表」主選單文字，修正 ?automate=sync 等候頁面逾時問題。
