@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.0';
+  const VERSION = '1.0.1';
   const LOCAL_KEY = 'hk-school-submission-records-v1';
   const COLORS = {
     cream: '#fff8d9',
@@ -323,12 +323,17 @@
       btn.addEventListener('click', showPage);
       tabs.appendChild(btn);
     }
-    [...tabs.querySelectorAll('button:not(.submission-tab)')].forEach(other => {
-      if (other.dataset.submissionHooked) return;
-      other.dataset.submissionHooked = '1';
-      other.addEventListener('click', hidePage, true);
-    });
     return true;
+  }
+
+  function installTabDelegation() {
+    if (document.documentElement.dataset.submissionDelegation === '1') return;
+    document.documentElement.dataset.submissionDelegation = '1';
+    document.addEventListener('click', event => {
+      const target = event.target.closest?.('.main-tabs button');
+      if (!target || target.classList.contains('submission-tab')) return;
+      hidePage();
+    }, false);
   }
 
   function showPage() {
@@ -554,25 +559,51 @@
       if (footer) footer.insertAdjacentElement('beforebegin', card);
       else board.appendChild(card);
     }
-    card.innerHTML = `
+    const nextHtml = `
       <div class="head"><b>📋 今日追收</b><button type="button">查看全部</button></div>
       ${items.length ? items.slice(0,4).map(r => `<div class="row">${esc(r.className)}｜${esc(r.name)}：${(r.missing||[]).map(pad).join('、')}</div>`).join('') : '<div class="row">今日沒有需要追收的項目。</div>'}
     `;
-    card.querySelector('button')?.addEventListener('click', showPage);
+    if (card.innerHTML !== nextHtml) {
+      card.innerHTML = nextHtml;
+      card.querySelector('button')?.addEventListener('click', showPage);
+    }
   }
 
   function observeApp() {
-    const observer = new MutationObserver(() => {
-      ensureTab();
-      if (document.querySelector('.today-board')) renderTodayCard();
+    let queued = false;
+    const observer = new MutationObserver(mutations => {
+      // Ignore DOM changes caused only inside our own module.
+      const meaningful = mutations.some(m => {
+        const t = m.target;
+        return !(t instanceof Element &&
+          (t.closest('#submission-page') || t.closest('.today-submission-card')));
+      });
+      if (!meaningful || queued) return;
+
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+
+        // Only repair UI if React has replaced/removed the integration point.
+        if (!document.querySelector('.main-tabs .submission-tab')) {
+          ensureTab();
+        }
+
+        const board = document.querySelector('.today-board');
+        if (board && !board.querySelector('.today-submission-card')) {
+          renderTodayCard();
+        }
+      });
     });
-    observer.observe(document.documentElement, {childList:true, subtree:true});
+
+    observer.observe(document.body, {childList:true, subtree:true});
   }
 
   async function start() {
     injectCss();
     ensurePage();
     ensureTab();
+    installTabDelegation();
     observeApp();
     await connectStorage();
     console.info(`[Submission module] v${VERSION} ready`);
