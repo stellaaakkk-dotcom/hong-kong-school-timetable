@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.6.0';
+  const VERSION = '1.6.1';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -69,7 +69,7 @@
 
       .pe-modal{display:none;position:fixed;inset:0;z-index:2147483600;background:#0005;align-items:center;justify-content:center;padding:14px;font-family:"Noto Sans TC","PingFang HK","Microsoft JhengHei",sans-serif}.pe-modal.open{display:flex}
       .pe-dialog{width:min(760px,100%);max-height:90vh;overflow:auto;border:1px solid #e8d9c4;border-radius:16px;background:#fffdf8;color:#4a3428;box-shadow:0 15px 48px #0005;padding:14px}.pe-dialog h3{margin:0 0 5px;color:#80542f;font-size:15px}.pe-note{margin:0 0 10px;color:#857365;font-size:10px;line-height:1.45}.pe-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.pe-field label{display:block;margin:0 0 3px;color:#857365;font-size:10px;font-weight:700}.pe-field input,.pe-field select,.pe-field textarea{width:100%;border:1px solid #decdb9;border-radius:8px;background:#fff;color:#4a3428;padding:8px;font:600 11px inherit;box-sizing:border-box}.pe-field textarea{min-height:62px;resize:vertical}.pe-full{grid-column:1/-1}.pe-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:10px}.pe-btn{border:1px solid #d9c2a4;border-radius:8px;background:#fff;color:#80542f;padding:7px 10px;font-size:10px;font-weight:800}.pe-btn.primary{background:#a86f3d;border-color:#a86f3d;color:#fff}.pe-btn.danger{color:#c64545}
-      .pe-stat-toolbar{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;margin:9px 0}.pe-stat-actions{display:grid;grid-template-columns:repeat(2,auto);gap:4px;align-items:stretch}.pe-stat-actions button{min-width:44px;padding:7px 8px}.pe-stat-toolbar select,.pe-stat-toolbar input{width:100%;border:1px solid #decdb9;border-radius:8px;padding:7px;background:#fff;color:#4a3428;font-size:10px}.pe-stat-toolbar button{border:1px solid #d8c2a4;border-radius:8px;background:#fff8db;color:#80542f;padding:7px 8px;font-size:9px;font-weight:800}.pe-stat-group{border:1px solid #eadfce;border-radius:10px;background:#fff;padding:8px;margin-top:7px}.pe-stat-group summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:10px;font-size:11px;font-weight:800;color:#80542f}.pe-stat-group summary::-webkit-details-marker{display:none}.pe-stat-list{margin-top:6px;border-top:1px dashed #eadfce;padding-top:5px}.pe-stat-item{display:grid;grid-template-columns:78px 1fr auto;gap:6px;align-items:start;padding:5px 0;border-bottom:1px solid #f1e9dd;font-size:9px}.pe-stat-item:last-child{border-bottom:0}.pe-stat-item b{color:#6d5545}.pe-stat-item small{color:#8b7768;line-height:1.4}.pe-stat-item button{border:0;background:transparent;color:#c64545;font-size:9px;font-weight:800;padding:2px}
+      .pe-stat-toolbar{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;margin:9px 0}.pe-stat-actions{display:grid;grid-template-columns:repeat(2,auto);gap:4px;align-items:stretch}.pe-stat-actions button{min-width:44px;padding:7px 8px}.pe-stat-toolbar select,.pe-stat-toolbar input{width:100%;border:1px solid #decdb9;border-radius:8px;padding:7px;background:#fff;color:#4a3428;font-size:10px}.pe-stat-toolbar button{border:1px solid #d8c2a4;border-radius:8px;background:#fff8db;color:#80542f;padding:7px 8px;font-size:9px;font-weight:800}.pe-stat-group{border:1px solid #eadfce;border-radius:10px;background:#fff;padding:8px;margin-top:7px}.pe-stat-group summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:10px;font-size:11px;font-weight:800;color:#80542f}.pe-stat-group summary::-webkit-details-marker{display:none}.pe-stat-list{margin-top:6px;border-top:1px dashed #eadfce;padding-top:5px}.pe-stat-item{display:grid;grid-template-columns:78px 1fr auto;gap:6px;align-items:start;padding:5px 0;border-bottom:1px solid #f1e9dd;font-size:9px}.pe-stat-item:last-child{border-bottom:0}.pe-stat-item b{color:#6d5545}.pe-stat-item small{color:#8b7768;line-height:1.4}.pe-stat-item button{border:0;background:transparent;color:#c64545;font-size:9px;font-weight:800;padding:2px}.pe-stat-row-actions{display:flex;gap:2px;justify-content:flex-end;align-items:center}.pe-stat-row-actions button:first-child{color:#7b5b3d}
       .pe-search-results{margin-top:9px;display:grid;gap:6px}.pe-search-result{border:1px solid #eadfce;border-radius:9px;background:#fff;padding:8px}.pe-search-result .top{display:flex;justify-content:space-between;gap:8px;align-items:center}.pe-search-result b{font-size:10px;color:#80542f}.pe-search-result span{font-size:9px;color:#5f4b3d;line-height:1.45}.pe-search-result small{display:block;margin-top:3px;font-size:8px;color:#998678}.pe-search-hint{font-size:9px;color:#8c7868;line-height:1.5;margin-top:6px}
       
       @media(min-width:701px){
@@ -730,6 +730,77 @@
     modal.classList.add('open');
   }
 
+
+  function ensureActivityEditModal(){
+    let modal=document.getElementById('pe-activity-edit-modal');
+    if(modal)return modal;
+    modal=document.createElement('div');modal.id='pe-activity-edit-modal';modal.className='pe-modal';
+    modal.innerHTML=`<div class="pe-dialog">
+      <h3>✏️ 修改活動紀錄</h3>
+      <div class="pe-grid">
+        <div class="pe-field"><label>日期</label><input id="pe-edit-act-date" type="date"></div>
+        <div class="pe-field"><label>活動類別</label><input id="pe-edit-act-category" list="pe-category-list"></div>
+        <div class="pe-field pe-full"><label>活動名稱</label><input id="pe-edit-act-title"></div>
+        <div class="pe-field pe-full"><label>備註</label><textarea id="pe-edit-act-note"></textarea></div>
+      </div>
+      <div class="pe-actions">
+        <button class="pe-btn" id="pe-edit-act-cancel">取消</button>
+        <button class="pe-btn primary" id="pe-edit-act-save">儲存修改</button>
+      </div>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click',e=>{if(e.target===modal)closeModal(modal)});
+    modal.querySelector('#pe-edit-act-cancel').addEventListener('click',()=>closeModal(modal));
+    modal.querySelector('#pe-edit-act-save').addEventListener('click',saveActivityEdit);
+    return modal;
+  }
+
+  function openActivityEdit(id){
+    const rec=state.activities.find(x=>x.id===id);
+    if(!rec)return;
+    const modal=ensureActivityEditModal();
+    modal.dataset.editId=id;
+    document.getElementById('pe-edit-act-date').value=rec.date||'';
+    document.getElementById('pe-edit-act-category').value=rec.category||'';
+    document.getElementById('pe-edit-act-title').value=rec.title||'';
+    document.getElementById('pe-edit-act-note').value=rec.note||'';
+    refreshCategoryList();
+    modal.classList.add('open');
+  }
+
+  async function saveActivityEdit(){
+    const modal=document.getElementById('pe-activity-edit-modal');
+    const id=modal?.dataset.editId;
+    const rec=state.activities.find(x=>x.id===id);
+    if(!rec)return;
+
+    const date=document.getElementById('pe-edit-act-date').value;
+    const category=document.getElementById('pe-edit-act-category').value.trim();
+    const title=document.getElementById('pe-edit-act-title').value.trim();
+    const note=document.getElementById('pe-edit-act-note').value.trim();
+    if(!date||!category||!title){alert('請填寫日期、活動類別及活動名稱。');return}
+
+    Object.assign(rec,{date,category,title,note,updatedAt:new Date().toISOString()});
+    saveLocalActivities();
+    closeModal(modal);
+    refreshCategoryList();
+    renderStatsIfOpen();
+    renderDashboard();
+    renderCalendarActivityOverlay();
+
+    const payload={date,category,title,note,updatedAt:rec.updatedAt};
+    if(state.firebaseReady&&navigator.onLine){
+      setSync('syncing');
+      try{
+        await activityCollection().doc(id).set(payload,{merge:true});
+        saveActivityPending(loadActivityPending().filter(x=>x.id!==id));
+        updateSyncDisplay();
+      }catch{
+        queueActivityPending({op:'set',id,data:payload});
+      }
+    }else queueActivityPending({op:'set',id,data:payload});
+  }
+
   function ensureStatsModal(){
     let modal=document.getElementById('pe-stats-modal');if(modal)return modal;
     modal=document.createElement('div');modal.id='pe-stats-modal';modal.className='pe-modal';
@@ -777,7 +848,7 @@
       return !q||`${a.category||''} ${a.title||''} ${a.note||''}`.toLowerCase().includes(q);
     });
   }
-  function renderStats(){const out=document.getElementById('pe-stat-content');if(!out)return;const items=filteredActivities(),groups={};items.forEach(a=>(groups[(a.category||'未分類').trim()||'未分類']||=[]).push(a));const entries=Object.entries(groups).sort((a,b)=>b[1].length-a[1].length||a[0].localeCompare(b[0],'zh-HK'));out.innerHTML=entries.length?entries.map(([cat,arr])=>`<details class="pe-stat-group" open><summary><span>${esc(cat)}</span><span>${arr.length} 次</span></summary><div class="pe-stat-list">${arr.sort((a,b)=>a.date.localeCompare(b.date)).map(a=>`<div class="pe-stat-item"><b>${fmt(a.date)}</b><small><strong>${esc(a.title||'')}</strong>${a.note?`<br>${esc(a.note)}`:''}</small><button data-delete-activity="${esc(a.id||'')}">刪除</button></div>`).join('')}</div></details>`).join(''):'<div class="pe-note">這個範圍暫時未有活動紀錄。</div>';out.querySelectorAll('[data-delete-activity]').forEach(b=>b.addEventListener('click',()=>deleteActivity(b.dataset.deleteActivity)))}
+  function renderStats(){const out=document.getElementById('pe-stat-content');if(!out)return;const items=filteredActivities(),groups={};items.forEach(a=>(groups[(a.category||'未分類').trim()||'未分類']||=[]).push(a));const entries=Object.entries(groups).sort((a,b)=>b[1].length-a[1].length||a[0].localeCompare(b[0],'zh-HK'));out.innerHTML=entries.length?entries.map(([cat,arr])=>`<details class="pe-stat-group" open><summary><span>${esc(cat)}</span><span>${arr.length} 次</span></summary><div class="pe-stat-list">${arr.sort((a,b)=>a.date.localeCompare(b.date)).map(a=>`<div class="pe-stat-item"><b>${fmt(a.date)}</b><small><strong>${esc(a.title||'')}</strong>${a.note?`<br>${esc(a.note)}`:''}</small><span class="pe-stat-row-actions"><button data-edit-activity="${esc(a.id||'')}">修改</button><button data-delete-activity="${esc(a.id||'')}">刪除</button></span></div>`).join('')}</div></details>`).join(''):'<div class="pe-note">這個範圍暫時未有活動紀錄。</div>';out.querySelectorAll('[data-edit-activity]').forEach(b=>b.addEventListener('click',()=>openActivityEdit(b.dataset.editActivity)));out.querySelectorAll('[data-delete-activity]').forEach(b=>b.addEventListener('click',()=>deleteActivity(b.dataset.deleteActivity)))}
   function openStatsModal(){ensureStatsModal().classList.add('open');refreshStatsCategoryOptions();renderStats()}
   function renderStatsIfOpen(){if(document.getElementById('pe-stats-modal')?.classList.contains('open')){refreshStatsCategoryOptions();renderStats()}}
   async function deleteActivity(id){const r=state.activities.find(x=>x.id===id);if(!r||!confirm(`刪除「${r.title}」？`))return;state.activities=state.activities.filter(x=>x.id!==id);saveLocalActivities();renderStats();renderDashboard();renderCalendarActivityOverlay();if(state.firebaseReady&&navigator.onLine){setSync('syncing');try{await activityCollection().doc(id).delete();saveActivityPending(loadActivityPending().filter(x=>!(x.op==='delete'&&x.id===id)));updateSyncDisplay()}catch{queueActivityPending({op:'delete',id})}}else queueActivityPending({op:'delete',id})}
@@ -927,7 +998,7 @@
   window.addEventListener('offline',()=>updateSyncDisplay());
 
   async function start(){
-    addCss();ensureSyncPill();installNetworkStatus();ensureDashboard();ensureContextTools();ensureActivityModal();ensureStatsModal();ensureSearchModal();ensureDoneModal();ensurePendingModal();ensureMobileNav();ensureIpadRail();ensureDesktopMoreToggle();ensureMobileMore();ensureCalendarActivityLayer();installPwaUpdatePrompt();await connectData();uiTick();
+    addCss();ensureSyncPill();installNetworkStatus();ensureDashboard();ensureContextTools();ensureActivityModal();ensureActivityEditModal();ensureStatsModal();ensureSearchModal();ensureDoneModal();ensurePendingModal();ensureMobileNav();ensureIpadRail();ensureDesktopMoreToggle();ensureMobileMore();ensureCalendarActivityLayer();installPwaUpdatePrompt();await connectData();uiTick();
     setInterval(uiTick,1800);
     console.info(`[planner-enhancements] v${VERSION} ready`);
   }
