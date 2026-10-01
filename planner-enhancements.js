@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.5.0';
+  const VERSION = '1.5.1';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PLANNER_LOCAL_KEY = 'hk-school-planner-v3';
@@ -98,6 +98,11 @@
       .submission-launcher{display:none!important}
       .pe-context-tools{display:none!important}
       .pe-desktop-more-toggle{display:none}
+      .pe-cal-activity-layer{position:fixed;inset:0;z-index:2147480500;pointer-events:none}
+      .pe-cal-activity-chip{position:fixed;max-width:46%;border:1px solid #dfc494;border-radius:6px;background:#fff2c8;color:#7b542f;padding:2px 4px;font-size:7px;font-weight:800;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 3px #0001}
+      .pe-cal-activity-chip.more{background:#fffaf0;color:#8a6c4e}
+      @media(max-width:700px){.pe-cal-activity-chip{font-size:6px;max-width:52%;padding:1px 3px}}
+      @media print{.pe-cal-activity-layer{display:none!important}}
       .pe-mobile-nav{display:none}
       .pe-mobile-more{display:none}
 
@@ -223,7 +228,7 @@
       state.submissions=snap.docs.map(d=>({id:d.id,...d.data()})); setSync(navigator.onLine?'ok':'offline'); renderDashboard();
     },()=>setSync(navigator.onLine?'connecting':'offline'));
     state.unsubActivities = activityCollection().orderBy('date','desc').onSnapshot(snap=>{
-      state.activities=snap.docs.map(d=>({id:d.id,...d.data()})); saveLocalActivities(); setSync(navigator.onLine?'ok':'offline'); renderDashboard(); renderStatsIfOpen(); refreshCategoryList();
+      state.activities=snap.docs.map(d=>({id:d.id,...d.data()})); saveLocalActivities(); setSync(navigator.onLine?'ok':'offline'); renderDashboard(); renderStatsIfOpen(); refreshCategoryList(); renderCalendarActivityOverlay();
     },()=>setSync(navigator.onLine?'connecting':'offline'));
   }
 
@@ -451,6 +456,52 @@
     if(wasOpen) el.classList.add('open');
   }
 
+  function ensureCalendarActivityLayer(){
+    let layer=document.getElementById('pe-cal-activity-layer');
+    if(!layer){layer=document.createElement('div');layer.id='pe-cal-activity-layer';layer.className='pe-cal-activity-layer';document.body.appendChild(layer)}
+    return layer;
+  }
+
+  function renderCalendarActivityOverlay(){
+    const layer=ensureCalendarActivityLayer();
+    const grid=document.querySelector('.calendar-grid');
+    if(!grid||!isVisible(grid)){layer.innerHTML='';return}
+
+    const p=plannerState();
+    const month=p.month||'';
+    if(!/^\d{4}-\d{2}$/.test(month)){layer.innerHTML='';return}
+
+    const cells=[...grid.querySelectorAll('.cal-cell:not(.empty)')];
+    const byDate={};
+    state.activities.forEach(a=>{if(a.date&&(byDate[a.date]||=[]))byDate[a.date].push(a)});
+
+    const chips=[];
+    for(const cell of cells){
+      const dayText=cell.querySelector(':scope > b')?.textContent?.trim();
+      const day=Number(dayText);
+      if(!day)continue;
+      const date=`${month}-${String(day).padStart(2,'0')}`;
+      const items=byDate[date]||[];
+      if(!items.length)continue;
+      const r=cell.getBoundingClientRect();
+      const visible=items.slice(0,2);
+      visible.forEach((a,idx)=>{
+        chips.push({
+          text:`紀錄｜${a.category||'活動'}：${a.title||''}`,
+          left:r.left+Math.max(30,r.width*0.46),
+          top:r.top+5+idx*14,
+          width:Math.max(55,r.width*0.50),
+          more:false
+        });
+      });
+      if(items.length>2){
+        chips.push({text:`＋${items.length-2}`,left:r.right-26,top:r.top+33,width:22,more:true});
+      }
+    }
+
+    layer.innerHTML=chips.map(c=>`<div class="pe-cal-activity-chip${c.more?' more':''}" style="left:${Math.round(c.left)}px;top:${Math.round(c.top)}px;width:${Math.round(c.width)}px">${esc(c.text)}</div>`).join('');
+  }
+
   function currentCalendarVisible(){const g=document.querySelector('.calendar-grid');return !!g&&isVisible(g)}
   function currentJournalVisible(){const g=document.querySelector('.journal-table');return !!g&&isVisible(g)}
 
@@ -485,7 +536,7 @@
     const date=document.getElementById('pe-act-date').value,category=document.getElementById('pe-act-category').value.trim(),title=document.getElementById('pe-act-title').value.trim(),note=document.getElementById('pe-act-note').value.trim();
     if(!date||!category||!title){alert('請填寫日期、活動類別及活動名稱。');return}
     const rec={id:`act_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,date,category,title,note,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
-    state.activities.unshift(rec);saveLocalActivities();closeModal(document.getElementById('pe-activity-modal'));renderDashboard();renderStatsIfOpen();
+    state.activities.unshift(rec);saveLocalActivities();closeModal(document.getElementById('pe-activity-modal'));renderDashboard();renderStatsIfOpen();renderCalendarActivityOverlay();
     const cloudData={date,category,title,note,createdAt:rec.createdAt,updatedAt:rec.updatedAt};
     if(state.firebaseReady&&navigator.onLine){setSync('syncing');try{await activityCollection().doc(rec.id).set(cloudData);saveActivityPending(loadActivityPending().filter(x=>!(x.op==='set'&&x.id===rec.id)));updateSyncDisplay()}catch{queueActivityPending({op:'set',id:rec.id,data:cloudData});alert('Firestore 儲存失敗，已加入待同步。')}}else queueActivityPending({op:'set',id:rec.id,data:cloudData});
   }
@@ -532,7 +583,7 @@
   function renderStats(){const out=document.getElementById('pe-stat-content');if(!out)return;const items=filteredActivities(),groups={};items.forEach(a=>(groups[(a.category||'未分類').trim()||'未分類']||=[]).push(a));const entries=Object.entries(groups).sort((a,b)=>b[1].length-a[1].length||a[0].localeCompare(b[0],'zh-HK'));out.innerHTML=entries.length?entries.map(([cat,arr])=>`<details class="pe-stat-group" open><summary><span>${esc(cat)}</span><span>${arr.length} 次</span></summary><div class="pe-stat-list">${arr.sort((a,b)=>a.date.localeCompare(b.date)).map(a=>`<div class="pe-stat-item"><b>${fmt(a.date)}</b><small><strong>${esc(a.title||'')}</strong>${a.note?`<br>${esc(a.note)}`:''}</small><button data-delete-activity="${esc(a.id||'')}">刪除</button></div>`).join('')}</div></details>`).join(''):'<div class="pe-note">這個範圍暫時未有活動紀錄。</div>';out.querySelectorAll('[data-delete-activity]').forEach(b=>b.addEventListener('click',()=>deleteActivity(b.dataset.deleteActivity)))}
   function openStatsModal(){ensureStatsModal().classList.add('open');renderStats()}
   function renderStatsIfOpen(){if(document.getElementById('pe-stats-modal')?.classList.contains('open'))renderStats()}
-  async function deleteActivity(id){const r=state.activities.find(x=>x.id===id);if(!r||!confirm(`刪除「${r.title}」？`))return;state.activities=state.activities.filter(x=>x.id!==id);saveLocalActivities();renderStats();renderDashboard();if(state.firebaseReady&&navigator.onLine){setSync('syncing');try{await activityCollection().doc(id).delete();saveActivityPending(loadActivityPending().filter(x=>!(x.op==='delete'&&x.id===id)));updateSyncDisplay()}catch{queueActivityPending({op:'delete',id})}}else queueActivityPending({op:'delete',id})}
+  async function deleteActivity(id){const r=state.activities.find(x=>x.id===id);if(!r||!confirm(`刪除「${r.title}」？`))return;state.activities=state.activities.filter(x=>x.id!==id);saveLocalActivities();renderStats();renderDashboard();renderCalendarActivityOverlay();if(state.firebaseReady&&navigator.onLine){setSync('syncing');try{await activityCollection().doc(id).delete();saveActivityPending(loadActivityPending().filter(x=>!(x.op==='delete'&&x.id===id)));updateSyncDisplay()}catch{queueActivityPending({op:'delete',id})}}else queueActivityPending({op:'delete',id})}
 
   function csvCell(v){return `"${String(v??'').replace(/"/g,'""')}"`}
   function exportActivitiesCsv(){const rows=filteredActivities().sort((a,b)=>a.date.localeCompare(b.date));const csv=['日期,活動類別,活動名稱,備註',...rows.map(a=>[a.date,a.category,a.title,a.note].map(csvCell).join(','))].join('\r\n');const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`活動紀錄_${hkToday()}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
@@ -668,14 +719,17 @@
     }
   }
 
-  function uiTick(){if(document.visibilityState!=='visible')return;renderDashboard();renderContextTools();updateMobileNavActive();updateIpadRailActive();updateSyncDisplay()}
+  function uiTick(){if(document.visibilityState!=='visible')return;renderDashboard();renderContextTools();renderCalendarActivityOverlay();updateMobileNavActive();updateIpadRailActive();updateSyncDisplay()}
 
+
+  window.addEventListener('resize',()=>renderCalendarActivityOverlay(),{passive:true});
+  window.addEventListener('scroll',()=>renderCalendarActivityOverlay(),{passive:true});
   window.addEventListener('submission-pending-changed',()=>updateSyncDisplay());
   window.addEventListener('online',()=>{flushActivityPending();window.__submissionTrackerAPI?.flushPending?.();setTimeout(updateSyncDisplay,300)});
   window.addEventListener('offline',()=>updateSyncDisplay());
 
   async function start(){
-    addCss();ensureSyncPill();installNetworkStatus();ensureDashboard();ensureContextTools();ensureActivityModal();ensureStatsModal();ensureSearchModal();ensureDoneModal();ensureMobileNav();ensureIpadRail();ensureDesktopMoreToggle();ensureMobileMore();installPwaUpdatePrompt();await connectData();uiTick();
+    addCss();ensureSyncPill();installNetworkStatus();ensureDashboard();ensureContextTools();ensureActivityModal();ensureStatsModal();ensureSearchModal();ensureDoneModal();ensureMobileNav();ensureIpadRail();ensureDesktopMoreToggle();ensureMobileMore();ensureCalendarActivityLayer();installPwaUpdatePrompt();await connectData();uiTick();
     setInterval(uiTick,1800);
     console.info(`[planner-enhancements] v${VERSION} ready`);
   }

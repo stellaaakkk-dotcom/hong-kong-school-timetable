@@ -1,32 +1,20 @@
-香港教師教學日誌 v1.5.0
+香港教師教學日誌 v1.5.1
 
-1. 全站搜尋
-- 搜尋教學日誌／功課
-- 月曆自行輸入記事
-- 校曆預設及自訂活動
-- 活動紀錄
-- 作業／回條追收紀錄
+新增：活動紀錄同步顯示回月曆
+- 「＋活動紀錄」新增後，會按日期顯示在當月月曆格
+- 顯示格式：紀錄｜類別：活動名稱
+- 同一日最多先顯示 2 項，更多以「＋N」提示
+- 月曆自行輸入 textarea 保持原有操作
+- 活動紀錄仍同步 Firestore、今日工作台及活動統計
+- 刪除活動紀錄後，月曆標籤會同步消失
 
-2. 追收功能升級
-- 欠交學生可選原因：未交／病假／缺席／忘記／其他
-- 可加入個別備註
-- 「已補交」快捷鍵及補交時間紀錄
-- 保留學生 missing/returned 歷史
-- 同班同號學生重複欠交時顯示累計次數
-- 舊有紀錄仍相容
+穩定性：
+- 活動標籤使用 React root 外層 overlay，不直接插入 .cal-cell 子節點
+- 不使用 MutationObserver
 
-3. iPad 專用畫面（701–1100px）
-- 右側快捷列：今日／日誌／月曆／更多
-- 彈窗與追收頁使用較闊版面
-- 不改 React 原生 tab
+GitHub 請覆蓋：
+index.html
+planner-enhancements.js
+sw.js
 
-4. 待同步提醒
-- 活動紀錄及追收紀錄離線時加入本機待同步佇列
-- 顯示「⚠ 待同步 N」
-- 恢復網絡後自動重試同步
-
-PWA cache v50
-planner-enhancements.js?v=150
-submission-module.js?v=120
-
-GitHub 請覆蓋：index.html、planner-enhancements.js、submission-module.js、sw.js
+submission-module.js 無功能修改。
