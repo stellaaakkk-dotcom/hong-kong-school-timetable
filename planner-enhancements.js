@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.5.5';
+  const VERSION = '1.5.6';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PLANNER_LOCAL_KEY = 'hk-school-planner-v3';
@@ -65,7 +65,7 @@
 
       .pe-modal{display:none;position:fixed;inset:0;z-index:2147483600;background:#0005;align-items:center;justify-content:center;padding:14px;font-family:"Noto Sans TC","PingFang HK","Microsoft JhengHei",sans-serif}.pe-modal.open{display:flex}
       .pe-dialog{width:min(760px,100%);max-height:90vh;overflow:auto;border:1px solid #e8d9c4;border-radius:16px;background:#fffdf8;color:#4a3428;box-shadow:0 15px 48px #0005;padding:14px}.pe-dialog h3{margin:0 0 5px;color:#80542f;font-size:15px}.pe-note{margin:0 0 10px;color:#857365;font-size:10px;line-height:1.45}.pe-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.pe-field label{display:block;margin:0 0 3px;color:#857365;font-size:10px;font-weight:700}.pe-field input,.pe-field select,.pe-field textarea{width:100%;border:1px solid #decdb9;border-radius:8px;background:#fff;color:#4a3428;padding:8px;font:600 11px inherit;box-sizing:border-box}.pe-field textarea{min-height:62px;resize:vertical}.pe-full{grid-column:1/-1}.pe-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:10px}.pe-btn{border:1px solid #d9c2a4;border-radius:8px;background:#fff;color:#80542f;padding:7px 10px;font-size:10px;font-weight:800}.pe-btn.primary{background:#a86f3d;border-color:#a86f3d;color:#fff}.pe-btn.danger{color:#c64545}
-      .pe-stat-toolbar{display:grid;grid-template-columns:1fr 1fr auto auto;gap:6px;margin:9px 0}.pe-stat-toolbar select,.pe-stat-toolbar input{width:100%;border:1px solid #decdb9;border-radius:8px;padding:7px;background:#fff;color:#4a3428;font-size:10px}.pe-stat-toolbar button{border:1px solid #d8c2a4;border-radius:8px;background:#fff8db;color:#80542f;padding:7px 8px;font-size:9px;font-weight:800}.pe-stat-group{border:1px solid #eadfce;border-radius:10px;background:#fff;padding:8px;margin-top:7px}.pe-stat-group summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:10px;font-size:11px;font-weight:800;color:#80542f}.pe-stat-group summary::-webkit-details-marker{display:none}.pe-stat-list{margin-top:6px;border-top:1px dashed #eadfce;padding-top:5px}.pe-stat-item{display:grid;grid-template-columns:78px 1fr auto;gap:6px;align-items:start;padding:5px 0;border-bottom:1px solid #f1e9dd;font-size:9px}.pe-stat-item:last-child{border-bottom:0}.pe-stat-item b{color:#6d5545}.pe-stat-item small{color:#8b7768;line-height:1.4}.pe-stat-item button{border:0;background:transparent;color:#c64545;font-size:9px;font-weight:800;padding:2px}
+      .pe-stat-toolbar{display:grid;grid-template-columns:1fr 1fr 1fr auto auto;gap:6px;margin:9px 0}.pe-stat-toolbar select,.pe-stat-toolbar input{width:100%;border:1px solid #decdb9;border-radius:8px;padding:7px;background:#fff;color:#4a3428;font-size:10px}.pe-stat-toolbar button{border:1px solid #d8c2a4;border-radius:8px;background:#fff8db;color:#80542f;padding:7px 8px;font-size:9px;font-weight:800}.pe-stat-group{border:1px solid #eadfce;border-radius:10px;background:#fff;padding:8px;margin-top:7px}.pe-stat-group summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:10px;font-size:11px;font-weight:800;color:#80542f}.pe-stat-group summary::-webkit-details-marker{display:none}.pe-stat-list{margin-top:6px;border-top:1px dashed #eadfce;padding-top:5px}.pe-stat-item{display:grid;grid-template-columns:78px 1fr auto;gap:6px;align-items:start;padding:5px 0;border-bottom:1px solid #f1e9dd;font-size:9px}.pe-stat-item:last-child{border-bottom:0}.pe-stat-item b{color:#6d5545}.pe-stat-item small{color:#8b7768;line-height:1.4}.pe-stat-item button{border:0;background:transparent;color:#c64545;font-size:9px;font-weight:800;padding:2px}
       .pe-search-results{margin-top:9px;display:grid;gap:6px}.pe-search-result{border:1px solid #eadfce;border-radius:9px;background:#fff;padding:8px}.pe-search-result .top{display:flex;justify-content:space-between;gap:8px;align-items:center}.pe-search-result b{font-size:10px;color:#80542f}.pe-search-result span{font-size:9px;color:#5f4b3d;line-height:1.45}.pe-search-result small{display:block;margin-top:3px;font-size:8px;color:#998678}.pe-search-hint{font-size:9px;color:#8c7868;line-height:1.5;margin-top:6px}
       
       @media(min-width:701px){
@@ -86,7 +86,7 @@
         }
       }
 
-@media(max-width:700px){.pe-sync-pill{top:84px;right:8px;bottom:auto}.pe-dashboard-toggle{right:8px;bottom:62px}.pe-dashboard{right:8px;bottom:102px;width:calc(100vw - 16px);max-height:65vh}.pe-context-tools{left:8px;bottom:8px}.pe-grid{grid-template-columns:1fr}.pe-full{grid-column:auto}.pe-stat-toolbar{grid-template-columns:1fr 1fr}.pe-stat-item{grid-template-columns:68px 1fr auto}}
+@media(max-width:700px){.pe-sync-pill{top:84px;right:8px;bottom:auto}.pe-dashboard-toggle{right:8px;bottom:62px}.pe-dashboard{right:8px;bottom:102px;width:calc(100vw - 16px);max-height:65vh}.pe-context-tools{left:8px;bottom:8px}.pe-grid{grid-template-columns:1fr}.pe-full{grid-column:auto}.pe-stat-toolbar{grid-template-columns:1fr}.pe-stat-item{grid-template-columns:68px 1fr auto}}
       @media print{.pe-sync-pill,.pe-update-banner,.pe-dashboard-toggle,.pe-dashboard,.pe-context-tools,.pe-modal{display:none!important}}
       .pe-today-done-btn{width:100%;margin-top:7px;border:1px solid #c9a97f;border-radius:9px;background:#fff5d5;color:#80542f;padding:7px 9px;font-size:9px;font-weight:900}
       .pe-done-summary{display:grid;gap:7px;margin-top:8px}
@@ -548,14 +548,53 @@
   function ensureStatsModal(){
     let modal=document.getElementById('pe-stats-modal');if(modal)return modal;
     modal=document.createElement('div');modal.id='pe-stats-modal';modal.className='pe-modal';
-    modal.innerHTML=`<div class="pe-dialog"><h3>📊 活動紀錄統計</h3><p class="pe-note">按類別檢視出現次數、日期，亦可匯出 CSV 或列印／另存 PDF。</p><div class="pe-stat-toolbar"><select id="pe-stat-range"><option value="year">全學年</option><option value="term1">上學期</option><option value="term2">下學期</option><option value="month">本月</option></select><input id="pe-stat-search" placeholder="搜尋類別／活動名稱"><button id="pe-export-csv">匯出 CSV</button><button id="pe-print-stats">列印／PDF</button></div><div id="pe-stat-content"></div><div class="pe-actions"><button class="pe-btn" id="pe-stat-close">關閉</button></div></div>`;
-    document.body.appendChild(modal);modal.addEventListener('click',e=>{if(e.target===modal)closeModal(modal)});modal.querySelector('#pe-stat-close').addEventListener('click',()=>closeModal(modal));modal.querySelector('#pe-stat-range').addEventListener('change',renderStats);modal.querySelector('#pe-stat-search').addEventListener('input',renderStats);modal.querySelector('#pe-export-csv').addEventListener('click',exportActivitiesCsv);modal.querySelector('#pe-print-stats').addEventListener('click',printActivityStats);return modal;
+    modal.innerHTML=`<div class="pe-dialog"><h3>📊 活動紀錄統計</h3><p class="pe-note">按類別檢視出現次數、日期，亦可匯出 CSV 或列印／另存 PDF。</p><div class="pe-stat-toolbar"><select id="pe-stat-range"><option value="year">全學年</option><option value="term1">上學期</option><option value="term2">下學期</option><option value="month">本月</option></select><select id="pe-stat-category"><option value="">全部類型</option></select><input id="pe-stat-search" placeholder="搜尋類別／活動名稱"><button id="pe-export-csv">匯出 CSV</button><button id="pe-print-stats">列印／PDF</button></div><div id="pe-stat-content"></div><div class="pe-actions"><button class="pe-btn" id="pe-stat-close">關閉</button></div></div>`;
+    document.body.appendChild(modal);modal.addEventListener('click',e=>{if(e.target===modal)closeModal(modal)});modal.querySelector('#pe-stat-close').addEventListener('click',()=>closeModal(modal));modal.querySelector('#pe-stat-range').addEventListener('change',()=>{refreshStatsCategoryOptions();renderStats()});modal.querySelector('#pe-stat-category').addEventListener('change',renderStats);modal.querySelector('#pe-stat-search').addEventListener('input',renderStats);modal.querySelector('#pe-export-csv').addEventListener('click',exportActivitiesCsv);modal.querySelector('#pe-print-stats').addEventListener('click',printActivityStats);return modal;
   }
   function schoolYearBounds(){const[y,m]=hkToday().split('-').map(Number),sy=m>=8?y:y-1;return{year:[`${sy}-08-01`,`${sy+1}-07-31`],term1:[`${sy}-08-01`,`${sy}-12-31`],term2:[`${sy+1}-01-01`,`${sy+1}-07-31`]}}
-  function filteredActivities(){const range=document.getElementById('pe-stat-range')?.value||'year',q=(document.getElementById('pe-stat-search')?.value||'').trim().toLowerCase(),b=schoolYearBounds();let start,end;if(range==='month'){const ym=hkToday().slice(0,7),[y,m]=ym.split('-').map(Number);start=`${ym}-01`;end=`${ym}-${String(new Date(y,m,0).getDate()).padStart(2,'0')}`}else[start,end]=b[range]||b.year;return state.activities.filter(a=>a.date&&a.date>=start&&a.date<=end&&(!q||`${a.category||''} ${a.title||''} ${a.note||''}`.toLowerCase().includes(q)))}
+  function statsDateRange(){
+    const range=document.getElementById('pe-stat-range')?.value||'year',b=schoolYearBounds();
+    let start,end;
+    if(range==='month'){
+      const ym=hkToday().slice(0,7),[y,m]=ym.split('-').map(Number);
+      start=`${ym}-01`;
+      end=`${ym}-${String(new Date(y,m,0).getDate()).padStart(2,'0')}`;
+    }else [start,end]=b[range]||b.year;
+    return {start,end};
+  }
+
+  function activitiesInStatsDateRange(){
+    const {start,end}=statsDateRange();
+    return state.activities.filter(a=>a.date&&a.date>=start&&a.date<=end);
+  }
+
+  function refreshStatsCategoryOptions(){
+    const select=document.getElementById('pe-stat-category');
+    if(!select)return;
+    const current=select.value;
+    const counts={};
+    activitiesInStatsDateRange().forEach(a=>{
+      const cat=(a.category||'未分類').trim()||'未分類';
+      counts[cat]=(counts[cat]||0)+1;
+    });
+    const cats=Object.entries(counts).sort((a,b)=>a[0].localeCompare(b[0],'zh-HK'));
+    select.innerHTML=`<option value="">全部類型（${Object.values(counts).reduce((s,n)=>s+n,0)}）</option>`+
+      cats.map(([cat,count])=>`<option value="${esc(cat)}">${esc(cat)}（${count}）</option>`).join('');
+    if([...select.options].some(o=>o.value===current))select.value=current;
+  }
+
+  function filteredActivities(){
+    const q=(document.getElementById('pe-stat-search')?.value||'').trim().toLowerCase();
+    const cat=(document.getElementById('pe-stat-category')?.value||'').trim();
+    return activitiesInStatsDateRange().filter(a=>{
+      const aCat=(a.category||'未分類').trim()||'未分類';
+      if(cat&&aCat!==cat)return false;
+      return !q||`${a.category||''} ${a.title||''} ${a.note||''}`.toLowerCase().includes(q);
+    });
+  }
   function renderStats(){const out=document.getElementById('pe-stat-content');if(!out)return;const items=filteredActivities(),groups={};items.forEach(a=>(groups[(a.category||'未分類').trim()||'未分類']||=[]).push(a));const entries=Object.entries(groups).sort((a,b)=>b[1].length-a[1].length||a[0].localeCompare(b[0],'zh-HK'));out.innerHTML=entries.length?entries.map(([cat,arr])=>`<details class="pe-stat-group" open><summary><span>${esc(cat)}</span><span>${arr.length} 次</span></summary><div class="pe-stat-list">${arr.sort((a,b)=>a.date.localeCompare(b.date)).map(a=>`<div class="pe-stat-item"><b>${fmt(a.date)}</b><small><strong>${esc(a.title||'')}</strong>${a.note?`<br>${esc(a.note)}`:''}</small><button data-delete-activity="${esc(a.id||'')}">刪除</button></div>`).join('')}</div></details>`).join(''):'<div class="pe-note">這個範圍暫時未有活動紀錄。</div>';out.querySelectorAll('[data-delete-activity]').forEach(b=>b.addEventListener('click',()=>deleteActivity(b.dataset.deleteActivity)))}
-  function openStatsModal(){ensureStatsModal().classList.add('open');renderStats()}
-  function renderStatsIfOpen(){if(document.getElementById('pe-stats-modal')?.classList.contains('open'))renderStats()}
+  function openStatsModal(){ensureStatsModal().classList.add('open');refreshStatsCategoryOptions();renderStats()}
+  function renderStatsIfOpen(){if(document.getElementById('pe-stats-modal')?.classList.contains('open')){refreshStatsCategoryOptions();renderStats()}}
   async function deleteActivity(id){const r=state.activities.find(x=>x.id===id);if(!r||!confirm(`刪除「${r.title}」？`))return;state.activities=state.activities.filter(x=>x.id!==id);saveLocalActivities();renderStats();renderDashboard();renderCalendarActivityOverlay();if(state.firebaseReady&&navigator.onLine){setSync('syncing');try{await activityCollection().doc(id).delete();saveActivityPending(loadActivityPending().filter(x=>!(x.op==='delete'&&x.id===id)));updateSyncDisplay()}catch{queueActivityPending({op:'delete',id})}}else queueActivityPending({op:'delete',id})}
 
   function csvCell(v){return `"${String(v??'').replace(/"/g,'""')}"`}
