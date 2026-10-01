@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.3.3';
+  const VERSION = '1.4.0';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const PLANNER_LOCAL_KEY = 'hk-school-planner-v3';
   const state = {
@@ -68,6 +68,48 @@
       .pe-search-results{margin-top:9px;display:grid;gap:6px}.pe-search-result{border:1px solid #eadfce;border-radius:9px;background:#fff;padding:8px}.pe-search-result .top{display:flex;justify-content:space-between;gap:8px;align-items:center}.pe-search-result b{font-size:10px;color:#80542f}.pe-search-result span{font-size:9px;color:#5f4b3d;line-height:1.45}.pe-search-result small{display:block;margin-top:3px;font-size:8px;color:#998678}.pe-search-hint{font-size:9px;color:#8c7868;line-height:1.5;margin-top:6px}
       @media(max-width:700px){.pe-sync-pill{top:84px;right:8px;bottom:auto}.pe-dashboard-toggle{right:8px;bottom:62px}.pe-dashboard{right:8px;bottom:102px;width:calc(100vw - 16px);max-height:65vh}.pe-context-tools{left:8px;bottom:8px}.pe-grid{grid-template-columns:1fr}.pe-full{grid-column:auto}.pe-stat-toolbar{grid-template-columns:1fr 1fr}.pe-stat-item{grid-template-columns:68px 1fr auto}}
       @media print{.pe-sync-pill,.pe-update-banner,.pe-dashboard-toggle,.pe-dashboard,.pe-context-tools,.pe-modal{display:none!important}}
+      .pe-today-done-btn{width:100%;margin-top:7px;border:1px solid #c9a97f;border-radius:9px;background:#fff5d5;color:#80542f;padding:7px 9px;font-size:9px;font-weight:900}
+      .pe-done-summary{display:grid;gap:7px;margin-top:8px}
+      .pe-done-card{border:1px solid #eadfce;border-radius:10px;background:#fff;padding:8px}
+      .pe-done-card.good{background:#f2f8ed;border-color:#c9dabd;color:#587148}
+      .pe-done-card.warn{background:#fff4ef;border-color:#ebc7bc;color:#9b4f3d}
+      .pe-done-card b{display:block;font-size:11px;margin-bottom:3px}
+      .pe-done-card div{font-size:9px;line-height:1.5}
+      .pe-mobile-nav{display:none}
+      .pe-mobile-more{display:none}
+
+      @media(max-width:700px){
+        body{padding-bottom:70px!important}
+        .pe-mobile-nav{
+          display:grid;position:fixed;left:8px;right:8px;bottom:8px;z-index:2147482500;
+          grid-template-columns:repeat(5,1fr);gap:4px;padding:5px;
+          border:1px solid #ddd0bd;border-radius:16px;background:#fffdf8ee;
+          backdrop-filter:blur(12px);box-shadow:0 8px 28px #0003
+        }
+        .pe-mobile-nav button{
+          min-height:48px;border:0;border-radius:11px;background:transparent;color:#6f5b4a;
+          padding:4px 2px;font-size:9px;font-weight:850;line-height:1.2
+        }
+        .pe-mobile-nav button .ico{display:block;font-size:16px;margin-bottom:2px}
+        .pe-mobile-nav button.active{background:#fff0bc;color:#7d532f}
+        .pe-mobile-more{
+          display:none;position:fixed;left:8px;right:8px;bottom:72px;z-index:2147482450;
+          border:1px solid #ddd0bd;border-radius:15px;background:#fffdf8;padding:8px;
+          box-shadow:0 8px 28px #0003
+        }
+        .pe-mobile-more.open{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+        .pe-mobile-more button{
+          min-height:42px;border:1px solid #e6d8c6;border-radius:10px;background:#fff8e6;
+          color:#78533a;padding:7px;font-size:10px;font-weight:800
+        }
+        .submission-launcher{bottom:78px!important}
+        .pe-dashboard-toggle{bottom:78px!important}
+        .pe-dashboard{bottom:126px!important}
+        .pe-context-tools{bottom:78px!important}
+      }
+
+      @media print{.pe-mobile-nav,.pe-mobile-more{display:none!important}}
+
     `;
     document.head.appendChild(style);
   }
@@ -355,11 +397,13 @@
       <div class="pe-dash-section"><div class="pe-dash-title">而家</div>${activeText?`<div class="pe-dash-row">${esc(activeText)}</div>`:'<div class="pe-dash-empty">目前未偵測到進行中的課節。</div>'}</div>
       <div class="pe-dash-section"><div class="pe-dash-title">📋 今日追收${follow.length?`・${total} 人次`:''}</div>${follow.length?follow.slice(0,5).map(r=>`<div class="pe-dash-row">${esc(r.className||'')}｜${esc(r.name||r.type||'項目')}：${esc((r.missing||[]).map(n=>String(n).padStart(2,'0')).join('、'))}</div>`).join(''):'<div class="pe-dash-empty">今日沒有需要追收。</div>'}</div>
       <div class="pe-dash-section"><div class="pe-dash-title">📅 今日活動</div>${acts.length?acts.slice(0,8).map(a=>`<div class="pe-dash-row">${esc(a.category||'活動')}｜${esc(a.title||'')}</div>`).join(''):'<div class="pe-dash-empty">今日月曆沒有已顯示的活動／記事。</div>'}</div>
-      <div class="pe-dash-actions"><button type="button" id="pe-open-sub">查看追收</button><button type="button" class="primary" id="pe-add-today-act">＋今日活動</button></div>`;
+      <div class="pe-dash-actions"><button type="button" id="pe-open-sub">查看追收</button><button type="button" class="primary" id="pe-add-today-act">＋今日活動</button></div>
+      <button type="button" class="pe-today-done-btn" id="pe-today-done">✅ 今日完成檢查</button>`;
 
     el.querySelector('#pe-close-dashboard')?.addEventListener('click',()=>el.classList.remove('open'));
     el.querySelector('#pe-open-sub')?.addEventListener('click',()=>document.querySelector('.submission-launcher')?.click());
     el.querySelector('#pe-add-today-act')?.addEventListener('click',()=>openActivityModal(hkToday()));
+    el.querySelector('#pe-today-done')?.addEventListener('click',openDoneCheck);
 
     if(wasOpen) el.classList.add('open');
   }
@@ -402,6 +446,37 @@
     if(state.firebaseReady){setSync('syncing');try{await activityCollection().doc(rec.id).set({date,category,title,note,createdAt:rec.createdAt,updatedAt:rec.updatedAt});setSync('ok')}catch{setSync(navigator.onLine?'connecting':'offline');alert('Firestore 儲存失敗，紀錄已暫存在本機。')}}
   }
 
+
+  function ensureDoneModal(){
+    let modal=document.getElementById('pe-done-modal');
+    if(modal)return modal;
+    modal=document.createElement('div');modal.id='pe-done-modal';modal.className='pe-modal';
+    modal.innerHTML=`<div class="pe-dialog"><h3>✅ 今日完成檢查</h3><p class="pe-note">快速查看今日仲有冇需要處理的追收項目。活動／會議只作提示，不會自動標記完成。</p><div id="pe-done-content"></div><div class="pe-actions"><button class="pe-btn" id="pe-done-close">關閉</button></div></div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click',e=>{if(e.target===modal)closeModal(modal)});
+    modal.querySelector('#pe-done-close').addEventListener('click',()=>closeModal(modal));
+    return modal;
+  }
+
+  function openDoneCheck(){
+    const modal=ensureDoneModal();
+    const pending=state.submissions.filter(needsFollowup);
+    const acts=todayActivities();
+    const people=pending.reduce((n,r)=>n+(r.missing?.length||0),0);
+    const out=document.getElementById('pe-done-content');
+    let html='';
+    if(!pending.length){
+      html+=`<div class="pe-done-card good"><b>🎉 今日已清</b><div>目前沒有仍需追收的作業／回條。</div></div>`;
+    }else{
+      html+=`<div class="pe-done-card warn"><b>仲有 ${pending.length} 項追收未清・${people} 人次</b>${pending.slice(0,12).map(r=>`<div>${esc(r.className||'')}｜${esc(r.name||r.type||'項目')}：${esc((r.missing||[]).map(n=>String(n).padStart(2,'0')).join('、'))}</div>`).join('')}</div>`;
+    }
+    if(acts.length){
+      html+=`<div class="pe-done-card"><b>📅 今日活動提示・${acts.length} 項</b>${acts.slice(0,12).map(a=>`<div>${esc(a.category||'活動')}｜${esc(a.title||'')}</div>`).join('')}</div>`;
+    }
+    out.innerHTML=`<div class="pe-done-summary">${html}</div>`;
+    modal.classList.add('open');
+  }
+
   function ensureStatsModal(){
     let modal=document.getElementById('pe-stats-modal');if(modal)return modal;
     modal=document.createElement('div');modal.id='pe-stats-modal';modal.className='pe-modal';
@@ -429,10 +504,83 @@
   function journalRows(){const data=readPlannerData(),notes=data.lessonNotes||{},subjects=currentVisibleSubjectMap(),rows=[];for(const[key,val]of Object.entries(notes)){if(!val||typeof val!=='string')continue;const m=key.match(/^(\d{4}-\d{2}-\d{2})-(\d+)-(p|h)$/);if(!m)continue;const date=m[1],period=Number(m[2])+1,type=m[3]==='p'?'教學進度':'功課';rows.push({date,period,type,text:val,subject:subjects[Number(m[2])]||''})}return rows}
   function renderJournalSearch(){const out=document.getElementById('pe-search-results');if(!out)return;const q=(document.getElementById('pe-journal-query')?.value||'').trim().toLowerCase();if(!q){out.innerHTML='<div class="pe-note">輸入關鍵字開始搜尋。</div>';return}const rows=journalRows().filter(r=>`${r.date} ${r.period} ${r.type} ${r.text} ${r.subject}`.toLowerCase().includes(q)).sort((a,b)=>b.date.localeCompare(a.date)||a.period-b.period).slice(0,100);out.innerHTML=rows.length?rows.map(r=>`<div class="pe-search-result"><div class="top"><b>${fmt(r.date)}・第${r.period}節${r.subject?`・${esc(r.subject)}`:''}</b><span>${r.type}</span></div><small>${esc(r.text)}</small></div>`).join(''):'<div class="pe-note">找不到相符紀錄。</div>'}
 
-  function uiTick(){if(document.visibilityState!=='visible')return;renderDashboard();renderContextTools()}
+
+  function findMainTabByKeywords(words){
+    return [...document.querySelectorAll('.main-tabs button')].find(btn=>{
+      const t=(btn.textContent||'').trim();
+      return words.some(w=>t.includes(w));
+    })||null;
+  }
+
+  function closeMobileMore(){
+    document.getElementById('pe-mobile-more')?.classList.remove('open');
+  }
+
+  function clickMainTab(words){
+    const btn=findMainTabByKeywords(words);
+    if(!btn)return false;
+    btn.click();
+    closeMobileMore();
+    window.scrollTo({top:0,behavior:'smooth'});
+    return true;
+  }
+
+  function ensureMobileMore(){
+    let sheet=document.getElementById('pe-mobile-more');
+    if(sheet)return sheet;
+    sheet=document.createElement('div');sheet.id='pe-mobile-more';sheet.className='pe-mobile-more';
+    sheet.innerHTML=`<button id="pe-more-done">✅ 今日完成</button><button id="pe-more-search">🔎 日誌搜尋</button><button id="pe-more-stats">📊 活動統計</button><button id="pe-more-activity">＋ 活動紀錄</button>`;
+    document.body.appendChild(sheet);
+    sheet.querySelector('#pe-more-done').addEventListener('click',()=>{closeMobileMore();openDoneCheck()});
+    sheet.querySelector('#pe-more-search').addEventListener('click',()=>{closeMobileMore();openJournalSearch()});
+    sheet.querySelector('#pe-more-stats').addEventListener('click',()=>{closeMobileMore();openStatsModal()});
+    sheet.querySelector('#pe-more-activity').addEventListener('click',()=>{closeMobileMore();openActivityModal(hkToday())});
+    return sheet;
+  }
+
+  function ensureMobileNav(){
+    let nav=document.getElementById('pe-mobile-nav');
+    if(nav)return nav;
+    nav=document.createElement('nav');nav.id='pe-mobile-nav';nav.className='pe-mobile-nav';nav.setAttribute('aria-label','手機快捷導覽');
+    nav.innerHTML=`<button data-mobile-nav="today"><span class="ico">☀</span>今日</button><button data-mobile-nav="journal"><span class="ico">📝</span>日誌</button><button data-mobile-nav="calendar"><span class="ico">📅</span>月曆</button><button data-mobile-nav="submission"><span class="ico">📋</span>追收</button><button data-mobile-nav="more"><span class="ico">•••</span>更多</button>`;
+    document.body.appendChild(nav);
+
+    nav.querySelector('[data-mobile-nav="today"]').addEventListener('click',()=>clickMainTab(['今日課表','當日課表','今日']));
+    nav.querySelector('[data-mobile-nav="journal"]').addEventListener('click',()=>clickMainTab(['教學日誌','日誌']));
+    nav.querySelector('[data-mobile-nav="calendar"]').addEventListener('click',()=>clickMainTab(['月曆','月历']));
+    nav.querySelector('[data-mobile-nav="submission"]').addEventListener('click',()=>{closeMobileMore();document.querySelector('.submission-launcher')?.click()});
+    nav.querySelector('[data-mobile-nav="more"]').addEventListener('click',()=>ensureMobileMore().classList.toggle('open'));
+
+    document.addEventListener('click',e=>{
+      const more=document.getElementById('pe-mobile-more');
+      if(!more?.classList.contains('open'))return;
+      if(e.target.closest('#pe-mobile-more')||e.target.closest('[data-mobile-nav="more"]'))return;
+      closeMobileMore();
+    });
+    return nav;
+  }
+
+  function updateMobileNavActive(){
+    const nav=ensureMobileNav();
+    nav.querySelectorAll('[data-mobile-nav]').forEach(b=>b.classList.remove('active'));
+    if(document.getElementById('submission-page')?.classList.contains('active')){
+      nav.querySelector('[data-mobile-nav="submission"]')?.classList.add('active');return;
+    }
+    if(isVisible(document.querySelector('.today-board'))){
+      nav.querySelector('[data-mobile-nav="today"]')?.classList.add('active');return;
+    }
+    if(isVisible(document.querySelector('.journal-table'))){
+      nav.querySelector('[data-mobile-nav="journal"]')?.classList.add('active');return;
+    }
+    if(isVisible(document.querySelector('.calendar-grid'))){
+      nav.querySelector('[data-mobile-nav="calendar"]')?.classList.add('active');
+    }
+  }
+
+  function uiTick(){if(document.visibilityState!=='visible')return;renderDashboard();renderContextTools();updateMobileNavActive()}
 
   async function start(){
-    addCss();ensureSyncPill();installNetworkStatus();ensureDashboard();ensureContextTools();ensureActivityModal();ensureStatsModal();ensureSearchModal();installPwaUpdatePrompt();await connectData();uiTick();
+    addCss();ensureSyncPill();installNetworkStatus();ensureDashboard();ensureContextTools();ensureActivityModal();ensureStatsModal();ensureSearchModal();ensureDoneModal();ensureMobileNav();ensureMobileMore();installPwaUpdatePrompt();await connectData();uiTick();
     setInterval(uiTick,1800);
     console.info(`[planner-enhancements] v${VERSION} ready`);
   }
