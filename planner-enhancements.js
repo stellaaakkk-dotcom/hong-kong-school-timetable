@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.3.0';
+  const VERSION = '1.3.2';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const PLANNER_LOCAL_KEY = 'hk-school-planner-v3';
   const state = {
@@ -14,6 +14,12 @@
     unsubActivities: null,
     swControllerChanged: false
   };
+
+  // Calendar sources mirrored from this timetable build so the Today dashboard
+  // can read calendar choices without modifying React's internal DOM/state.
+  const PREP_CYCLES = [["A",["22/9","20/10","1/12","5/1","2/3","13/4","4/5"],["P.1\u4E2D","P.2\u4E2D","P.6\u5E38","P.3\u82F1NET"],["P.1\u82F1","P.2\u82F1","P.3\u5E38","P.6\u4E2D"],["P.5\u82F1","P.1\u6578","P.2\u6578","P.2\u82F1NET"]],["B",["6/10","27/10","8/12","12/1","23/3","20/4","11/5"],["P.3\u4E2D","P.5\u4E2D","P.4\u79D1","P.6\u82F1NET"],["P.3\u82F1","P.6\u82F1","P.1\u79D1"],["P.3\u6578","P.1\u4EBA","P.2\u4EBA","P.4\u82F1NET"]],["C",["13/10","3/11","15/12","23/2","6/4","27/4","18/5"],["P.4\u4E2D","P.4\u4EBA","P.5\u4EBA","P.5\u6578"],["P.4\u82F1","P.5\u79D1","P.4\u6578","P.1\u82F1NET"],["P.6\u6578","P.2\u79D1","P.5\u82F1NET"]]];
+  const DEFAULT_SCHOOL_EVENTS = [...[{start:"2026-09-01",title:"\u4E0A\u5B78\u671F\u958B\u8AB2\u65E5",type:"special"},{start:"2026-09-18",title:"\u958B\u5B78\u7948\u79B1\u79AE\uFF08\u7B2C3\u20134\u7BC0\uFF09",type:"religious"},{start:"2026-09-26",title:"\u4E2D\u79CB\u7BC0\u7FCC\u65E5",type:"holiday"},{start:"2026-10-01",title:"\u570B\u6176\u65E5",type:"holiday"},{start:"2026-10-02",title:"\u5B78\u6821\u5047\u671F",type:"holiday"},{start:"2026-10-18",title:"\u91CD\u967D\u7BC0",type:"holiday"},{start:"2026-10-19",title:"\u91CD\u967D\u7BC0\u7FCC\u65E5",type:"holiday"},{start:"2026-11-12",end:"2026-11-16",title:"\u7B2C\u4E00\u6B21\u8003\u8A66 P.1\u20136",type:"special"},{start:"2026-11-26",title:"\u5B78\u6821\u65C5\u884C",type:"special"},{start:"2026-11-27",title:"\u8475\u6D8C\u5340\u6559\u5E2B\u767C\u5C55\u65E5",type:"special"},{start:"2026-12-04",title:"\u8475\u9752\u5929\u4E3B\u6559\u5B78\u6821\u4E2D\u5C0F\u5B78\u8A2A\u6821\u4EA4\u6D41",type:"special"},{start:"2026-12-08",title:"\u8056\u6BCD\u7121\u539F\u7F6A\u77BB\u79AE",type:"religious"},{start:"2026-12-19",title:"\u6D3E\u767C\u6210\u7E3E\u8868\u53CA\u5BB6\u9577\u65E5",type:"special"},{start:"2026-12-21",title:"\u8056\u8A95\u806F\u6B61\u6703\u53CA\u7948\u79B1\u79AE",type:"special"},{start:"2026-12-22",end:"2027-01-04",title:"\u8056\u8A95\u53CA\u65B0\u66C6\u5143\u65E6\u5047\u671F",type:"holiday"},{start:"2027-01-18",end:"2027-01-22",title:"\u4E3B\u984C\u5B78\u7FD2\u9031\u53CA\u6210\u679C\u5C55\u793A",type:"special"},{start:"2027-01-20",end:"2027-02-02",title:"\u6D3B\u52D5\u65E5",type:"special"},{start:"2027-01-25",title:"\u8056\u9B91\u601D\u9AD8\u77BB\u79AE\uFF08\u7B2C2\u20133\u7BC0\uFF09",type:"religious"},{start:"2027-01-27",end:"2027-01-29",title:"P.4\u5883\u5916\u4EA4\u6D41\uFF0FP.5\u8A13\u7DF4\uFF0FP.6\u6559\u80B2\u71DF",type:"special"},{start:"2027-02-01",title:"\u4E0B\u5B78\u671F\u958B\u8AB2\u65E5",type:"special"},{start:"2027-02-02",title:"\u4E2D\u83EF\u6587\u5316\u65E5",type:"special"},{start:"2027-02-03",end:"2027-02-14",title:"\u8FB2\u66C6\u65B0\u5E74\u5047\u671F",type:"holiday"},{start:"2027-02-17",title:"P.3\u20136\u9678\u904B\u6703",type:"special"},{start:"2027-02-18",title:"P.1\u20132\u7AF6\u6280\u65E5",type:"special"},{start:"2027-02-19",title:"\u904B\u52D5\u6703\u5F8C\u4E00\u5929\u5047\u671F",type:"holiday"},{start:"2027-02-19",end:"2027-02-20",title:"\u6148\u5E7C\u6703\u5B78\u6821\u6821\u76E3\u3001\u6821\u9577\u9748\u4FEE\u71DF",type:"special"},{start:"2027-03-11",end:"2027-03-15",title:"\u7B2C\u4E8C\u6B21\u8003\u8A66 P.1\u20136",type:"special"},{start:"2027-03-20",title:"\u806F\u6821\u516C\u6559\u6559\u5E2B\u9000\u7701",type:"special"},{start:"2027-03-26",end:"2027-04-04",title:"\u5FA9\u6D3B\u7BC0\u5047\u671F",type:"holiday"},{start:"2027-04-05",title:"\u6E05\u660E\u7BC0",type:"holiday"},{start:"2027-04-14",title:"\u5FA9\u6D3B\u7948\u79B1\u79AE\uFF08\u7B2C3\u20134\u7BC0\uFF09",type:"religious"},{start:"2027-04-17",title:"\u6D3E\u767C\u6210\u7E3E\u8868\u53CA\u5BB6\u9577\u65E5",type:"special"},{start:"2027-04-23",title:"\u6559\u5E2B\u767C\u5C55\u65E5",type:"special"},{start:"2027-04-24",title:"\u5C0F\u5B78\u6148\u9752\u65E5",type:"special"},{start:"2027-05-01",title:"\u52DE\u52D5\u7BC0",type:"holiday"},{start:"2027-05-04",end:"2027-05-05",title:"P.3 TSA\u8AAA\u8A71\u8A55\u4F30",type:"special"},{start:"2027-05-07",title:"\u980C\u89AA\u6069\u665A\u6703",type:"special"},{start:"2027-05-11",end:"2027-05-12",title:"P.6 TSA\u8AAA\u8A71\u8A55\u4F30",type:"special"},{start:"2027-05-13",title:"\u4F5B\u8A95",type:"holiday"},{start:"2027-05-14",title:"\u6559\u5E2B\u767C\u5C55\u65E5",type:"special"},{start:"2027-05-24",title:"\u8056\u6BCD\u9032\u6559\u4E4B\u4F51\u77BB\u79AE",type:"religious"},{start:"2027-06-03",end:"2027-06-07",title:"\u7B2C\u4E09\u6B21\u8003\u8A66 P.1\u20136",type:"special"},{start:"2027-06-09",title:"\u7AEF\u5348\u7BC0",type:"holiday"},{start:"2027-06-14",end:"2027-06-15",title:"P.3\u53CAP.6 TSA\u7D19\u7B46\u8A55\u4F30",type:"special"},{start:"2027-06-21",title:"P.6\u7562\u696D\u611F\u6069\u796D",type:"religious"},{start:"2027-06-23",end:"2027-07-13",title:"\u6D3B\u52D5\u65E5",type:"special"},{start:"2027-06-25",title:"\u5B78\u85DD\u6210\u5C31\u9812\u734E\u79AE",type:"special"},{start:"2027-06-30",title:"\u7562\u696D\u5178\u79AE",type:"special"},{start:"2027-07-01",title:"\u9999\u6E2F\u7279\u5225\u884C\u653F\u5340\u6210\u7ACB\u7D00\u5FF5\u65E5",type:"holiday"},{start:"2027-07-05",title:"\u7D50\u696D\u79AE",type:"special"},{start:"2027-07-06",title:"\u5347\u4E2D\u6D3E\u4F4D",type:"special"},{start:"2027-07-07",title:"\u7D50\u696D\u79AE",type:"special"},{start:"2027-07-12",title:"\u6D3E\u767C\u6210\u7E3E\u8868\u53CA\u5BB6\u9577\u65E5",type:"special"},{start:"2027-07-14",end:"2027-08-31",title:"\u6691\u5047",type:"holiday"}], ...[{start:"2026-08-27",title:"\u958B\u5B78\u5F4C\u6492 13:00\u201313:45",type:"religious"},{start:"2026-10-26",title:"\u516C\u6559\u8077\u54E1\u5DE5\u4F5C\u574A(I)\uFF1AAI 16:00\u201317:00",type:"religious"},{start:"2026-11-30",title:"\u516C\u6559\u8077\u54E1\u5DE5\u4F5C\u574A(II)\uFF1A\u4E94\u5927\u6838\u5FC3\u50F9\u503C 15:30\u201316:15",type:"religious"},{start:"2026-12-09",title:"\u8056\u6BCD\u7121\u539F\u7F6A\u77BB\u79AE\uFF08\u7B2C3\u20134\u7BC0\uFF09",type:"religious"},{start:"2026-12-21",title:"\u8056\u8A95\u7948\u79B1\u79AE 08:30\u201309:00",type:"religious"},{start:"2027-01-25",title:"\u516C\u6559\u8077\u54E1\u5DE5\u4F5C\u574A(IV)\uFF1A\u8056\u9B91\u601D\u9AD8\u9748\u4FEE 14:00\u201315:00",type:"religious"},{start:"2027-03-22",title:"\u516C\u6559\u8077\u54E1\u56DB\u65EC\u671F\u6D3B\u52D5 15:30\u201316:15",type:"religious"},{start:"2027-05-24",title:"\u9032\u6559\u4E4B\u4F51\u5F4C\u6492 15:45\u201316:30",type:"religious"},{start:"2027-05-26",title:"\u9032\u6559\u4E4B\u4F51\u77BB\u79AE\uFF08\u7B2C3\u20134\u7BC0\uFF09",type:"religious"},{start:"2027-07-05",title:"P.4\u20136\u7D50\u696D\u79AE\u611F\u6069\u7948\u79B1 09:30\u201310:00",type:"religious"},{start:"2027-07-07",title:"P.1\u20133\u7D50\u696D\u79AE\u611F\u6069\u7948\u79B1 09:30\u201310:00",type:"religious"},{start:"2027-07-07",title:"\u5168\u9AD4\u8077\u54E1\u7D50\u696D\u8B1D\u6069\u7948\u79B1\u6703 14:00\u201315:00",type:"religious"}], ...[{start:"2026-08-31",title:"\u7B2C1\u9031\uFF5C\u73ED\u7D1A\u7D93\u71DF\u6D3B\u52D51\uFF08\u7F85\uFF09",type:"homeroom"},{start:"2026-09-14",title:"\u7B2C3\u9031\uFF5C\u5C0F\u6D77\u8C5A\u8A02\u76EE\u6A19\uFF08\u5BB6\uFF09",type:"homeroom"},{start:"2026-09-21",title:"\u7B2C4\u9031\uFF5C\u793E\u4EA4\u60C5\u610F\u8AB21\uFF08\u5F64\uFF09",type:"homeroom"},{start:"2026-09-28",title:"\u7B2C5\u9031\uFF5C\u7559\u7D66P.1\u73ED\u4E3B\u4EFB\u8A13\u7DF4\u5B78\u751F\u767E\u65E5\u5BB4",type:"homeroom"},{start:"2026-10-05",title:"\u7B2C6\u9031\uFF5C\u914D\u5408\u7CBE\u795E\u5065\u5EB7\u65E5\uFF08\u73ED\u7D1A\u7D93\u71DF\u8AB22\uFF09\uFF08\u7F85\uFF09",type:"homeroom"},{start:"2026-10-12",title:"\u7B2C7\u9031\uFF5C\u793E\u4EA4\u60C5\u610F\u8AB22\uFF08\u5F64\uFF09",type:"homeroom"},{start:"2026-10-19",title:"\u7B2C8\u9031\uFF5C\u7559\u7D66P.1\u73ED\u4E3B\u4EFB\u8A13\u7DF4\u5B78\u751F\u767E\u65E5\u5BB4",type:"homeroom"},{start:"2026-10-26",title:"\u7B2C9\u9031\uFF5C\u7559\u7D66P.1\u73ED\u4E3B\u4EFB\u8A13\u7DF4\u5B78\u751F\u767E\u65E5\u5BB4",type:"homeroom"},{start:"2026-11-09",title:"\u7B2C11\u9031\uFF5C\u7559\u7D66\u73ED\u4E3B\u4EFB\u9810\u509926/11\u5B78\u751F\u65C5\u884C",type:"homeroom"},{start:"2026-11-23",title:"\u7B2C13\u9031\uFF5C\u7559\u7D66\u73ED\u4E3B\u4EFB\u9810\u509926/11\u5B78\u751F\u65C5\u884C",type:"homeroom"},{start:"2026-11-30",title:"\u7B2C14\u9031\uFF5C\u793E\u4EA4\u60C5\u610F\u8AB23\uFF08\u5F64\uFF09",type:"homeroom"},{start:"2026-12-07",title:"\u7B2C15\u9031\uFF5C\u914D\u5408\u4E3B\u984C\u5B78\u7FD2\u9031\u6D3B\u52D5\uFF08\u73ED\u7D1A\u7D93\u71DF\u8AB23\uFF09",type:"homeroom"},{start:"2026-12-14",title:"\u7B2C16\u9031\uFF5C\u7559\u7D66\u73ED\u4E3B\u4EFB\u9810\u5099\u8056\u8A95\u806F\u6B61\u6703",type:"homeroom"},{start:"2027-01-04",title:"\u7B2C19\u9031\uFF5C\u7559\u7D66P.3-P.6\u73ED\u4E3B\u4EFB\u9810\u5099\u9678\u904B\u6703",type:"homeroom"},{start:"2027-01-11",title:"\u7B2C20\u9031\uFF5C\u7559\u7D66\u73ED\u4E3B\u4EFB\u9810\u5099\u7AF6\u6280\u65E5\uFF0F\u9678\u904B\u6703",type:"homeroom"},{start:"2027-01-11",title:"\u7B2C20\u9031\uFF5CP.5\u300C\u667A\u9192\u6821\u5712\u300D\u8AB2\u5802\u5F0F\u5B88\u6CD5\u6559\u80B2\u6D3B\u52D5\uFF08\u6027\u5371\u6A5F\uFF09\uFF08\u7F85\uFF09",type:"homeroom"},{start:"2027-02-22",title:"\u4E0B\u5B78\u671F\u7B2C4\u9031\uFF5CP.3-P.6\u6301\u4EFD\u8005\u554F\u5377\uFF08\u73CA\uFF09",type:"homeroom"},{start:"2027-03-01",title:"\u4E0B\u5B78\u671F\u7B2C5\u9031\uFF5CP.5\u300C\u667A\u9192\u6821\u5712\u300D\u8AB2\u5802\u5F0F\u5B88\u6CD5\u6559\u80B2\u6D3B\u52D5\uFF08\u6027\u5371\u6A5F\uFF09\uFF08\u7F85\uFF09",type:"homeroom"},{start:"2027-03-22",title:"\u4E0B\u5B78\u671F\u7B2C8\u9031\uFF5CP.3\u300C\u667A\u9192\u6821\u5712\u300D\u8AB2\u5802\u5F0F\u5B88\u6CD5\u6559\u80B2\u6D3B\u52D5\uFF08\u66B4\u529B\u6B3A\u51CC\uFF09\uFF08\u7F85\uFF09",type:"homeroom"},{start:"2027-04-05",title:"\u4E0B\u5B78\u671F\u7B2C10\u9031\uFF5CP.3-P.6 APASO\u60C5\u610F\u554F\u5377\uFF08\u7F85\uFF09",type:"homeroom"},{start:"2027-04-12",title:"\u4E0B\u5B78\u671F\u7B2C11\u9031\uFF5CP.3\u300C\u667A\u9192\u6821\u5712\u300D\u8AB2\u5802\u5F0F\u5B88\u6CD5\u6559\u80B2\u6D3B\u52D5\uFF08\u66B4\u529B\u6B3A\u51CC\uFF09\uFF08\u7F85\uFF09",type:"homeroom"},{start:"2027-04-19",title:"\u4E0B\u5B78\u671F\u7B2C12\u9031\uFF5CP.3\u300C\u667A\u9192\u6821\u5712\u300D\u8AB2\u5802\u5F0F\u5B88\u6CD5\u6559\u80B2\u6D3B\u52D5\uFF08\u66B4\u529B\u6B3A\u51CC\uFF09\uFF08\u7F85\uFF09",type:"homeroom"},{start:"2027-04-26",title:"\u4E0B\u5B78\u671F\u7B2C13\u9031\uFF5C\u5B78\u751F\u554F\u5377\u8ABF\u67E5\uFF08\u5F64\uFF09",type:"homeroom"},{start:"2027-05-03",title:"\u4E0B\u5B78\u671F\u7B2C14\u9031\uFF5C\u8AB2\u5BA4\u6E05\u6F54\u65E5",type:"homeroom"},{start:"2027-05-24",title:"\u4E0B\u5B78\u671F\u7B2C17\u9031\uFF5C\u5C0F\u6D77\u8C5A\u5E74\u7D42\u6AA2\u8A0E\uFF08\u5BB6\uFF09",type:"homeroom"},{start:"2027-06-07",title:"\u4E0B\u5B78\u671F\u7B2C19\u9031\uFF5C\u73ED\u7D1A\u7D93\u71DF\u6D3B\u52D54\uFF08\u7F85\uFF09",type:"homeroom"},{start:"2027-06-14",title:"\u4E0B\u5B78\u671F\u7B2C20\u9031\uFF5C\u73ED\u7D1A\u7D93\u71DF\u6D3B\u52D54\uFF08\u7F85\uFF09",type:"homeroom"},{start:"2027-06-21",title:"\u4E0B\u5B78\u671F\u7B2C21\u9031\uFF5C\u7559\u7D66P.6\u73ED\u4E3B\u4EFB\u9810\u5099\u7562\u696D\u5178\u79AE\u8868\u6F14",type:"homeroom"}]];
+
 
   const esc = (v='') => String(v).replace(/[&<>"']/g, ch => ({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
@@ -49,8 +55,10 @@
       .pe-update-banner{display:none;position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:2147483900;width:min(520px,calc(100vw - 24px));border:1px solid #d8c29f;border-radius:13px;background:#fff8df;color:#5e4937;padding:9px 11px;box-shadow:0 8px 28px #0003;font-family:"Noto Sans TC","PingFang HK","Microsoft JhengHei",sans-serif}
       .pe-update-banner.show{display:flex;align-items:center;gap:9px}.pe-update-banner b{font-size:11px}.pe-update-banner span{font-size:9px;color:#806c5c;flex:1}.pe-update-banner button{border:0;border-radius:8px;background:#a86f3d;color:#fff;padding:6px 9px;font-size:9px;font-weight:800}
 
-      .pe-dashboard{display:none;position:fixed;right:12px;bottom:12px;z-index:2147481300;width:min(390px,calc(100vw - 24px));max-height:48vh;overflow:auto;border:1px solid #e9d5ac;border-radius:15px;background:#fffaf0;color:#594537;padding:10px 11px;box-shadow:0 8px 26px #0003;font-family:"Noto Sans TC","PingFang HK","Microsoft JhengHei",sans-serif}
-      .pe-dashboard.show{display:block}.pe-dash-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:7px}.pe-dash-head b{font-size:12px;color:#80542f}.pe-dash-head small{font-size:8px;color:#8c7767}.pe-dash-section{border-top:1px dashed #e3d3bf;padding-top:6px;margin-top:6px}.pe-dash-title{font-size:9px;font-weight:900;color:#8a5c32;margin-bottom:4px}.pe-dash-row{font-size:9px;line-height:1.55;color:#6e5848;overflow-wrap:anywhere}.pe-dash-empty{font-size:9px;color:#998678}.pe-dash-actions{display:flex;gap:5px;margin-top:7px}.pe-dash-actions button{flex:1;border:1px solid #d8c2a4;border-radius:8px;background:#fff;color:#80542f;padding:5px 6px;font-size:8px;font-weight:800}.pe-dash-actions button.primary{background:#a86f3d;color:#fff;border-color:#a86f3d}
+      .pe-dashboard-toggle{display:none;position:fixed;right:12px;bottom:62px;z-index:2147481350;border:1px solid #d8c2a4;border-radius:999px;background:#fff8db;color:#80542f;padding:8px 11px;font:800 10px "Noto Sans TC","PingFang HK","Microsoft JhengHei",sans-serif;box-shadow:0 4px 13px #0002}
+      .pe-dashboard-toggle.show{display:block}
+      .pe-dashboard{display:none;position:fixed;right:12px;bottom:104px;z-index:2147481300;width:min(390px,calc(100vw - 24px));max-height:68vh;overflow:auto;border:1px solid #e9d5ac;border-radius:15px;background:#fffaf0;color:#594537;padding:10px 11px;box-shadow:0 8px 26px #0003;font-family:"Noto Sans TC","PingFang HK","Microsoft JhengHei",sans-serif}
+      .pe-dashboard.open{display:block}.pe-dash-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:7px}.pe-dash-head b{font-size:12px;color:#80542f}.pe-dash-head small{font-size:8px;color:#8c7767}.pe-dash-close{margin-left:5px;border:1px solid #d8c2a4;border-radius:999px;background:#fff;color:#80542f;padding:3px 6px;font-size:8px;font-weight:800}.pe-dash-section{border-top:1px dashed #e3d3bf;padding-top:6px;margin-top:6px}.pe-dash-title{font-size:9px;font-weight:900;color:#8a5c32;margin-bottom:4px}.pe-dash-row{font-size:9px;line-height:1.55;color:#6e5848;overflow-wrap:anywhere}.pe-dash-empty{font-size:9px;color:#998678}.pe-dash-actions{display:flex;gap:5px;margin-top:7px}.pe-dash-actions button{flex:1;border:1px solid #d8c2a4;border-radius:8px;background:#fff;color:#80542f;padding:5px 6px;font-size:8px;font-weight:800}.pe-dash-actions button.primary{background:#a86f3d;color:#fff;border-color:#a86f3d}
 
       .pe-context-tools{position:fixed;left:10px;bottom:12px;z-index:2147481400;display:none;gap:6px;flex-wrap:wrap;max-width:calc(100vw - 20px)}.pe-context-tools.show{display:flex}.pe-context-tools button{border:1px solid #d8c2a4;border-radius:999px;background:#fff8db;color:#80542f;padding:8px 10px;font-size:9px;font-weight:800;box-shadow:0 4px 13px #0002}
 
@@ -58,8 +66,8 @@
       .pe-dialog{width:min(760px,100%);max-height:90vh;overflow:auto;border:1px solid #e8d9c4;border-radius:16px;background:#fffdf8;color:#4a3428;box-shadow:0 15px 48px #0005;padding:14px}.pe-dialog h3{margin:0 0 5px;color:#80542f;font-size:15px}.pe-note{margin:0 0 10px;color:#857365;font-size:10px;line-height:1.45}.pe-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.pe-field label{display:block;margin:0 0 3px;color:#857365;font-size:10px;font-weight:700}.pe-field input,.pe-field select,.pe-field textarea{width:100%;border:1px solid #decdb9;border-radius:8px;background:#fff;color:#4a3428;padding:8px;font:600 11px inherit;box-sizing:border-box}.pe-field textarea{min-height:62px;resize:vertical}.pe-full{grid-column:1/-1}.pe-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:10px}.pe-btn{border:1px solid #d9c2a4;border-radius:8px;background:#fff;color:#80542f;padding:7px 10px;font-size:10px;font-weight:800}.pe-btn.primary{background:#a86f3d;border-color:#a86f3d;color:#fff}.pe-btn.danger{color:#c64545}
       .pe-stat-toolbar{display:grid;grid-template-columns:1fr 1fr auto auto;gap:6px;margin:9px 0}.pe-stat-toolbar select,.pe-stat-toolbar input{width:100%;border:1px solid #decdb9;border-radius:8px;padding:7px;background:#fff;color:#4a3428;font-size:10px}.pe-stat-toolbar button{border:1px solid #d8c2a4;border-radius:8px;background:#fff8db;color:#80542f;padding:7px 8px;font-size:9px;font-weight:800}.pe-stat-group{border:1px solid #eadfce;border-radius:10px;background:#fff;padding:8px;margin-top:7px}.pe-stat-group summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:10px;font-size:11px;font-weight:800;color:#80542f}.pe-stat-group summary::-webkit-details-marker{display:none}.pe-stat-list{margin-top:6px;border-top:1px dashed #eadfce;padding-top:5px}.pe-stat-item{display:grid;grid-template-columns:78px 1fr auto;gap:6px;align-items:start;padding:5px 0;border-bottom:1px solid #f1e9dd;font-size:9px}.pe-stat-item:last-child{border-bottom:0}.pe-stat-item b{color:#6d5545}.pe-stat-item small{color:#8b7768;line-height:1.4}.pe-stat-item button{border:0;background:transparent;color:#c64545;font-size:9px;font-weight:800;padding:2px}
       .pe-search-results{margin-top:9px;display:grid;gap:6px}.pe-search-result{border:1px solid #eadfce;border-radius:9px;background:#fff;padding:8px}.pe-search-result .top{display:flex;justify-content:space-between;gap:8px;align-items:center}.pe-search-result b{font-size:10px;color:#80542f}.pe-search-result span{font-size:9px;color:#5f4b3d;line-height:1.45}.pe-search-result small{display:block;margin-top:3px;font-size:8px;color:#998678}.pe-search-hint{font-size:9px;color:#8c7868;line-height:1.5;margin-top:6px}
-      @media(max-width:700px){.pe-sync-pill{top:auto;right:8px;bottom:64px}.pe-dashboard{right:8px;bottom:8px;width:calc(100vw - 16px);max-height:42vh}.pe-context-tools{left:8px;bottom:8px}.pe-grid{grid-template-columns:1fr}.pe-full{grid-column:auto}.pe-stat-toolbar{grid-template-columns:1fr 1fr}.pe-stat-item{grid-template-columns:68px 1fr auto}}
-      @media print{.pe-sync-pill,.pe-update-banner,.pe-dashboard,.pe-context-tools,.pe-modal{display:none!important}}
+      @media(max-width:700px){.pe-sync-pill{top:84px;right:8px;bottom:auto}.pe-dashboard-toggle{right:8px;bottom:62px}.pe-dashboard{right:8px;bottom:102px;width:calc(100vw - 16px);max-height:65vh}.pe-context-tools{left:8px;bottom:8px}.pe-grid{grid-template-columns:1fr}.pe-full{grid-column:auto}.pe-stat-toolbar{grid-template-columns:1fr 1fr}.pe-stat-item{grid-template-columns:68px 1fr auto}}
+      @media print{.pe-sync-pill,.pe-update-banner,.pe-dashboard-toggle,.pe-dashboard,.pe-context-tools,.pe-modal{display:none!important}}
     `;
     document.head.appendChild(style);
   }
@@ -174,29 +182,186 @@
     const t=hkToday(); return (!!r.dueDate&&r.dueDate<=t)||(!!r.deadlineDate&&r.deadlineDate<=t);
   }
 
-  function todayActivities(){ return state.activities.filter(a=>a.date===hkToday()); }
+  function plannerState(){
+    try { return JSON.parse(localStorage.getItem(PLANNER_LOCAL_KEY) || '{}') || {}; }
+    catch { return {}; }
+  }
+
+  function addDays(dateStr, delta){
+    const d = new Date(`${dateStr}T12:00:00`);
+    d.setDate(d.getDate() + delta);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function schoolDateFromDM(dm){
+    const [day,month] = dm.split('/').map(Number);
+    const year = month >= 9 ? 2026 : 2027;
+    return `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+  }
+
+  function defaultEventKey(e){
+    return `${e.start}|${e.end || ''}|${e.type}|${e.title}`;
+  }
+
+  function visibleEventType(type,p){
+    if(type === 'holiday') return p.showHolidays !== false;
+    if(type === 'religious') return p.showReligiousEvents !== false;
+    if(type === 'homeroom') return p.showHomeroomEvents !== false;
+    return p.showSpecialEvents !== false;
+  }
+
+  function prepForDate(date,p){
+    const selected = Array.isArray(p.selectedPrepGroups) ? p.selectedPrepGroups : [];
+    if(!selected.length) return [];
+    const out = [];
+
+    for(const [cycle, dates, day0, day1, day2] of PREP_CYCLES){
+      for(const dm of dates){
+        const base = schoolDateFromDM(dm);
+        const schedule = [
+          {date:addDays(base,-1), kind:'簡報會', groups:['全體簡報會']},
+          {date:base, kind:'備課', groups:day0},
+          {date:addDays(base,1), kind:'備課', groups:day1},
+          {date:addDays(base,2), kind:'備課', groups:day2}
+        ];
+        for(const item of schedule){
+          if(item.date !== date) continue;
+          const groups = item.groups.filter(g => selected.includes(g));
+          if(groups.length){
+            out.push({
+              category:'備課',
+              title:`${item.kind}・${cycle}｜${groups.join('、')}`,
+              source:'prep'
+            });
+          }
+        }
+      }
+    }
+    return out;
+  }
+
+  function schoolEventsForDate(date,p){
+    const deleted = new Set(Array.isArray(p.deletedDefaultEventKeys) ? p.deletedDefaultEventKeys : []);
+    const custom = Array.isArray(p.customCalendarEvents) ? p.customCalendarEvents : [];
+    const all = [
+      ...DEFAULT_SCHOOL_EVENTS.filter(e => !deleted.has(defaultEventKey(e))),
+      ...custom
+    ];
+
+    return all.filter(e => {
+      const start = e.start || e.date || '';
+      const end = e.end || start;
+      return start <= date && end >= date && visibleEventType(e.type || 'special', p);
+    }).map(e => ({
+      category:
+        e.type === 'holiday' ? '假期' :
+        e.type === 'religious' ? '宗教活動' :
+        e.type === 'homeroom' ? '班主任課' : '特別活動',
+      title:e.title || e.name || '活動',
+      source:'calendar'
+    }));
+  }
+
+  function manualNotesForDate(date,p){
+    const note = p.calendarNotes?.[date];
+    if(!String(note || '').trim()) return [];
+    const prefix = p.showGoogleNoteLinks !== false ? '自行輸入・G記事' : '自行輸入';
+    return String(note).split(/\n+/).map(x => x.trim()).filter(Boolean).map(title => ({
+      category:prefix, title, source:'note'
+    }));
+  }
+
+  function todayActivities(){
+    const date = hkToday();
+    const p = plannerState();
+
+    const activityLogs = state.activities
+      .filter(a => a.date === date)
+      .map(a => ({
+        category:a.category || '活動紀錄',
+        title:a.title || '',
+        source:'activity-log'
+      }));
+
+    const combined = [
+      ...prepForDate(date,p),
+      ...schoolEventsForDate(date,p),
+      ...manualNotesForDate(date,p),
+      ...activityLogs
+    ];
+
+    const seen = new Set();
+    return combined.filter(x => {
+      const key = `${x.category}|${x.title}`;
+      if(seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function ensureDashboardToggle(){
+    let btn=document.getElementById('pe-dashboard-toggle');
+    if(!btn){
+      btn=document.createElement('button');
+      btn.type='button';
+      btn.id='pe-dashboard-toggle';
+      btn.className='pe-dashboard-toggle';
+      btn.textContent='☀ 今日工作台';
+      btn.addEventListener('click',()=>{
+        const panel=ensureDashboard();
+        panel.classList.toggle('open');
+      });
+      document.body.appendChild(btn);
+    }
+    return btn;
+  }
 
   function ensureDashboard(){
     let el=document.getElementById('pe-dashboard');
-    if(!el){el=document.createElement('aside');el.id='pe-dashboard';el.className='pe-dashboard';document.body.appendChild(el);} return el;
+    if(!el){
+      el=document.createElement('aside');
+      el.id='pe-dashboard';
+      el.className='pe-dashboard';
+      document.body.appendChild(el);
+    }
+    return el;
   }
 
   function renderDashboard(){
-    const board=document.querySelector('.today-board'); const el=ensureDashboard();
-    if(!board||!isVisible(board)){el.classList.remove('show');return;}
-    const follow=state.submissions.filter(needsFollowup); const acts=todayActivities();
+    const board=document.querySelector('.today-board');
+    const el=ensureDashboard();
+    const toggle=ensureDashboardToggle();
+
+    if(!board||!isVisible(board)){
+      toggle.classList.remove('show');
+      el.classList.remove('open');
+      return;
+    }
+
+    toggle.classList.add('show');
+
+    const follow=state.submissions.filter(needsFollowup);
+    const acts=todayActivities();
     const active=board.querySelector('.today-item.active-now');
     const activeText=active ? active.textContent.replace(/\s+/g,' ').trim() : '';
     const total=follow.reduce((s,r)=>s+(r.missing?.length||0),0);
+
+    const wasOpen=el.classList.contains('open');
     el.innerHTML=`
-      <div class="pe-dash-head"><b>☀ 今日工作台</b><small>${fmt(hkToday())}</small></div>
+      <div class="pe-dash-head">
+        <b>☀ 今日工作台</b>
+        <div><small>${fmt(hkToday())}</small><button type="button" class="pe-dash-close" id="pe-close-dashboard">✕ 收起</button></div>
+      </div>
       <div class="pe-dash-section"><div class="pe-dash-title">而家</div>${activeText?`<div class="pe-dash-row">${esc(activeText)}</div>`:'<div class="pe-dash-empty">目前未偵測到進行中的課節。</div>'}</div>
       <div class="pe-dash-section"><div class="pe-dash-title">📋 今日追收${follow.length?`・${total} 人次`:''}</div>${follow.length?follow.slice(0,5).map(r=>`<div class="pe-dash-row">${esc(r.className||'')}｜${esc(r.name||r.type||'項目')}：${esc((r.missing||[]).map(n=>String(n).padStart(2,'0')).join('、'))}</div>`).join(''):'<div class="pe-dash-empty">今日沒有需要追收。</div>'}</div>
-      <div class="pe-dash-section"><div class="pe-dash-title">📅 今日活動</div>${acts.length?acts.slice(0,5).map(a=>`<div class="pe-dash-row">${esc(a.category||'活動')}｜${esc(a.title||'')}</div>`).join(''):'<div class="pe-dash-empty">今日未有活動紀錄。</div>'}</div>
+      <div class="pe-dash-section"><div class="pe-dash-title">📅 今日活動</div>${acts.length?acts.slice(0,8).map(a=>`<div class="pe-dash-row">${esc(a.category||'活動')}｜${esc(a.title||'')}</div>`).join(''):'<div class="pe-dash-empty">今日月曆沒有已顯示的活動／記事。</div>'}</div>
       <div class="pe-dash-actions"><button type="button" id="pe-open-sub">查看追收</button><button type="button" class="primary" id="pe-add-today-act">＋今日活動</button></div>`;
+
+    el.querySelector('#pe-close-dashboard')?.addEventListener('click',()=>el.classList.remove('open'));
     el.querySelector('#pe-open-sub')?.addEventListener('click',()=>document.querySelector('.submission-launcher')?.click());
     el.querySelector('#pe-add-today-act')?.addEventListener('click',()=>openActivityModal(hkToday()));
-    el.classList.add('show');
+
+    if(wasOpen) el.classList.add('open');
   }
 
   function currentCalendarVisible(){const g=document.querySelector('.calendar-grid');return !!g&&isVisible(g)}
