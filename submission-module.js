@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.1';
+  const VERSION = '1.0.2';
   const LOCAL_KEY = 'hk-school-submission-records-v1';
   const COLORS = {
     cream: '#fff8d9',
@@ -249,8 +249,10 @@
     const style = document.createElement('style');
     style.id = 'submission-module-style';
     style.textContent = `
-      #submission-page{display:none;min-height:calc(100vh - 76px);background:${COLORS.bg};padding:12px}
+      #submission-page{display:none;position:fixed;inset:0;z-index:2147483000;background:${COLORS.bg};padding:54px 12px 16px;overflow:auto;-webkit-overflow-scrolling:touch}
       #submission-page.active{display:block}
+      .submission-launcher{position:fixed;right:14px;bottom:16px;z-index:2147482000;border:0;border-radius:999px;background:${COLORS.caramel};color:#fff;padding:10px 14px;font-size:12px;font-weight:800;box-shadow:0 6px 18px #0003}
+      .submission-close{position:fixed;right:14px;top:12px;z-index:2147483001;border:1px solid ${COLORS.line};border-radius:999px;background:#fffdf8;color:${COLORS.caramelDark};padding:7px 11px;font-size:11px;font-weight:800;box-shadow:0 3px 12px #0002}
       #submission-page *{box-sizing:border-box}
       .sub-wrap{max-width:1080px;margin:auto;color:#4a3428;font-family:"Noto Sans TC","PingFang HK","Microsoft JhengHei",sans-serif}
       .sub-bubble{background:${COLORS.milk};border:1px solid ${COLORS.line};border-radius:14px;padding:10px 12px;margin-bottom:8px;box-shadow:0 2px 8px rgba(127,79,45,.045)}
@@ -283,18 +285,17 @@
       .sub-empty{padding:8px;text-align:center;color:${COLORS.muted};font-size:11px}
       .sub-history summary{cursor:pointer;font-size:12px;font-weight:800;color:${COLORS.caramelDark};list-style:none}.sub-history summary::-webkit-details-marker{display:none}
       .sub-storage{font-size:9px;color:${COLORS.muted};margin-left:auto}
-      .submission-tab{white-space:nowrap}
       .today-submission-card{margin:10px 0 0;padding:9px 11px;border:1px solid #efd3ae;border-radius:10px;background:#fff7eb;color:#5a4031}
       .today-submission-card .head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px}
       .today-submission-card .head b{font-size:11px;color:${COLORS.caramelDark}}.today-submission-card .head button{border:0;background:${COLORS.caramel};color:#fff;border-radius:7px;padding:4px 7px;font-size:9px;font-weight:800}
       .today-submission-card .row{font-size:9px;line-height:1.55;color:#725845}
       @media(max-width:900px){
-        #submission-page{min-height:calc(100vh - 120px);padding:7px}
+        #submission-page{padding:50px 7px 12px}
         .sub-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
         .sub-students{grid-template-columns:repeat(6,minmax(34px,1fr))}
         .sub-bubble{padding:8px 9px;margin-bottom:6px;border-radius:12px}
       }
-      @media print{#submission-page,.submission-tab,.today-submission-card{display:none!important}}
+      @media print{#submission-page,.submission-launcher,.today-submission-card{display:none!important}}
     `;
     document.head.appendChild(style);
   }
@@ -311,46 +312,30 @@
     return page;
   }
 
-  function ensureTab() {
-    const tabs = document.querySelector('.main-tabs');
-    if (!tabs) return false;
-    let btn = tabs.querySelector('.submission-tab');
+  function ensureLauncher() {
+    let btn = document.querySelector('.submission-launcher');
     if (!btn) {
       btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'submission-tab';
-      btn.textContent = '作業／回條';
+      btn.className = 'submission-launcher';
+      btn.textContent = '📋 作業／回條';
       btn.addEventListener('click', showPage);
-      tabs.appendChild(btn);
+      document.body.appendChild(btn);
     }
-    return true;
-  }
-
-  function installTabDelegation() {
-    if (document.documentElement.dataset.submissionDelegation === '1') return;
-    document.documentElement.dataset.submissionDelegation = '1';
-    document.addEventListener('click', event => {
-      const target = event.target.closest?.('.main-tabs button');
-      if (!target || target.classList.contains('submission-tab')) return;
-      hidePage();
-    }, false);
+    return btn;
   }
 
   function showPage() {
-    ensurePage().classList.add('active');
-    const ws = document.querySelector('.workspace');
-    if (ws) ws.style.display = 'none';
-    document.querySelectorAll('.main-tabs button').forEach(b => b.classList.remove('active'));
-    document.querySelector('.submission-tab')?.classList.add('active');
+    const page = ensurePage();
+    page.classList.add('active');
+    document.body.style.overflow = 'hidden';
     render();
-    window.scrollTo({top:0, behavior:'smooth'});
+    window.scrollTo({top:0});
   }
 
   function hidePage() {
     document.getElementById('submission-page')?.classList.remove('active');
-    const ws = document.querySelector('.workspace');
-    if (ws) ws.style.display = '';
-    document.querySelector('.submission-tab')?.classList.remove('active');
+    document.body.style.overflow = '';
   }
 
   function renderStatus() {
@@ -367,6 +352,7 @@
     const historyExpired = state.records.filter(x => !isCompleted(x) && isExpired(x));
 
     page.innerHTML = `
+      <button type="button" class="submission-close" id="submission-close">✕ 關閉</button>
       <div class="sub-wrap">
         <section class="sub-bubble new">
           <div class="sub-title"><span class="sub-num">1</span> 新增回條／作業 <span class="sub-storage"></span></div>
@@ -419,7 +405,6 @@
 
     wireEvents();
     renderStatus();
-    renderTodayCard();
   }
 
   function followupHtml(r) {
@@ -477,6 +462,7 @@
   }
 
   function wireEvents() {
+    document.getElementById('submission-close')?.addEventListener('click', hidePage);
     document.getElementById('sub-create')?.addEventListener('click', async () => {
       const name = document.getElementById('sub-name').value.trim();
       if (!name) return toast('請輸入名稱', 'error');
@@ -547,64 +533,11 @@
     });
   }
 
-  function renderTodayCard() {
-    const board = document.querySelector('.today-board');
-    if (!board) return;
-    let card = board.querySelector('.today-submission-card');
-    const items = state.records.filter(needsFollowup);
-    if (!card) {
-      card = document.createElement('div');
-      card.className = 'today-submission-card';
-      const footer = board.querySelector('.today-board-footer');
-      if (footer) footer.insertAdjacentElement('beforebegin', card);
-      else board.appendChild(card);
-    }
-    const nextHtml = `
-      <div class="head"><b>📋 今日追收</b><button type="button">查看全部</button></div>
-      ${items.length ? items.slice(0,4).map(r => `<div class="row">${esc(r.className)}｜${esc(r.name)}：${(r.missing||[]).map(pad).join('、')}</div>`).join('') : '<div class="row">今日沒有需要追收的項目。</div>'}
-    `;
-    if (card.innerHTML !== nextHtml) {
-      card.innerHTML = nextHtml;
-      card.querySelector('button')?.addEventListener('click', showPage);
-    }
-  }
-
-  function observeApp() {
-    let queued = false;
-    const observer = new MutationObserver(mutations => {
-      // Ignore DOM changes caused only inside our own module.
-      const meaningful = mutations.some(m => {
-        const t = m.target;
-        return !(t instanceof Element &&
-          (t.closest('#submission-page') || t.closest('.today-submission-card')));
-      });
-      if (!meaningful || queued) return;
-
-      queued = true;
-      requestAnimationFrame(() => {
-        queued = false;
-
-        // Only repair UI if React has replaced/removed the integration point.
-        if (!document.querySelector('.main-tabs .submission-tab')) {
-          ensureTab();
-        }
-
-        const board = document.querySelector('.today-board');
-        if (board && !board.querySelector('.today-submission-card')) {
-          renderTodayCard();
-        }
-      });
-    });
-
-    observer.observe(document.body, {childList:true, subtree:true});
-  }
 
   async function start() {
     injectCss();
     ensurePage();
-    ensureTab();
-    installTabDelegation();
-    observeApp();
+    ensureLauncher();
     await connectStorage();
     console.info(`[Submission module] v${VERSION} ready`);
   }

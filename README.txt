@@ -1,15 +1,17 @@
-修復版 v1.0.1
+穩定版 v1.0.2
 
-修正：
-- 移除會造成 DOM 無限重畫的 MutationObserver 行為
-- 只在作業／回條 tab 或今日追收卡被主程式移除時才補回
-- 今日追收內容沒有改變時不再重寫 DOM
-- tab 切換改用單一 delegated click listener，避免重複綁定事件
+今版以「不干擾原 React 課表」為首要目標：
+- 不再把按鈕插入 .main-tabs
+- 不再隱藏或修改 .workspace
+- 完全移除 MutationObserver
+- 暫時移除當日課表內嵌「今日追收」卡
+- 改為右下角獨立「📋 作業／回條」浮動按鈕
+- 撳開後顯示全頁 overlay，關閉後返回原課表
+- Firestore 功能保留
 
-上載：
-1. 用本包 index.html 覆蓋 GitHub repo 根目錄的 index.html
-2. 用本包 submission-module.js 覆蓋舊版 submission-module.js
+GitHub：
+1. index.html 覆蓋原檔
+2. submission-module.js 覆蓋原檔
 3. automate-bridge.js 不需修改
-4. Firestore rules 不需修改
 
-如 GitHub Pages / PWA 仍顯示舊版，請重新整理或清除網站快取後再測試。
+如果今版課表 tabs 回復正常，之後再以安全方式逐步加「教學日誌 → 加入追收」。
