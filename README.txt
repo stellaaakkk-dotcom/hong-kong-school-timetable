@@ -1,13 +1,17 @@
-香港教師教學日誌 v1.5.3
+香港教師教學日誌 v1.5.4 — 月曆活動紀錄三重同步修正版
 
-今次重新製作「活動紀錄顯示於月曆」：
+今版不再只依賴單一同步路徑。
 
-- 完全取消 v1.5.1 / v1.5.2 的外層 overlay 定位方式。
-- 原本 React 月曆會直接讀取活動紀錄 localStorage。
-- 新增／刪除／Firestore 更新活動紀錄後，會通知 React 月曆即時重新 render。
-- 活動標籤真正屬於該日期的 cal-cell，所以切月份、捲動、縮放、手機／iPad／電腦都會跟格移動。
-- 標籤格式：類別｜活動名稱。
-- 同一日最多直接顯示 2 項，其餘顯示「＋N 項」。
+月曆取得活動紀錄會同時使用：
+1. 即時 CustomEvent：新增／刪除活動時直接把完整活動陣列傳給 React 月曆。
+2. localStorage：hk-school-calendar-activity-logs-v1 作離線 fallback。
+3. Firestore：Firebase 載入及登入完成後，月曆元件自己直接監聽 users/{uid}/calendarActivityLogs。
+
+即使 Firebase 載入較慢，元件會每 500ms 嘗試連接，成功後停止輪詢。
+
+活動標籤仍然由 React 月曆直接 render 在 cal-cell 內：
+類別｜活動名稱
+同日最多顯示 2 項，其餘顯示 ＋N 項。
 
 GitHub 請覆蓋：
 index.html

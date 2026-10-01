@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.5.3';
+  const VERSION = '1.5.4';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PLANNER_LOCAL_KEY = 'hk-school-planner-v3';
@@ -215,7 +215,7 @@
   function loadLocalActivities() {
     try { const x=JSON.parse(localStorage.getItem(ACTIVITY_LOCAL_KEY)||'[]'); state.activities=Array.isArray(x)?x:[]; } catch { state.activities=[]; }
   }
-  function notifyCalendarActivityChange(){try{window.dispatchEvent(new Event('calendarActivityLogsChanged'))}catch{}}
+  function notifyCalendarActivityChange(){try{window.dispatchEvent(new CustomEvent('calendarActivityLogsChanged',{detail:state.activities.map(x=>({...x}))}))}catch{try{window.dispatchEvent(new Event('calendarActivityLogsChanged'))}catch{}}}
   function saveLocalActivities(){ try{localStorage.setItem(ACTIVITY_LOCAL_KEY,JSON.stringify(state.activities));}catch{} notifyCalendarActivityChange(); }
 
   async function connectData() {
