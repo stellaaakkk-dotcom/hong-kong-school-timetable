@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.2';
+  const VERSION = '1.1.0';
   const LOCAL_KEY = 'hk-school-submission-records-v1';
   const COLORS = {
     cream: '#fff8d9',
@@ -86,6 +86,9 @@
       missing: (Array.isArray(r.missing) ? r.missing : [])
         .map(Number).filter(n => n >= 1 && n <= count)
         .sort((a,b)=>a-b),
+      sourceKey: r.sourceKey || '',
+      sourceSubject: r.sourceSubject || '',
+      sourcePeriod: r.sourcePeriod || '',
       createdAt: r.createdAt || new Date().toISOString(),
       updatedAt: r.updatedAt || new Date().toISOString()
     };
@@ -200,6 +203,9 @@
           dueDate: r.dueDate,
           deadlineDate: r.deadlineDate,
           missing: r.missing,
+          sourceKey: r.sourceKey || '',
+          sourceSubject: r.sourceSubject || '',
+          sourcePeriod: r.sourcePeriod || '',
           createdAt: r.createdAt,
           updatedAt: r.updatedAt
         }, { merge: true });
@@ -285,6 +291,18 @@
       .sub-empty{padding:8px;text-align:center;color:${COLORS.muted};font-size:11px}
       .sub-history summary{cursor:pointer;font-size:12px;font-weight:800;color:${COLORS.caramelDark};list-style:none}.sub-history summary::-webkit-details-marker{display:none}
       .sub-storage{font-size:9px;color:${COLORS.muted};margin-left:auto}
+      .journal-homework-cell{position:relative!important}
+      .journal-followup-btn{position:absolute;right:4px;bottom:3px;z-index:3;border:1px solid #d8c2aa;border-radius:999px;background:#fff7df;color:${COLORS.caramelDark};padding:2px 5px;font-size:7px;font-weight:800;line-height:1.2;box-shadow:0 1px 3px #0001}
+      .journal-followup-btn.added{background:#eef7e9;color:${COLORS.success};border-color:#bfd5b1}
+      .journal-homework-cell textarea{padding-bottom:17px!important}
+      .journal-followup-modal{display:none;position:fixed;inset:0;z-index:2147483600;background:#0004;align-items:center;justify-content:center;padding:14px}
+      .journal-followup-modal.open{display:flex}
+      .journal-followup-dialog{width:min(430px,100%);max-height:90vh;overflow:auto;background:${COLORS.milk};border:1px solid ${COLORS.line};border-radius:16px;padding:14px;box-shadow:0 12px 40px #0004;color:#4a3428}
+      .journal-followup-dialog h3{margin:0 0 4px;color:${COLORS.caramelDark};font-size:15px}
+      .journal-followup-dialog .source{margin:0 0 10px;color:${COLORS.muted};font-size:10px;line-height:1.45}
+      .journal-followup-dialog .sub-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .journal-followup-dialog .full{grid-column:1/-1}
+      .journal-followup-dialog .modal-actions{display:flex;gap:6px;justify-content:flex-end;margin-top:10px}
       .today-submission-card{margin:10px 0 0;padding:9px 11px;border:1px solid #efd3ae;border-radius:10px;background:#fff7eb;color:#5a4031}
       .today-submission-card .head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px}
       .today-submission-card .head b{font-size:11px;color:${COLORS.caramelDark}}.today-submission-card .head button{border:0;background:${COLORS.caramel};color:#fff;border-radius:7px;padding:4px 7px;font-size:9px;font-weight:800}
@@ -295,7 +313,7 @@
         .sub-students{grid-template-columns:repeat(6,minmax(34px,1fr))}
         .sub-bubble{padding:8px 9px;margin-bottom:6px;border-radius:12px}
       }
-      @media print{#submission-page,.submission-launcher,.today-submission-card{display:none!important}}
+      @media print{#submission-page,.submission-launcher,.today-submission-card,.journal-followup-btn,.journal-followup-modal{display:none!important}}
     `;
     document.head.appendChild(style);
   }
@@ -405,6 +423,7 @@
 
     wireEvents();
     renderStatus();
+    refreshJournalButtons();
   }
 
   function followupHtml(r) {
@@ -534,11 +553,191 @@
   }
 
 
+
+  function inferJournalDate(dayEl) {
+    const dateText = dayEl?.querySelector('.day-heading b')?.textContent || '';
+    const m = dateText.match(/(\d{1,2})月(\d{1,2})日/);
+    if (!m) return hkDateString();
+
+    const month = Number(m[1]);
+    const day = Number(m[2]);
+
+    const nowParts = hkDateString().split('-').map(Number);
+    let year = nowParts[0];
+    const currentMonth = nowParts[1];
+
+    // School-year friendly inference for Aug-Jul views.
+    if (currentMonth >= 8 && month < 8) year += 1;
+    else if (currentMonth < 8 && month >= 8) year -= 1;
+
+    return `${year}-${pad(month)}-${pad(day)}`;
+  }
+
+  function journalSourceFromButton(btn) {
+    const cell = btn.closest('td');
+    const row = btn.closest('tr');
+    const dayEl = btn.closest('.journal-day');
+    const textarea = cell?.querySelector('textarea[aria-label*="功課"]');
+    const subject = row?.querySelector('.subject-cell')?.textContent?.trim() || '';
+    const issueDate = inferJournalDate(dayEl);
+    const homework = textarea?.value?.trim() || '';
+    const label = textarea?.getAttribute('aria-label') || '';
+    const periodMatch = label.match(/第(\d+)節/);
+    const period = periodMatch ? `第${periodMatch[1]}節` : '';
+    const sourceKey = [issueDate, subject, period, homework].join('|');
+    return { issueDate, subject, homework, period, sourceKey };
+  }
+
+  function isJournalRecordAdded(sourceKey) {
+    return !!sourceKey && state.records.some(r => r.sourceKey === sourceKey);
+  }
+
+  function ensureJournalModal() {
+    let modal = document.getElementById('journal-followup-modal');
+    if (modal) return modal;
+
+    modal = document.createElement('div');
+    modal.id = 'journal-followup-modal';
+    modal.className = 'journal-followup-modal';
+    modal.innerHTML = `
+      <div class="journal-followup-dialog">
+        <h3>加入追收項目</h3>
+        <p class="source" id="jf-source"></p>
+        <div class="sub-grid">
+          <div class="sub-field full"><label>功課名稱</label><input id="jf-name"></div>
+          <div class="sub-field"><label>班別</label><input id="jf-class" placeholder="例如：3A"></div>
+          <div class="sub-field"><label>學生人數</label><input id="jf-count" type="number" min="1" max="60" value="30"></div>
+          <div class="sub-field"><label>派發日期</label><input id="jf-issue" type="date"></div>
+          <div class="sub-field"><label>繳交日期</label><input id="jf-due" type="date"></div>
+          <div class="sub-field full"><label>追收死線</label><input id="jf-deadline" type="date"></div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="sub-btn" id="jf-cancel">取消</button>
+          <button type="button" class="sub-btn primary" id="jf-save">加入追收</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+
+    modal.addEventListener('click', e => {
+      if (e.target === modal) closeJournalModal();
+    });
+    modal.querySelector('#jf-cancel')?.addEventListener('click', closeJournalModal);
+    modal.querySelector('#jf-save')?.addEventListener('click', saveJournalFollowup);
+    return modal;
+  }
+
+  function closeJournalModal() {
+    document.getElementById('journal-followup-modal')?.classList.remove('open');
+  }
+
+  function openJournalModal(btn) {
+    const src = journalSourceFromButton(btn);
+    if (!src.homework) {
+      toast('請先填寫功課內容', 'error');
+      return;
+    }
+    if (isJournalRecordAdded(src.sourceKey)) {
+      toast('這項功課已加入追收');
+      return;
+    }
+
+    const modal = ensureJournalModal();
+    modal.dataset.sourceKey = src.sourceKey;
+    modal.dataset.subject = src.subject;
+    modal.dataset.period = src.period;
+
+    document.getElementById('jf-source').textContent =
+      `${src.issueDate} ・ ${src.subject || '未有科目'}${src.period ? ' ・ ' + src.period : ''}`;
+    document.getElementById('jf-name').value =
+      `${src.subject ? src.subject + '｜' : ''}${src.homework}`;
+    document.getElementById('jf-class').value = '';
+    document.getElementById('jf-count').value = '30';
+    document.getElementById('jf-issue').value = src.issueDate;
+    document.getElementById('jf-due').value = src.issueDate;
+    document.getElementById('jf-deadline').value = '';
+    modal.classList.add('open');
+  }
+
+  async function saveJournalFollowup() {
+    const modal = document.getElementById('journal-followup-modal');
+    if (!modal) return;
+
+    const name = document.getElementById('jf-name').value.trim();
+    if (!name) return toast('請輸入功課名稱', 'error');
+
+    const sourceKey = modal.dataset.sourceKey || '';
+    if (isJournalRecordAdded(sourceKey)) {
+      closeJournalModal();
+      refreshJournalButtons();
+      return toast('這項功課已加入追收');
+    }
+
+    await upsertRecord({
+      id: id(),
+      name,
+      type: '作業',
+      className: document.getElementById('jf-class').value.trim() || '班別',
+      studentCount: Number(document.getElementById('jf-count').value) || 30,
+      issueDate: document.getElementById('jf-issue').value,
+      dueDate: document.getElementById('jf-due').value,
+      deadlineDate: document.getElementById('jf-deadline').value,
+      missing: [],
+      sourceKey,
+      sourceSubject: modal.dataset.subject || '',
+      sourcePeriod: modal.dataset.period || ''
+    });
+
+    closeJournalModal();
+    refreshJournalButtons();
+    toast('已加入追收項目');
+  }
+
+  function refreshJournalButtons() {
+    const homeworkAreas = document.querySelectorAll('.journal-table textarea[aria-label*="功課"]');
+
+    homeworkAreas.forEach(textarea => {
+      const cell = textarea.closest('td');
+      if (!cell) return;
+      cell.classList.add('journal-homework-cell');
+
+      let btn = cell.querySelector('.journal-followup-btn');
+      if (!btn) {
+        btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'journal-followup-btn';
+        btn.addEventListener('click', e => {
+          e.preventDefault();
+          e.stopPropagation();
+          openJournalModal(btn);
+        });
+        cell.appendChild(btn);
+      }
+
+      const src = journalSourceFromButton(btn);
+      const added = !!src.homework && isJournalRecordAdded(src.sourceKey);
+      btn.classList.toggle('added', added);
+      btn.textContent = added ? '已加入 ✓' : '＋追收';
+      btn.title = added ? '已加入追收項目' : '將這項功課加入追收';
+    });
+  }
+
+  function installJournalScanner() {
+    // Low-frequency scan only; no MutationObserver, to avoid interfering with React.
+    refreshJournalButtons();
+    window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      if (!document.querySelector('.journal-table')) return;
+      refreshJournalButtons();
+    }, 1800);
+  }
+
   async function start() {
     injectCss();
     ensurePage();
     ensureLauncher();
+    ensureJournalModal();
     await connectStorage();
+    installJournalScanner();
     console.info(`[Submission module] v${VERSION} ready`);
   }
 
