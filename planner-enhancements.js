@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.5.1';
+  const VERSION = '1.5.2';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PLANNER_LOCAL_KEY = 'hk-school-planner-v3';
@@ -99,7 +99,7 @@
       .pe-context-tools{display:none!important}
       .pe-desktop-more-toggle{display:none}
       .pe-cal-activity-layer{position:fixed;inset:0;z-index:2147480500;pointer-events:none}
-      .pe-cal-activity-chip{position:fixed;max-width:46%;border:1px solid #dfc494;border-radius:6px;background:#fff2c8;color:#7b542f;padding:2px 4px;font-size:7px;font-weight:800;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 3px #0001}
+      .pe-cal-activity-chip{position:fixed;max-width:46%;border:1px solid #d9b879;border-radius:6px;background:#fff0b8;color:#6f4827;padding:2px 4px;font-size:7px;font-weight:900;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 4px #0002}
       .pe-cal-activity-chip.more{background:#fffaf0;color:#8a6c4e}
       @media(max-width:700px){.pe-cal-activity-chip{font-size:6px;max-width:52%;padding:1px 3px}}
       @media print{.pe-cal-activity-layer{display:none!important}}
@@ -456,6 +456,21 @@
     if(wasOpen) el.classList.add('open');
   }
 
+
+  function visibleCalendarGrid(){
+    return [...document.querySelectorAll('.calendar-grid')].find(g=>isVisible(g)) || null;
+  }
+
+  function visibleCalendarMonth(){
+    const monthInput=[...document.querySelectorAll('.month-nav input[type="month"]')].find(el=>isVisible(el));
+    if(monthInput?.value && /^\d{4}-\d{2}$/.test(monthInput.value)) return monthInput.value;
+
+    const p=plannerState();
+    if(p.month && /^\d{4}-\d{2}$/.test(p.month)) return p.month;
+
+    return hkToday().slice(0,7);
+  }
+
   function ensureCalendarActivityLayer(){
     let layer=document.getElementById('pe-cal-activity-layer');
     if(!layer){layer=document.createElement('div');layer.id='pe-cal-activity-layer';layer.className='pe-cal-activity-layer';document.body.appendChild(layer)}
@@ -464,11 +479,10 @@
 
   function renderCalendarActivityOverlay(){
     const layer=ensureCalendarActivityLayer();
-    const grid=document.querySelector('.calendar-grid');
-    if(!grid||!isVisible(grid)){layer.innerHTML='';return}
+    const grid=visibleCalendarGrid();
+    if(!grid){layer.innerHTML='';return}
 
-    const p=plannerState();
-    const month=p.month||'';
+    const month=visibleCalendarMonth();
     if(!/^\d{4}-\d{2}$/.test(month)){layer.innerHTML='';return}
 
     const cells=[...grid.querySelectorAll('.cal-cell:not(.empty)')];
@@ -488,21 +502,21 @@
       visible.forEach((a,idx)=>{
         chips.push({
           text:`紀錄｜${a.category||'活動'}：${a.title||''}`,
-          left:r.left+Math.max(30,r.width*0.46),
-          top:r.top+5+idx*14,
-          width:Math.max(55,r.width*0.50),
+          left:r.left+4,
+          top:r.top+25+idx*14,
+          width:Math.max(55,r.width-8),
           more:false
         });
       });
       if(items.length>2){
-        chips.push({text:`＋${items.length-2}`,left:r.right-26,top:r.top+33,width:22,more:true});
+        chips.push({text:`＋${items.length-2}`,left:r.right-28,top:r.top+53,width:24,more:true});
       }
     }
 
     layer.innerHTML=chips.map(c=>`<div class="pe-cal-activity-chip${c.more?' more':''}" style="left:${Math.round(c.left)}px;top:${Math.round(c.top)}px;width:${Math.round(c.width)}px">${esc(c.text)}</div>`).join('');
   }
 
-  function currentCalendarVisible(){const g=document.querySelector('.calendar-grid');return !!g&&isVisible(g)}
+  function currentCalendarVisible(){return !!visibleCalendarGrid()}
   function currentJournalVisible(){const g=document.querySelector('.journal-table');return !!g&&isVisible(g)}
 
   function ensureContextTools(){
@@ -714,7 +728,7 @@
     if(isVisible(document.querySelector('.journal-table'))){
       nav.querySelector('[data-mobile-nav="journal"]')?.classList.add('active');return;
     }
-    if(isVisible(document.querySelector('.calendar-grid'))){
+    if(visibleCalendarGrid()){
       nav.querySelector('[data-mobile-nav="calendar"]')?.classList.add('active');
     }
   }
