@@ -1,14 +1,18 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.5.6';
+  const VERSION = '1.6.0';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
+  const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
+  const PENDING_QUEUE_KEY = 'hk-school-pending-items-queue-v1';
   const PLANNER_LOCAL_KEY = 'hk-school-planner-v3';
   const state = {
     user: null,
     submissions: [],
     activities: [],
+    pendingItems: [],
+    pendingQueueCount: 0,
     firebaseReady: false,
     sync: 'connecting',
     unsubSubmissions: null,
@@ -65,7 +69,7 @@
 
       .pe-modal{display:none;position:fixed;inset:0;z-index:2147483600;background:#0005;align-items:center;justify-content:center;padding:14px;font-family:"Noto Sans TC","PingFang HK","Microsoft JhengHei",sans-serif}.pe-modal.open{display:flex}
       .pe-dialog{width:min(760px,100%);max-height:90vh;overflow:auto;border:1px solid #e8d9c4;border-radius:16px;background:#fffdf8;color:#4a3428;box-shadow:0 15px 48px #0005;padding:14px}.pe-dialog h3{margin:0 0 5px;color:#80542f;font-size:15px}.pe-note{margin:0 0 10px;color:#857365;font-size:10px;line-height:1.45}.pe-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.pe-field label{display:block;margin:0 0 3px;color:#857365;font-size:10px;font-weight:700}.pe-field input,.pe-field select,.pe-field textarea{width:100%;border:1px solid #decdb9;border-radius:8px;background:#fff;color:#4a3428;padding:8px;font:600 11px inherit;box-sizing:border-box}.pe-field textarea{min-height:62px;resize:vertical}.pe-full{grid-column:1/-1}.pe-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:10px}.pe-btn{border:1px solid #d9c2a4;border-radius:8px;background:#fff;color:#80542f;padding:7px 10px;font-size:10px;font-weight:800}.pe-btn.primary{background:#a86f3d;border-color:#a86f3d;color:#fff}.pe-btn.danger{color:#c64545}
-      .pe-stat-toolbar{display:grid;grid-template-columns:1fr 1fr 1fr auto auto;gap:6px;margin:9px 0}.pe-stat-toolbar select,.pe-stat-toolbar input{width:100%;border:1px solid #decdb9;border-radius:8px;padding:7px;background:#fff;color:#4a3428;font-size:10px}.pe-stat-toolbar button{border:1px solid #d8c2a4;border-radius:8px;background:#fff8db;color:#80542f;padding:7px 8px;font-size:9px;font-weight:800}.pe-stat-group{border:1px solid #eadfce;border-radius:10px;background:#fff;padding:8px;margin-top:7px}.pe-stat-group summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:10px;font-size:11px;font-weight:800;color:#80542f}.pe-stat-group summary::-webkit-details-marker{display:none}.pe-stat-list{margin-top:6px;border-top:1px dashed #eadfce;padding-top:5px}.pe-stat-item{display:grid;grid-template-columns:78px 1fr auto;gap:6px;align-items:start;padding:5px 0;border-bottom:1px solid #f1e9dd;font-size:9px}.pe-stat-item:last-child{border-bottom:0}.pe-stat-item b{color:#6d5545}.pe-stat-item small{color:#8b7768;line-height:1.4}.pe-stat-item button{border:0;background:transparent;color:#c64545;font-size:9px;font-weight:800;padding:2px}
+      .pe-stat-toolbar{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;margin:9px 0}.pe-stat-actions{display:grid;grid-template-columns:repeat(2,auto);gap:4px;align-items:stretch}.pe-stat-actions button{min-width:44px;padding:7px 8px}.pe-stat-toolbar select,.pe-stat-toolbar input{width:100%;border:1px solid #decdb9;border-radius:8px;padding:7px;background:#fff;color:#4a3428;font-size:10px}.pe-stat-toolbar button{border:1px solid #d8c2a4;border-radius:8px;background:#fff8db;color:#80542f;padding:7px 8px;font-size:9px;font-weight:800}.pe-stat-group{border:1px solid #eadfce;border-radius:10px;background:#fff;padding:8px;margin-top:7px}.pe-stat-group summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:10px;font-size:11px;font-weight:800;color:#80542f}.pe-stat-group summary::-webkit-details-marker{display:none}.pe-stat-list{margin-top:6px;border-top:1px dashed #eadfce;padding-top:5px}.pe-stat-item{display:grid;grid-template-columns:78px 1fr auto;gap:6px;align-items:start;padding:5px 0;border-bottom:1px solid #f1e9dd;font-size:9px}.pe-stat-item:last-child{border-bottom:0}.pe-stat-item b{color:#6d5545}.pe-stat-item small{color:#8b7768;line-height:1.4}.pe-stat-item button{border:0;background:transparent;color:#c64545;font-size:9px;font-weight:800;padding:2px}
       .pe-search-results{margin-top:9px;display:grid;gap:6px}.pe-search-result{border:1px solid #eadfce;border-radius:9px;background:#fff;padding:8px}.pe-search-result .top{display:flex;justify-content:space-between;gap:8px;align-items:center}.pe-search-result b{font-size:10px;color:#80542f}.pe-search-result span{font-size:9px;color:#5f4b3d;line-height:1.45}.pe-search-result small{display:block;margin-top:3px;font-size:8px;color:#998678}.pe-search-hint{font-size:9px;color:#8c7868;line-height:1.5;margin-top:6px}
       
       @media(min-width:701px){
@@ -95,6 +99,19 @@
       .pe-done-card.warn{background:#fff4ef;border-color:#ebc7bc;color:#9b4f3d}
       .pe-done-card b{display:block;font-size:11px;margin-bottom:3px}
       .pe-done-card div{font-size:9px;line-height:1.5}
+      .pe-pending-summary{display:flex;gap:6px;flex-wrap:wrap;margin:7px 0}
+      .pe-pending-badge{border:1px solid #decdb9;border-radius:999px;background:#fff8e6;color:#76533b;padding:4px 7px;font-size:8px;font-weight:800}
+      .pe-pending-badge.today{background:#fff5d5;border-color:#e0c27b;color:#8a641f}
+      .pe-pending-badge.overdue{background:#fff0ef;border-color:#e7b8b3;color:#a94438}
+      .pe-pending-item{border:1px solid #eadfce;border-radius:10px;background:#fff;padding:8px;margin-top:7px}
+      .pe-pending-item.today{background:#fffaf0;border-color:#e0c27b}
+      .pe-pending-item.overdue{background:#fff7f6;border-color:#e7b8b3}
+      .pe-pending-title{font-size:10px;font-weight:900;color:#684b38}
+      .pe-pending-meta{font-size:8px;color:#8b7768;margin-top:3px;line-height:1.4}
+      .pe-pending-actions{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+      .pe-pending-actions button{border:1px solid #dccab4;border-radius:7px;background:#fff;color:#76533b;padding:4px 6px;font-size:8px;font-weight:800}
+      .pe-pending-actions button.primary{background:#a86f3d;color:#fff;border-color:#a86f3d}
+
       .submission-launcher{display:none!important}
       .pe-context-tools{display:none!important}
       .pe-desktop-more-toggle{display:none}
@@ -169,9 +186,40 @@
   function loadActivityPending(){try{const q=JSON.parse(localStorage.getItem(ACTIVITY_PENDING_KEY)||'[]');state.activityPending=Array.isArray(q)?q.length:0;return Array.isArray(q)?q:[]}catch{state.activityPending=0;return[]}}
   function saveActivityPending(q){try{localStorage.setItem(ACTIVITY_PENDING_KEY,JSON.stringify(q));state.activityPending=q.length}catch{}updateSyncDisplay()}
   function queueActivityPending(item){const q=loadActivityPending().filter(x=>x.id!==item.id);q.push(item);saveActivityPending(q)}
-  function totalPending(){const sub=window.__submissionTrackerAPI?.getPendingCount?.()||0;return state.activityPending+sub}
+  function totalPending(){const sub=window.__submissionTrackerAPI?.getPendingCount?.()||0;return state.activityPending+(state.pendingQueueCount||0)+sub}
   function updateSyncDisplay(){const n=totalPending();if(n>0){const p=ensureSyncPill();p.className='pe-sync-pill off';p.textContent=`⚠ 待同步 ${n}`;return}setSync(navigator.onLine?(state.firebaseReady?'ok':'connecting'):'offline')}
   async function flushActivityPending(){if(!navigator.onLine||!state.firebaseReady)return;let q=loadActivityPending(),remain=[];for(const item of q){try{if(item.op==='delete')await activityCollection().doc(item.id).delete();else await activityCollection().doc(item.id).set(item.data,{merge:true})}catch{remain.push(item)}}saveActivityPending(remain)}
+
+  function loadPendingQueue(){
+    try{
+      const q=JSON.parse(localStorage.getItem(PENDING_QUEUE_KEY)||'[]');
+      state.pendingQueueCount=Array.isArray(q)?q.length:0;
+      return Array.isArray(q)?q:[];
+    }catch{state.pendingQueueCount=0;return[]}
+  }
+  function savePendingQueue(q){
+    try{
+      localStorage.setItem(PENDING_QUEUE_KEY,JSON.stringify(q));
+      state.pendingQueueCount=q.length;
+    }catch{}
+    updateSyncDisplay();
+  }
+  function queuePendingOp(item){
+    const q=loadPendingQueue().filter(x=>x.id!==item.id);
+    q.push(item);
+    savePendingQueue(q);
+  }
+  async function flushPendingQueue(){
+    if(!navigator.onLine||!state.firebaseReady||!state.user)return;
+    const col=pendingCollection(),q=loadPendingQueue(),remain=[];
+    for(const item of q){
+      try{
+        if(item.op==='delete')await col.doc(item.id).delete();
+        else await col.doc(item.id).set(item.data,{merge:true});
+      }catch{remain.push(item)}
+    }
+    savePendingQueue(remain);
+  }
 
   function ensureSyncPill() {
     let el = document.getElementById('pe-sync-pill');
@@ -180,7 +228,7 @@
   }
 
   function installNetworkStatus() {
-    const refresh = () => setSync(navigator.onLine ? (state.firebaseReady ? 'ok' : 'connecting') : 'offline');
+    const refresh = async () => {if(navigator.onLine&&state.firebaseReady){await flushActivityPending();await flushPendingQueue();updateSyncDisplay()}else setSync(navigator.onLine?'connecting':'offline')};
     window.addEventListener('online', refresh);
     window.addEventListener('offline', refresh);
     refresh();
@@ -211,6 +259,7 @@
 
   const subCollection = () => window.firebase.firestore().collection('users').doc(state.user.uid).collection('submissionRecords');
   const activityCollection = () => window.firebase.firestore().collection('users').doc(state.user.uid).collection('calendarActivityLogs');
+  const pendingCollection = () => window.firebase.firestore().collection('users').doc(state.user.uid).collection('pendingItems');
 
   function loadLocalActivities() {
     try { const x=JSON.parse(localStorage.getItem(ACTIVITY_LOCAL_KEY)||'[]'); state.activities=Array.isArray(x)?x:[]; } catch { state.activities=[]; }
@@ -218,12 +267,28 @@
   function notifyCalendarActivityChange(){try{window.dispatchEvent(new CustomEvent('calendarActivityLogsChanged',{detail:state.activities.map(x=>({...x}))}))}catch{try{window.dispatchEvent(new Event('calendarActivityLogsChanged'))}catch{}}}
   function saveLocalActivities(){ try{localStorage.setItem(ACTIVITY_LOCAL_KEY,JSON.stringify(state.activities));}catch{} notifyCalendarActivityChange(); }
 
+  function loadLocalPending(){
+    try{
+      const x=JSON.parse(localStorage.getItem(PENDING_LOCAL_KEY)||'[]');
+      state.pendingItems=Array.isArray(x)?x:[];
+    }catch{state.pendingItems=[]}
+  }
+  function notifyPendingChange(){
+    try{window.dispatchEvent(new CustomEvent('pendingItemsChanged',{detail:state.pendingItems.map(x=>({...x}))}))}
+    catch{try{window.dispatchEvent(new Event('pendingItemsChanged'))}catch{}}
+  }
+  function saveLocalPending(){
+    try{localStorage.setItem(PENDING_LOCAL_KEY,JSON.stringify(state.pendingItems))}catch{}
+    notifyPendingChange();
+  }
+
   async function connectData() {
     loadLocalActivities();
+    loadLocalPending();
     setSync(navigator.onLine?'connecting':'offline');
     const user = await getUser();
     if (!user) { state.firebaseReady=false; setSync(navigator.onLine?'connecting':'offline'); return; }
-    state.user=user; state.firebaseReady=true; loadActivityPending(); setSync('syncing'); await flushActivityPending();
+    state.user=user; state.firebaseReady=true; loadActivityPending(); loadPendingQueue(); setSync('syncing'); await flushActivityPending(); await flushPendingQueue();
     try{state.unsubSubmissions?.();}catch{} try{state.unsubActivities?.();}catch{}
     state.unsubSubmissions = subCollection().onSnapshot(snap=>{
       state.submissions=snap.docs.map(d=>({id:d.id,...d.data()})); setSync(navigator.onLine?'ok':'offline'); renderDashboard();
@@ -231,6 +296,15 @@
     state.unsubActivities = activityCollection().orderBy('date','desc').onSnapshot(snap=>{
       state.activities=snap.docs.map(d=>({id:d.id,...d.data()})); saveLocalActivities(); setSync(navigator.onLine?'ok':'offline'); renderDashboard(); renderStatsIfOpen(); refreshCategoryList(); renderCalendarActivityOverlay();
     },()=>setSync(navigator.onLine?'connecting':'offline'));
+    try{
+      pendingCollection().onSnapshot(snap=>{
+        state.pendingItems=snap.docs.map(d=>({id:d.id,...d.data()}));
+        saveLocalPending();
+        renderDashboard();
+        renderPendingList();
+        updateSyncDisplay();
+      },err=>console.warn('[planner-enhancements] pending snapshot',err));
+    }catch(e){console.warn('[planner-enhancements] pending listener',e)}
   }
 
   function installPwaUpdatePrompt() {
@@ -445,7 +519,7 @@
       </div>
       <div class="pe-dash-section"><div class="pe-dash-title">而家</div>${activeText?`<div class="pe-dash-row">${esc(activeText)}</div>`:'<div class="pe-dash-empty">目前未偵測到進行中的課節。</div>'}</div>
       <div class="pe-dash-section"><div class="pe-dash-title">📋 今日追收${follow.length?`・${total} 人次`:''}</div>${follow.length?follow.slice(0,5).map(r=>`<div class="pe-dash-row">${esc(r.className||'')}｜${esc(r.name||r.type||'項目')}：${esc((r.missing||[]).map(n=>String(n).padStart(2,'0')).join('、'))}</div>`).join(''):'<div class="pe-dash-empty">今日沒有需要追收。</div>'}</div>
-      <div class="pe-dash-section"><div class="pe-dash-title">📅 今日活動</div>${acts.length?acts.slice(0,8).map(a=>`<div class="pe-dash-row">${esc(a.category||'活動')}｜${esc(a.title||'')}</div>`).join(''):'<div class="pe-dash-empty">今日月曆沒有已顯示的活動／記事。</div>'}</div>
+      <div class="pe-dash-section"><div class="pe-dash-title">📅 今日活動</div>${acts.length?acts.slice(0,8).map(a=>`<div class="pe-dash-row">${esc(a.category||'活動')}｜${esc(a.title||'')}</div>`).join(''):'<div class="pe-dash-empty">今日月曆沒有已顯示的活動／記事。</div>'}</div><div class="pe-dash-section"><div class="pe-dash-title">⏳ Deadline 提醒</div>${urgentPendingItems().length?urgentPendingItems().slice(0,5).map(x=>`<div class="pe-dash-row">${pendingStatus(x)==='overdue'?'⚠ 逾期':'今日到期'}｜${esc(x.title||'')}</div>`).join(''):'<div class="pe-dash-empty">今日沒有到期／逾期事項。</div>'}</div>
       <div class="pe-dash-actions"><button type="button" id="pe-open-sub">查看追收</button><button type="button" class="primary" id="pe-add-today-act">＋今日活動</button></div>
       <button type="button" class="pe-today-done-btn" id="pe-today-done">✅ 今日完成檢查</button>`;
 
@@ -515,6 +589,115 @@
   }
 
 
+
+  function pendingStatus(item){
+    if(item.completed)return 'done';
+    const t=hkToday();
+    if(item.dueDate<t)return 'overdue';
+    if(item.dueDate===t)return 'today';
+    return 'upcoming';
+  }
+  function pendingPriorityLabel(v){return v==='high'?'高':v==='low'?'低':'中'}
+
+  function ensurePendingModal(){
+    let modal=document.getElementById('pe-pending-modal');
+    if(modal)return modal;
+    modal=document.createElement('div');modal.id='pe-pending-modal';modal.className='pe-modal';
+    modal.innerHTML=`<div class="pe-dialog">
+      <h3>⏳ 待處理事項</h3>
+      <p class="pe-note">記錄未完成工作及 deadline；到期／逾期項目會顯示喺月曆同今日工作台。</p>
+      <div class="pe-grid">
+        <div class="pe-field pe-full"><label>事項</label><input id="pe-pending-title" placeholder="例如：回覆家長、交報告"></div>
+        <div class="pe-field"><label>Deadline</label><input id="pe-pending-date" type="date"></div>
+        <div class="pe-field"><label>優先級</label><select id="pe-pending-priority"><option value="high">高</option><option value="medium" selected>中</option><option value="low">低</option></select></div>
+        <div class="pe-field pe-full"><label>備註（可留空）</label><textarea id="pe-pending-note"></textarea></div>
+      </div>
+      <div class="pe-actions"><button class="pe-btn primary" id="pe-pending-add">＋ 加入待辦</button></div>
+      <div class="pe-stat-toolbar" style="margin-top:10px">
+        <select id="pe-pending-filter"><option value="open">未完成</option><option value="done">已完成</option><option value="all">全部</option></select>
+        <input id="pe-pending-search" placeholder="搜尋事項／備註">
+      </div>
+      <div id="pe-pending-list"></div>
+      <div class="pe-actions"><button class="pe-btn" id="pe-pending-close">關閉</button></div>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click',e=>{if(e.target===modal)closeModal(modal)});
+    modal.querySelector('#pe-pending-close').addEventListener('click',()=>closeModal(modal));
+    modal.querySelector('#pe-pending-add').addEventListener('click',addPendingItem);
+    modal.querySelector('#pe-pending-filter').addEventListener('change',renderPendingList);
+    modal.querySelector('#pe-pending-search').addEventListener('input',renderPendingList);
+    return modal;
+  }
+
+  function openPendingModal(){
+    const m=ensurePendingModal();
+    document.getElementById('pe-pending-date').value=hkToday();
+    document.getElementById('pe-pending-title').value='';
+    document.getElementById('pe-pending-note').value='';
+    m.classList.add('open');
+    renderPendingList();
+  }
+
+  async function addPendingItem(){
+    const title=document.getElementById('pe-pending-title').value.trim();
+    const dueDate=document.getElementById('pe-pending-date').value;
+    const priority=document.getElementById('pe-pending-priority').value;
+    const note=document.getElementById('pe-pending-note').value.trim();
+    if(!title||!dueDate){alert('請填寫事項及 deadline。');return}
+    const rec={id:`todo_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,title,dueDate,priority,note,completed:false,completedAt:'',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+    state.pendingItems.unshift(rec);saveLocalPending();renderPendingList();renderDashboard();
+
+    if(state.firebaseReady&&navigator.onLine){
+      setSync('syncing');
+      try{await pendingCollection().doc(rec.id).set(rec);savePendingQueue(loadPendingQueue().filter(x=>x.id!==rec.id));updateSyncDisplay()}
+      catch{queuePendingOp({op:'set',id:rec.id,data:rec})}
+    }else queuePendingOp({op:'set',id:rec.id,data:rec});
+  }
+
+  async function togglePendingComplete(id){
+    const item=state.pendingItems.find(x=>x.id===id);if(!item)return;
+    item.completed=!item.completed;item.completedAt=item.completed?new Date().toISOString():'';item.updatedAt=new Date().toISOString();
+    saveLocalPending();renderPendingList();renderDashboard();
+    if(state.firebaseReady&&navigator.onLine){
+      setSync('syncing');
+      try{await pendingCollection().doc(id).set(item,{merge:true});savePendingQueue(loadPendingQueue().filter(x=>x.id!==id));updateSyncDisplay()}
+      catch{queuePendingOp({op:'set',id,data:item})}
+    }else queuePendingOp({op:'set',id,data:item});
+  }
+
+  async function deletePendingItem(id){
+    const item=state.pendingItems.find(x=>x.id===id);if(!item||!confirm(`刪除「${item.title}」？`))return;
+    state.pendingItems=state.pendingItems.filter(x=>x.id!==id);saveLocalPending();renderPendingList();renderDashboard();
+    if(state.firebaseReady&&navigator.onLine){
+      setSync('syncing');
+      try{await pendingCollection().doc(id).delete();savePendingQueue(loadPendingQueue().filter(x=>x.id!==id));updateSyncDisplay()}
+      catch{queuePendingOp({op:'delete',id})}
+    }else queuePendingOp({op:'delete',id});
+  }
+
+  function renderPendingList(){
+    const out=document.getElementById('pe-pending-list');if(!out)return;
+    const mode=document.getElementById('pe-pending-filter')?.value||'open';
+    const q=(document.getElementById('pe-pending-search')?.value||'').trim().toLowerCase();
+    let arr=state.pendingItems.filter(x=>{
+      if(mode==='open'&&x.completed)return false;
+      if(mode==='done'&&!x.completed)return false;
+      return !q||`${x.title||''} ${x.note||''}`.toLowerCase().includes(q);
+    }).sort((a,b)=>a.completed!==b.completed?(a.completed?1:-1):(a.dueDate||'').localeCompare(b.dueDate||''));
+
+    const open=state.pendingItems.filter(x=>!x.completed);
+    const today=open.filter(x=>pendingStatus(x)==='today').length;
+    const overdue=open.filter(x=>pendingStatus(x)==='overdue').length;
+    out.innerHTML=`<div class="pe-pending-summary"><span class="pe-pending-badge">未完成 ${open.length}</span><span class="pe-pending-badge today">今日到期 ${today}</span><span class="pe-pending-badge overdue">已逾期 ${overdue}</span></div>`+
+      (arr.length?arr.map(x=>{const st=pendingStatus(x);return `<div class="pe-pending-item ${st}"><div class="pe-pending-title">${x.completed?'✓ ':''}${esc(x.title)}</div><div class="pe-pending-meta">Deadline：${fmt(x.dueDate)}｜優先：${pendingPriorityLabel(x.priority)}${x.note?`<br>${esc(x.note)}`:''}</div><div class="pe-pending-actions"><button class="${x.completed?'':'primary'}" data-pending-toggle="${esc(x.id)}">${x.completed?'設為未完成':'✓ 完成'}</button><button data-pending-delete="${esc(x.id)}">刪除</button></div></div>`}).join(''):'<div class="pe-note">暫時未有符合條件的待處理事項。</div>');
+    out.querySelectorAll('[data-pending-toggle]').forEach(b=>b.addEventListener('click',()=>togglePendingComplete(b.dataset.pendingToggle)));
+    out.querySelectorAll('[data-pending-delete]').forEach(b=>b.addEventListener('click',()=>deletePendingItem(b.dataset.pendingDelete)));
+  }
+
+  function urgentPendingItems(){
+    return state.pendingItems.filter(x=>!x.completed&&(pendingStatus(x)==='today'||pendingStatus(x)==='overdue')).sort((a,b)=>(a.dueDate||'').localeCompare(b.dueDate||''));
+  }
+
   function ensureDoneModal(){
     let modal=document.getElementById('pe-done-modal');
     if(modal)return modal;
@@ -541,6 +724,8 @@
     if(acts.length){
       html+=`<div class="pe-done-card"><b>📅 今日活動提示・${acts.length} 項</b>${acts.slice(0,12).map(a=>`<div>${esc(a.category||'活動')}｜${esc(a.title||'')}</div>`).join('')}</div>`;
     }
+    const urgent=urgentPendingItems();
+    if(urgent.length)html+=`<div class="pe-done-card warn"><b>⏳ Deadline 提醒・${urgent.length} 項</b>${urgent.slice(0,12).map(x=>`<div>${pendingStatus(x)==='overdue'?'⚠ 逾期':'今日到期'}｜${esc(x.title||'')}</div>`).join('')}</div>`;
     out.innerHTML=`<div class="pe-done-summary">${html}</div>`;
     modal.classList.add('open');
   }
@@ -548,7 +733,7 @@
   function ensureStatsModal(){
     let modal=document.getElementById('pe-stats-modal');if(modal)return modal;
     modal=document.createElement('div');modal.id='pe-stats-modal';modal.className='pe-modal';
-    modal.innerHTML=`<div class="pe-dialog"><h3>📊 活動紀錄統計</h3><p class="pe-note">按類別檢視出現次數、日期，亦可匯出 CSV 或列印／另存 PDF。</p><div class="pe-stat-toolbar"><select id="pe-stat-range"><option value="year">全學年</option><option value="term1">上學期</option><option value="term2">下學期</option><option value="month">本月</option></select><select id="pe-stat-category"><option value="">全部類型</option></select><input id="pe-stat-search" placeholder="搜尋類別／活動名稱"><button id="pe-export-csv">匯出 CSV</button><button id="pe-print-stats">列印／PDF</button></div><div id="pe-stat-content"></div><div class="pe-actions"><button class="pe-btn" id="pe-stat-close">關閉</button></div></div>`;
+    modal.innerHTML=`<div class="pe-dialog"><h3>📊 活動紀錄統計</h3><p class="pe-note">按類別檢視出現次數、日期，亦可匯出 CSV 或列印／另存 PDF。</p><div class="pe-stat-toolbar"><select id="pe-stat-range"><option value="year">全學年</option><option value="term1">上學期</option><option value="term2">下學期</option><option value="month">本月</option></select><select id="pe-stat-category"><option value="">全部類型</option></select><input id="pe-stat-search" placeholder="搜尋類別／活動名稱"><div class="pe-stat-actions"><button id="pe-export-csv" title="匯出 CSV">CSV</button><button id="pe-print-stats" title="列印／儲存 PDF">PDF</button></div></div><div id="pe-stat-content"></div><div class="pe-actions"><button class="pe-btn" id="pe-stat-close">關閉</button></div></div>`;
     document.body.appendChild(modal);modal.addEventListener('click',e=>{if(e.target===modal)closeModal(modal)});modal.querySelector('#pe-stat-close').addEventListener('click',()=>closeModal(modal));modal.querySelector('#pe-stat-range').addEventListener('change',()=>{refreshStatsCategoryOptions();renderStats()});modal.querySelector('#pe-stat-category').addEventListener('change',renderStats);modal.querySelector('#pe-stat-search').addEventListener('input',renderStats);modal.querySelector('#pe-export-csv').addEventListener('click',exportActivitiesCsv);modal.querySelector('#pe-print-stats').addEventListener('click',printActivityStats);return modal;
   }
   function schoolYearBounds(){const[y,m]=hkToday().split('-').map(Number),sy=m>=8?y:y-1;return{year:[`${sy}-08-01`,`${sy+1}-07-31`],term1:[`${sy}-08-01`,`${sy}-12-31`],term2:[`${sy+1}-01-01`,`${sy+1}-07-31`]}}
@@ -648,7 +833,7 @@
     let sheet=document.getElementById('pe-mobile-more');
     if(sheet)return sheet;
     sheet=document.createElement('div');sheet.id='pe-mobile-more';sheet.className='pe-mobile-more';
-    sheet.innerHTML=`<button id="pe-more-dashboard">☀ 今日工作台</button><button id="pe-more-done">✅ 今日完成</button><button id="pe-more-search">🔎 全站搜尋</button><button id="pe-more-stats">📊 活動統計</button><button id="pe-more-activity">＋ 活動紀錄</button><button id="pe-more-submission">📋 作業／回條</button>`;
+    sheet.innerHTML=`<button id="pe-more-dashboard">☀ 今日工作台</button><button id="pe-more-done">✅ 今日完成</button><button id="pe-more-pending">⏳ 待處理事項</button><button id="pe-more-search">🔎 全站搜尋</button><button id="pe-more-stats">📊 活動統計</button><button id="pe-more-activity">＋ 活動紀錄</button><button id="pe-more-submission">📋 作業／回條</button>`;
     document.body.appendChild(sheet);
     sheet.querySelector('#pe-more-dashboard').addEventListener('click',()=>{
       closeMobileMore();
@@ -657,6 +842,7 @@
       renderDashboard();
     });
     sheet.querySelector('#pe-more-done').addEventListener('click',()=>{closeMobileMore();openDoneCheck()});
+    sheet.querySelector('#pe-more-pending').addEventListener('click',()=>{closeMobileMore();openPendingModal()});
     sheet.querySelector('#pe-more-search').addEventListener('click',()=>{closeMobileMore();openJournalSearch()});
     sheet.querySelector('#pe-more-stats').addEventListener('click',()=>{closeMobileMore();openStatsModal()});
     sheet.querySelector('#pe-more-activity').addEventListener('click',()=>{closeMobileMore();openActivityModal(hkToday())});
@@ -741,7 +927,7 @@
   window.addEventListener('offline',()=>updateSyncDisplay());
 
   async function start(){
-    addCss();ensureSyncPill();installNetworkStatus();ensureDashboard();ensureContextTools();ensureActivityModal();ensureStatsModal();ensureSearchModal();ensureDoneModal();ensureMobileNav();ensureIpadRail();ensureDesktopMoreToggle();ensureMobileMore();ensureCalendarActivityLayer();installPwaUpdatePrompt();await connectData();uiTick();
+    addCss();ensureSyncPill();installNetworkStatus();ensureDashboard();ensureContextTools();ensureActivityModal();ensureStatsModal();ensureSearchModal();ensureDoneModal();ensurePendingModal();ensureMobileNav();ensureIpadRail();ensureDesktopMoreToggle();ensureMobileMore();ensureCalendarActivityLayer();installPwaUpdatePrompt();await connectData();uiTick();
     setInterval(uiTick,1800);
     console.info(`[planner-enhancements] v${VERSION} ready`);
   }
