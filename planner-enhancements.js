@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.4.0';
+  const VERSION = '1.4.2';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const PLANNER_LOCAL_KEY = 'hk-school-planner-v3';
   const state = {
@@ -66,7 +66,26 @@
       .pe-dialog{width:min(760px,100%);max-height:90vh;overflow:auto;border:1px solid #e8d9c4;border-radius:16px;background:#fffdf8;color:#4a3428;box-shadow:0 15px 48px #0005;padding:14px}.pe-dialog h3{margin:0 0 5px;color:#80542f;font-size:15px}.pe-note{margin:0 0 10px;color:#857365;font-size:10px;line-height:1.45}.pe-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.pe-field label{display:block;margin:0 0 3px;color:#857365;font-size:10px;font-weight:700}.pe-field input,.pe-field select,.pe-field textarea{width:100%;border:1px solid #decdb9;border-radius:8px;background:#fff;color:#4a3428;padding:8px;font:600 11px inherit;box-sizing:border-box}.pe-field textarea{min-height:62px;resize:vertical}.pe-full{grid-column:1/-1}.pe-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:10px}.pe-btn{border:1px solid #d9c2a4;border-radius:8px;background:#fff;color:#80542f;padding:7px 10px;font-size:10px;font-weight:800}.pe-btn.primary{background:#a86f3d;border-color:#a86f3d;color:#fff}.pe-btn.danger{color:#c64545}
       .pe-stat-toolbar{display:grid;grid-template-columns:1fr 1fr auto auto;gap:6px;margin:9px 0}.pe-stat-toolbar select,.pe-stat-toolbar input{width:100%;border:1px solid #decdb9;border-radius:8px;padding:7px;background:#fff;color:#4a3428;font-size:10px}.pe-stat-toolbar button{border:1px solid #d8c2a4;border-radius:8px;background:#fff8db;color:#80542f;padding:7px 8px;font-size:9px;font-weight:800}.pe-stat-group{border:1px solid #eadfce;border-radius:10px;background:#fff;padding:8px;margin-top:7px}.pe-stat-group summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:10px;font-size:11px;font-weight:800;color:#80542f}.pe-stat-group summary::-webkit-details-marker{display:none}.pe-stat-list{margin-top:6px;border-top:1px dashed #eadfce;padding-top:5px}.pe-stat-item{display:grid;grid-template-columns:78px 1fr auto;gap:6px;align-items:start;padding:5px 0;border-bottom:1px solid #f1e9dd;font-size:9px}.pe-stat-item:last-child{border-bottom:0}.pe-stat-item b{color:#6d5545}.pe-stat-item small{color:#8b7768;line-height:1.4}.pe-stat-item button{border:0;background:transparent;color:#c64545;font-size:9px;font-weight:800;padding:2px}
       .pe-search-results{margin-top:9px;display:grid;gap:6px}.pe-search-result{border:1px solid #eadfce;border-radius:9px;background:#fff;padding:8px}.pe-search-result .top{display:flex;justify-content:space-between;gap:8px;align-items:center}.pe-search-result b{font-size:10px;color:#80542f}.pe-search-result span{font-size:9px;color:#5f4b3d;line-height:1.45}.pe-search-result small{display:block;margin-top:3px;font-size:8px;color:#998678}.pe-search-hint{font-size:9px;color:#8c7868;line-height:1.5;margin-top:6px}
-      @media(max-width:700px){.pe-sync-pill{top:84px;right:8px;bottom:auto}.pe-dashboard-toggle{right:8px;bottom:62px}.pe-dashboard{right:8px;bottom:102px;width:calc(100vw - 16px);max-height:65vh}.pe-context-tools{left:8px;bottom:8px}.pe-grid{grid-template-columns:1fr}.pe-full{grid-column:auto}.pe-stat-toolbar{grid-template-columns:1fr 1fr}.pe-stat-item{grid-template-columns:68px 1fr auto}}
+      
+      @media(min-width:701px){
+        .pe-desktop-more-toggle{
+          display:block;position:fixed;right:14px;bottom:14px;z-index:2147482500;
+          border:1px solid #d8c2a4;border-radius:999px;background:#fff8db;color:#80542f;
+          padding:9px 13px;font-size:10px;font-weight:900;box-shadow:0 5px 16px #0002
+        }
+        .pe-mobile-more{
+          left:auto;right:14px;bottom:58px;width:320px;
+          border:1px solid #ddd0bd;border-radius:15px;background:#fffdf8;padding:8px;
+          box-shadow:0 8px 28px #0003
+        }
+        .pe-mobile-more.open{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+        .pe-mobile-more button{
+          min-height:42px;border:1px solid #e6d8c6;border-radius:10px;background:#fff8e6;
+          color:#78533a;padding:7px;font-size:10px;font-weight:800
+        }
+      }
+
+@media(max-width:700px){.pe-sync-pill{top:84px;right:8px;bottom:auto}.pe-dashboard-toggle{right:8px;bottom:62px}.pe-dashboard{right:8px;bottom:102px;width:calc(100vw - 16px);max-height:65vh}.pe-context-tools{left:8px;bottom:8px}.pe-grid{grid-template-columns:1fr}.pe-full{grid-column:auto}.pe-stat-toolbar{grid-template-columns:1fr 1fr}.pe-stat-item{grid-template-columns:68px 1fr auto}}
       @media print{.pe-sync-pill,.pe-update-banner,.pe-dashboard-toggle,.pe-dashboard,.pe-context-tools,.pe-modal{display:none!important}}
       .pe-today-done-btn{width:100%;margin-top:7px;border:1px solid #c9a97f;border-radius:9px;background:#fff5d5;color:#80542f;padding:7px 9px;font-size:9px;font-weight:900}
       .pe-done-summary{display:grid;gap:7px;margin-top:8px}
@@ -75,6 +94,9 @@
       .pe-done-card.warn{background:#fff4ef;border-color:#ebc7bc;color:#9b4f3d}
       .pe-done-card b{display:block;font-size:11px;margin-bottom:3px}
       .pe-done-card div{font-size:9px;line-height:1.5}
+      .submission-launcher{display:none!important}
+      .pe-context-tools{display:none!important}
+      .pe-desktop-more-toggle{display:none}
       .pe-mobile-nav{display:none}
       .pe-mobile-more{display:none}
 
@@ -529,13 +551,37 @@
     let sheet=document.getElementById('pe-mobile-more');
     if(sheet)return sheet;
     sheet=document.createElement('div');sheet.id='pe-mobile-more';sheet.className='pe-mobile-more';
-    sheet.innerHTML=`<button id="pe-more-done">✅ 今日完成</button><button id="pe-more-search">🔎 日誌搜尋</button><button id="pe-more-stats">📊 活動統計</button><button id="pe-more-activity">＋ 活動紀錄</button>`;
+    sheet.innerHTML=`<button id="pe-more-dashboard">☀ 今日工作台</button><button id="pe-more-done">✅ 今日完成</button><button id="pe-more-search">🔎 日誌搜尋</button><button id="pe-more-stats">📊 活動統計</button><button id="pe-more-activity">＋ 活動紀錄</button><button id="pe-more-submission">📋 作業／回條</button>`;
     document.body.appendChild(sheet);
+    sheet.querySelector('#pe-more-dashboard').addEventListener('click',()=>{
+      closeMobileMore();
+      const panel=ensureDashboard();
+      panel.classList.add('open');
+      renderDashboard();
+    });
     sheet.querySelector('#pe-more-done').addEventListener('click',()=>{closeMobileMore();openDoneCheck()});
     sheet.querySelector('#pe-more-search').addEventListener('click',()=>{closeMobileMore();openJournalSearch()});
     sheet.querySelector('#pe-more-stats').addEventListener('click',()=>{closeMobileMore();openStatsModal()});
     sheet.querySelector('#pe-more-activity').addEventListener('click',()=>{closeMobileMore();openActivityModal(hkToday())});
+    sheet.querySelector('#pe-more-submission').addEventListener('click',()=>{
+      closeMobileMore();
+      document.querySelector('.submission-launcher')?.click();
+    });
     return sheet;
+  }
+
+
+  function ensureDesktopMoreToggle(){
+    let btn=document.getElementById('pe-desktop-more-toggle');
+    if(btn)return btn;
+    btn=document.createElement('button');
+    btn.type='button';
+    btn.id='pe-desktop-more-toggle';
+    btn.className='pe-desktop-more-toggle';
+    btn.textContent='••• 更多';
+    btn.addEventListener('click',()=>ensureMobileMore().classList.toggle('open'));
+    document.body.appendChild(btn);
+    return btn;
   }
 
   function ensureMobileNav(){
@@ -580,7 +626,7 @@
   function uiTick(){if(document.visibilityState!=='visible')return;renderDashboard();renderContextTools();updateMobileNavActive()}
 
   async function start(){
-    addCss();ensureSyncPill();installNetworkStatus();ensureDashboard();ensureContextTools();ensureActivityModal();ensureStatsModal();ensureSearchModal();ensureDoneModal();ensureMobileNav();ensureMobileMore();installPwaUpdatePrompt();await connectData();uiTick();
+    addCss();ensureSyncPill();installNetworkStatus();ensureDashboard();ensureContextTools();ensureActivityModal();ensureStatsModal();ensureSearchModal();ensureDoneModal();ensureMobileNav();ensureDesktopMoreToggle();ensureMobileMore();installPwaUpdatePrompt();await connectData();uiTick();
     setInterval(uiTick,1800);
     console.info(`[planner-enhancements] v${VERSION} ready`);
   }
