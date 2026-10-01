@@ -1,8 +1,9 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.1.0';
+  const VERSION = '1.2.0';
   const LOCAL_KEY = 'hk-school-submission-records-v1';
+  const PENDING_KEY = 'hk-school-submission-pending-v1';
   const COLORS = {
     cream: '#fff8d9',
     cream2: '#fff3b8',
@@ -22,7 +23,8 @@
     activeId: null,
     unsubscribe: null,
     user: null,
-    usingFirestore: false
+    usingFirestore: false,
+    pendingCount: 0
   };
 
   const pad = n => String(n).padStart(2, '0');
@@ -86,6 +88,8 @@
       missing: (Array.isArray(r.missing) ? r.missing : [])
         .map(Number).filter(n => n >= 1 && n <= count)
         .sort((a,b)=>a-b),
+      missingMeta: (r.missingMeta && typeof r.missingMeta === 'object') ? r.missingMeta : {},
+      studentHistory: Array.isArray(r.studentHistory) ? r.studentHistory : (Array.isArray(r.missing) ? r.missing.map(n=>({student:Number(n),action:'missing',at:r.updatedAt||r.createdAt||new Date().toISOString()})) : []),
       sourceKey: r.sourceKey || '',
       sourceSubject: r.sourceSubject || '',
       sourcePeriod: r.sourcePeriod || '',
@@ -149,8 +153,35 @@
       .collection('submissionRecords');
   }
 
+  function loadPending(){
+    try{const q=JSON.parse(localStorage.getItem(PENDING_KEY)||'[]');state.pendingCount=Array.isArray(q)?q.length:0;return Array.isArray(q)?q:[]}catch{state.pendingCount=0;return[]}
+  }
+  function savePending(q){try{localStorage.setItem(PENDING_KEY,JSON.stringify(q));state.pendingCount=q.length}catch{}renderStatus();window.dispatchEvent(new CustomEvent('submission-pending-changed',{detail:{count:state.pendingCount}}))}
+  function queuePending(item){const q=loadPending().filter(x=>x.id!==item.id);q.push(item);savePending(q)}
+  async function flushPending(){
+    if(!navigator.onLine||!state.usingFirestore)return;
+    let q=loadPending(); if(!q.length)return;
+    const remain=[];
+    for(const item of q){
+      try{
+        if(item.op==='delete') await collectionRef().doc(item.id).delete();
+        else await collectionRef().doc(item.id).set(item.data,{merge:true});
+      }catch{remain.push(item)}
+    }
+    savePending(remain);
+  }
+  function repeatMissingCount(record,student){
+    const cls=record.className||''; let count=0;
+    for(const r of state.records){
+      if((r.className||'')!==cls)continue;
+      count+=(r.studentHistory||[]).filter(e=>Number(e.student)===Number(student)&&e.action==='missing').length;
+    }
+    return count;
+  }
+
   async function connectStorage() {
     loadLocal();
+    loadPending();
     render();
 
     const user = await getUser();
@@ -162,6 +193,7 @@
 
     state.user = user;
     state.usingFirestore = true;
+    await flushPending();
 
     try {
       state.unsubscribe?.();
@@ -192,9 +224,7 @@
     saveLocal();
     render();
 
-    if (state.usingFirestore) {
-      try {
-        await collectionRef().doc(r.id).set({
+    const cloudData = {
           name: r.name,
           type: r.type,
           className: r.className,
@@ -203,16 +233,25 @@
           dueDate: r.dueDate,
           deadlineDate: r.deadlineDate,
           missing: r.missing,
+          missingMeta: r.missingMeta || {},
+          studentHistory: r.studentHistory || [],
           sourceKey: r.sourceKey || '',
           sourceSubject: r.sourceSubject || '',
           sourcePeriod: r.sourcePeriod || '',
           createdAt: r.createdAt,
           updatedAt: r.updatedAt
-        }, { merge: true });
+        };
+    if (state.usingFirestore && navigator.onLine) {
+      try {
+        await collectionRef().doc(r.id).set(cloudData, { merge: true });
+        const q=loadPending().filter(x=>!(x.op==='set'&&x.id===r.id));savePending(q);
       } catch (err) {
         console.error('[Submission module] save', err);
-        toast('Firestore 儲存失敗，已暫存本機', 'error');
+        queuePending({op:'set',id:r.id,data:cloudData});
+        toast('Firestore 儲存失敗，已加入待同步', 'error');
       }
+    } else {
+      queuePending({op:'set',id:r.id,data:cloudData});
     }
   }
 
@@ -221,14 +260,10 @@
     if (state.activeId === recordId) state.activeId = state.records[0]?.id || null;
     saveLocal();
     render();
-    if (state.usingFirestore) {
-      try {
-        await collectionRef().doc(recordId).delete();
-      } catch (err) {
-        console.error('[Submission module] delete', err);
-        toast('Firestore 刪除失敗', 'error');
-      }
-    }
+    if (state.usingFirestore && navigator.onLine) {
+      try { await collectionRef().doc(recordId).delete(); }
+      catch (err) { console.error('[Submission module] delete', err); queuePending({op:'delete',id:recordId}); toast('刪除已加入待同步', 'error'); }
+    } else queuePending({op:'delete',id:recordId});
   }
 
   function toast(message, kind='ok') {
@@ -282,6 +317,12 @@
       .sub-student{width:36px;height:36px;padding:0;border-radius:50%;border:1.5px solid #d8c2aa;background:#fffdf8;color:${COLORS.caramelDark};font-size:11px;font-weight:800}
       .sub-student.missing{border-color:#e5a29e;background:${COLORS.dangerBg};color:${COLORS.danger}}
       .sub-missing-summary{margin-top:7px;padding:7px 9px;border:1px solid ${COLORS.line};border-radius:9px;background:#fffdf8;font-size:11px}
+      .sub-missing-details{margin-top:7px;display:grid;gap:5px}
+      .sub-missing-row{display:grid;grid-template-columns:62px 110px 1fr auto;gap:5px;align-items:center;padding:6px;border:1px solid ${COLORS.line};border-radius:8px;background:#fff}
+      .sub-missing-row b{font-size:10px}.sub-missing-row small{font-size:8px;color:${COLORS.muted}}
+      .sub-missing-row select,.sub-missing-row input{min-width:0;border:1px solid ${COLORS.line};border-radius:7px;padding:6px;font-size:9px;background:#fffdf8}
+      .sub-repeat{font-size:8px;color:${COLORS.danger};font-weight:800}
+
       .sub-follow-item,.sub-record{border:1px solid ${COLORS.line};border-radius:10px;background:#fffdf8;padding:8px 9px;margin-top:6px}
       .sub-follow-item{border-color:#edcfb7;background:#fff7eb}
       .sub-item-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
@@ -311,8 +352,10 @@
         #submission-page{padding:50px 7px 12px}
         .sub-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
         .sub-students{grid-template-columns:repeat(6,minmax(34px,1fr))}
+        .sub-missing-row{grid-template-columns:54px 92px 1fr auto}
         .sub-bubble{padding:8px 9px;margin-bottom:6px;border-radius:12px}
       }
+      @media(max-width:600px){.sub-missing-row{grid-template-columns:54px 1fr}.sub-missing-row input{grid-column:1/-1}}
       @media print{#submission-page,.submission-launcher,.today-submission-card,.journal-followup-btn,.journal-followup-modal{display:none!important}}
     `;
     document.head.appendChild(style);
@@ -358,7 +401,7 @@
 
   function renderStatus() {
     const el = document.querySelector('#submission-page .sub-storage');
-    if (el) el.textContent = state.usingFirestore ? '● Firestore 已同步' : '○ 本機暫存';
+    if (el) el.textContent = state.pendingCount ? `⚠ 待同步 ${state.pendingCount}` : (state.usingFirestore ? '● Firestore 已同步' : '○ 本機暫存');
   }
 
   function render() {
@@ -455,6 +498,7 @@
         ).join('')}
       </div>
       <div class="sub-missing-summary">${miss.length ? `<b style="color:${COLORS.danger}">欠交 ${miss.length} 人：</b> ${miss.map(pad).join('、')}` : '目前沒有欠交學生。'}</div>
+      ${miss.length?`<div class="sub-missing-details">${miss.map(n=>{const meta=r.missingMeta?.[n]||{};const repeat=repeatMissingCount(r,n);return `<div class="sub-missing-row"><div><b>${pad(n)}號</b>${repeat>1?`<div class="sub-repeat">累計 ${repeat} 次</div>`:''}</div><select data-missing-reason="${n}"><option ${meta.reason==='未交'?'selected':''}>未交</option><option ${meta.reason==='病假'?'selected':''}>病假</option><option ${meta.reason==='缺席'?'selected':''}>缺席</option><option ${meta.reason==='忘記'?'selected':''}>忘記</option><option ${meta.reason==='其他'?'selected':''}>其他</option></select><input data-missing-note="${n}" value="${esc(meta.note||'')}" placeholder="備註"><button class="sub-btn" data-returned="${n}">已補交</button></div>`}).join('')}</div>`:''}
       <div class="sub-actions">
         <button class="sub-btn" id="sub-all-done">全部已交</button>
         <button class="sub-btn danger" id="sub-all-missing">全部欠交</button>
@@ -518,16 +562,32 @@
         if (!r) return;
         const n = Number(btn.dataset.student);
         const missing = [...(r.missing || [])];
+        const meta={...(r.missingMeta||{})};
+        const hist=[...(r.studentHistory||[])];
         const idx = missing.indexOf(n);
-        if (idx >= 0) missing.splice(idx,1); else missing.push(n);
+        if (idx >= 0) {
+          missing.splice(idx,1);
+          meta[n]={...(meta[n]||{}),returnedAt:new Date().toISOString()};
+          hist.push({student:n,action:'returned',at:new Date().toISOString()});
+        } else {
+          missing.push(n);
+          meta[n]={reason:meta[n]?.reason||'未交',note:meta[n]?.note||'',missingAt:new Date().toISOString()};
+          hist.push({student:n,action:'missing',at:new Date().toISOString()});
+        }
         missing.sort((a,b)=>a-b);
-        await upsertRecord({...r, missing});
+        await upsertRecord({...r, missing, missingMeta:meta, studentHistory:hist});
       });
     });
 
+    document.querySelectorAll('[data-missing-reason]').forEach(el=>el.addEventListener('change',async()=>{const r=active();if(!r)return;const n=Number(el.dataset.missingReason),meta={...(r.missingMeta||{})};meta[n]={...(meta[n]||{}),reason:el.value};await upsertRecord({...r,missingMeta:meta})}));
+    document.querySelectorAll('[data-missing-note]').forEach(el=>el.addEventListener('change',async()=>{const r=active();if(!r)return;const n=Number(el.dataset.missingNote),meta={...(r.missingMeta||{})};meta[n]={...(meta[n]||{}),note:el.value};await upsertRecord({...r,missingMeta:meta})}));
+    document.querySelectorAll('[data-returned]').forEach(btn=>btn.addEventListener('click',async()=>{const r=active();if(!r)return;const n=Number(btn.dataset.returned),missing=(r.missing||[]).filter(x=>x!==n),meta={...(r.missingMeta||{})},hist=[...(r.studentHistory||[])];meta[n]={...(meta[n]||{}),returnedAt:new Date().toISOString()};hist.push({student:n,action:'returned',at:new Date().toISOString()});await upsertRecord({...r,missing,missingMeta:meta,studentHistory:hist})}));
+
     document.getElementById('sub-all-done')?.addEventListener('click', async () => {
       const r = active(); if (!r) return;
-      await upsertRecord({...r, missing:[]});
+      const meta={...(r.missingMeta||{})},hist=[...(r.studentHistory||[])],now=new Date().toISOString();
+      (r.missing||[]).forEach(n=>{meta[n]={...(meta[n]||{}),returnedAt:now};hist.push({student:n,action:'returned',at:now})});
+      await upsertRecord({...r, missing:[],missingMeta:meta,studentHistory:hist});
     });
 
     document.getElementById('sub-all-missing')?.addEventListener('click', async () => {
@@ -730,6 +790,14 @@
       refreshJournalButtons();
     }, 1800);
   }
+
+  window.__submissionTrackerAPI={
+    getRecords:()=>state.records.map(r=>({...r})),
+    getPendingCount:()=>{loadPending();return state.pendingCount},
+    flushPending,
+    open:showPage
+  };
+  window.addEventListener('online',()=>flushPending());
 
   async function start() {
     injectCss();

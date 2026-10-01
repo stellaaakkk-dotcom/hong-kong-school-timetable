@@ -1,8 +1,9 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.4.2';
+  const VERSION = '1.5.0';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
+  const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PLANNER_LOCAL_KEY = 'hk-school-planner-v3';
   const state = {
     user: null,
@@ -100,6 +101,19 @@
       .pe-mobile-nav{display:none}
       .pe-mobile-more{display:none}
 
+
+      .pe-ipad-rail{display:none}
+      @media(min-width:701px) and (max-width:1100px){
+        .pe-desktop-more-toggle{display:none!important}
+        .pe-ipad-rail{display:grid;position:fixed;right:10px;top:50%;transform:translateY(-50%);z-index:2147482500;gap:6px;padding:6px;border:1px solid #ddd0bd;border-radius:16px;background:#fffdf8ee;backdrop-filter:blur(12px);box-shadow:0 8px 26px #0002}
+        .pe-ipad-rail button{width:58px;min-height:52px;border:0;border-radius:10px;background:transparent;color:#705642;font-size:9px;font-weight:850;line-height:1.15}
+        .pe-ipad-rail .ico{display:block;font-size:17px;margin-bottom:2px}
+        .pe-ipad-rail button.active{background:#fff0bc;color:#7d532f}
+        .pe-mobile-more{right:78px!important;bottom:auto!important;top:50%!important;transform:translateY(-50%);width:330px!important}
+        .pe-dialog{width:min(820px,calc(100vw - 120px))}
+        #submission-page .sub-wrap{max-width:920px;padding-right:66px}
+        .sub-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+      }
       @media(max-width:700px){
         body{padding-bottom:70px!important}
         .pe-mobile-nav{
@@ -146,6 +160,13 @@
     pill.className = `pe-sync-pill ${cls}`;
     pill.textContent = text;
   }
+
+  function loadActivityPending(){try{const q=JSON.parse(localStorage.getItem(ACTIVITY_PENDING_KEY)||'[]');state.activityPending=Array.isArray(q)?q.length:0;return Array.isArray(q)?q:[]}catch{state.activityPending=0;return[]}}
+  function saveActivityPending(q){try{localStorage.setItem(ACTIVITY_PENDING_KEY,JSON.stringify(q));state.activityPending=q.length}catch{}updateSyncDisplay()}
+  function queueActivityPending(item){const q=loadActivityPending().filter(x=>x.id!==item.id);q.push(item);saveActivityPending(q)}
+  function totalPending(){const sub=window.__submissionTrackerAPI?.getPendingCount?.()||0;return state.activityPending+sub}
+  function updateSyncDisplay(){const n=totalPending();if(n>0){const p=ensureSyncPill();p.className='pe-sync-pill off';p.textContent=`⚠ 待同步 ${n}`;return}setSync(navigator.onLine?(state.firebaseReady?'ok':'connecting'):'offline')}
+  async function flushActivityPending(){if(!navigator.onLine||!state.firebaseReady)return;let q=loadActivityPending(),remain=[];for(const item of q){try{if(item.op==='delete')await activityCollection().doc(item.id).delete();else await activityCollection().doc(item.id).set(item.data,{merge:true})}catch{remain.push(item)}}saveActivityPending(remain)}
 
   function ensureSyncPill() {
     let el = document.getElementById('pe-sync-pill');
@@ -196,7 +217,7 @@
     setSync(navigator.onLine?'connecting':'offline');
     const user = await getUser();
     if (!user) { state.firebaseReady=false; setSync(navigator.onLine?'connecting':'offline'); return; }
-    state.user=user; state.firebaseReady=true; setSync('syncing');
+    state.user=user; state.firebaseReady=true; loadActivityPending(); setSync('syncing'); await flushActivityPending();
     try{state.unsubSubmissions?.();}catch{} try{state.unsubActivities?.();}catch{}
     state.unsubSubmissions = subCollection().onSnapshot(snap=>{
       state.submissions=snap.docs.map(d=>({id:d.id,...d.data()})); setSync(navigator.onLine?'ok':'offline'); renderDashboard();
@@ -444,7 +465,7 @@
       el.querySelector('#pe-add-act').addEventListener('click',()=>openActivityModal());
       el.querySelector('#pe-stats').addEventListener('click',openStatsModal); el.classList.add('show');
     } else if(currentJournalVisible()){
-      el.innerHTML='<button type="button" id="pe-search-journal">🔎 搜尋教學日誌</button>';
+      el.innerHTML='<button type="button" id="pe-search-journal">🔎 全站搜尋</button>';
       el.querySelector('#pe-search-journal').addEventListener('click',openJournalSearch); el.classList.add('show');
     } else { el.classList.remove('show'); el.innerHTML=''; }
   }
@@ -465,7 +486,8 @@
     if(!date||!category||!title){alert('請填寫日期、活動類別及活動名稱。');return}
     const rec={id:`act_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,date,category,title,note,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
     state.activities.unshift(rec);saveLocalActivities();closeModal(document.getElementById('pe-activity-modal'));renderDashboard();renderStatsIfOpen();
-    if(state.firebaseReady){setSync('syncing');try{await activityCollection().doc(rec.id).set({date,category,title,note,createdAt:rec.createdAt,updatedAt:rec.updatedAt});setSync('ok')}catch{setSync(navigator.onLine?'connecting':'offline');alert('Firestore 儲存失敗，紀錄已暫存在本機。')}}
+    const cloudData={date,category,title,note,createdAt:rec.createdAt,updatedAt:rec.updatedAt};
+    if(state.firebaseReady&&navigator.onLine){setSync('syncing');try{await activityCollection().doc(rec.id).set(cloudData);saveActivityPending(loadActivityPending().filter(x=>!(x.op==='set'&&x.id===rec.id)));updateSyncDisplay()}catch{queueActivityPending({op:'set',id:rec.id,data:cloudData});alert('Firestore 儲存失敗，已加入待同步。')}}else queueActivityPending({op:'set',id:rec.id,data:cloudData});
   }
 
 
@@ -510,7 +532,7 @@
   function renderStats(){const out=document.getElementById('pe-stat-content');if(!out)return;const items=filteredActivities(),groups={};items.forEach(a=>(groups[(a.category||'未分類').trim()||'未分類']||=[]).push(a));const entries=Object.entries(groups).sort((a,b)=>b[1].length-a[1].length||a[0].localeCompare(b[0],'zh-HK'));out.innerHTML=entries.length?entries.map(([cat,arr])=>`<details class="pe-stat-group" open><summary><span>${esc(cat)}</span><span>${arr.length} 次</span></summary><div class="pe-stat-list">${arr.sort((a,b)=>a.date.localeCompare(b.date)).map(a=>`<div class="pe-stat-item"><b>${fmt(a.date)}</b><small><strong>${esc(a.title||'')}</strong>${a.note?`<br>${esc(a.note)}`:''}</small><button data-delete-activity="${esc(a.id||'')}">刪除</button></div>`).join('')}</div></details>`).join(''):'<div class="pe-note">這個範圍暫時未有活動紀錄。</div>';out.querySelectorAll('[data-delete-activity]').forEach(b=>b.addEventListener('click',()=>deleteActivity(b.dataset.deleteActivity)))}
   function openStatsModal(){ensureStatsModal().classList.add('open');renderStats()}
   function renderStatsIfOpen(){if(document.getElementById('pe-stats-modal')?.classList.contains('open'))renderStats()}
-  async function deleteActivity(id){const r=state.activities.find(x=>x.id===id);if(!r||!confirm(`刪除「${r.title}」？`))return;state.activities=state.activities.filter(x=>x.id!==id);saveLocalActivities();renderStats();renderDashboard();if(state.firebaseReady){setSync('syncing');try{await activityCollection().doc(id).delete();setSync('ok')}catch{setSync(navigator.onLine?'connecting':'offline')}}}
+  async function deleteActivity(id){const r=state.activities.find(x=>x.id===id);if(!r||!confirm(`刪除「${r.title}」？`))return;state.activities=state.activities.filter(x=>x.id!==id);saveLocalActivities();renderStats();renderDashboard();if(state.firebaseReady&&navigator.onLine){setSync('syncing');try{await activityCollection().doc(id).delete();saveActivityPending(loadActivityPending().filter(x=>!(x.op==='delete'&&x.id===id)));updateSyncDisplay()}catch{queueActivityPending({op:'delete',id})}}else queueActivityPending({op:'delete',id})}
 
   function csvCell(v){return `"${String(v??'').replace(/"/g,'""')}"`}
   function exportActivitiesCsv(){const rows=filteredActivities().sort((a,b)=>a.date.localeCompare(b.date));const csv=['日期,活動類別,活動名稱,備註',...rows.map(a=>[a.date,a.category,a.title,a.note].map(csvCell).join(','))].join('\r\n');const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`活動紀錄_${hkToday()}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
@@ -519,12 +541,24 @@
   function readPlannerData(){try{return JSON.parse(localStorage.getItem(PLANNER_LOCAL_KEY)||'{}')}catch{return{}}}
   function ensureSearchModal(){
     let modal=document.getElementById('pe-search-modal');if(modal)return modal;
-    modal=document.createElement('div');modal.id='pe-search-modal';modal.className='pe-modal';modal.innerHTML=`<div class="pe-dialog"><h3>🔎 搜尋教學日誌</h3><p class="pe-note">可搜尋日期、教學進度及功課；目前畫面內亦會連科目一併搜尋。</p><div class="pe-grid"><div class="pe-field pe-full"><label>關鍵字</label><input id="pe-journal-query" placeholder="例如：記敘文／詞語改正／2026-09-15"></div></div><div class="pe-search-hint">提示：全部歷史紀錄會由本機 lessonNotes 搜尋；科目名稱則以目前載入的循環週為準。</div><div id="pe-search-results" class="pe-search-results"></div><div class="pe-actions"><button class="pe-btn" id="pe-search-close">關閉</button></div></div>`;document.body.appendChild(modal);modal.addEventListener('click',e=>{if(e.target===modal)closeModal(modal)});modal.querySelector('#pe-search-close').addEventListener('click',()=>closeModal(modal));modal.querySelector('#pe-journal-query').addEventListener('input',renderJournalSearch);return modal;
+    modal=document.createElement('div');modal.id='pe-search-modal';modal.className='pe-modal';
+    modal.innerHTML=`<div class="pe-dialog pe-global-search"><h3>🔎 全站搜尋</h3><p class="pe-note">一次搜尋教學日誌／功課、月曆記事、校曆活動、活動紀錄及追收紀錄。</p><div class="pe-grid"><div class="pe-field pe-full"><label>關鍵字</label><input id="pe-global-query" placeholder="例如：作文／家長會／3A／詞語改正"></div></div><div id="pe-search-results" class="pe-search-results"></div><div class="pe-actions"><button class="pe-btn" id="pe-search-close">關閉</button></div></div>`;
+    document.body.appendChild(modal);modal.addEventListener('click',ev=>{if(ev.target===modal)closeModal(modal)});modal.querySelector('#pe-search-close').addEventListener('click',()=>closeModal(modal));modal.querySelector('#pe-global-query').addEventListener('input',renderGlobalSearch);return modal;
   }
-  function openJournalSearch(){const m=ensureSearchModal();m.classList.add('open');document.getElementById('pe-journal-query').focus();renderJournalSearch()}
+  function openJournalSearch(){const m=ensureSearchModal();m.classList.add('open');document.getElementById('pe-global-query').focus();renderGlobalSearch()}
   function currentVisibleSubjectMap(){const map={};document.querySelectorAll('.journal-table tbody tr').forEach(row=>{const subject=row.querySelector('.subject-cell')?.textContent?.trim();const ta=row.querySelector('textarea[aria-label*="進度"],textarea[aria-label*="功課"]');const label=ta?.getAttribute('aria-label')||'';const m=label.match(/第(\d+)節/);if(subject&&m)map[Number(m[1])-1]=subject});return map}
-  function journalRows(){const data=readPlannerData(),notes=data.lessonNotes||{},subjects=currentVisibleSubjectMap(),rows=[];for(const[key,val]of Object.entries(notes)){if(!val||typeof val!=='string')continue;const m=key.match(/^(\d{4}-\d{2}-\d{2})-(\d+)-(p|h)$/);if(!m)continue;const date=m[1],period=Number(m[2])+1,type=m[3]==='p'?'教學進度':'功課';rows.push({date,period,type,text:val,subject:subjects[Number(m[2])]||''})}return rows}
-  function renderJournalSearch(){const out=document.getElementById('pe-search-results');if(!out)return;const q=(document.getElementById('pe-journal-query')?.value||'').trim().toLowerCase();if(!q){out.innerHTML='<div class="pe-note">輸入關鍵字開始搜尋。</div>';return}const rows=journalRows().filter(r=>`${r.date} ${r.period} ${r.type} ${r.text} ${r.subject}`.toLowerCase().includes(q)).sort((a,b)=>b.date.localeCompare(a.date)||a.period-b.period).slice(0,100);out.innerHTML=rows.length?rows.map(r=>`<div class="pe-search-result"><div class="top"><b>${fmt(r.date)}・第${r.period}節${r.subject?`・${esc(r.subject)}`:''}</b><span>${r.type}</span></div><small>${esc(r.text)}</small></div>`).join(''):'<div class="pe-note">找不到相符紀錄。</div>'}
+  function journalRows(){const data=readPlannerData(),notes=data.lessonNotes||{},subjects=currentVisibleSubjectMap(),rows=[];for(const[key,val]of Object.entries(notes)){if(!val||typeof val!=='string')continue;const m=key.match(/^(\d{4}-\d{2}-\d{2})-(\d+)-(p|h)$/);if(!m)continue;rows.push({kind:m[3]==='p'?'教學進度':'功課',date:m[1],title:`第${Number(m[2])+1}節${subjects[Number(m[2])]?`・${subjects[Number(m[2])]}`:''}`,text:val})}return rows}
+  function globalSearchRows(){
+    const p=readPlannerData(),rows=[...journalRows()];
+    for(const[date,note]of Object.entries(p.calendarNotes||{}))if(String(note||'').trim())rows.push({kind:'月曆記事',date,title:'自行輸入',text:String(note)});
+    const deleted=new Set(Array.isArray(p.deletedDefaultEventKeys)?p.deletedDefaultEventKeys:[]),custom=Array.isArray(p.customCalendarEvents)?p.customCalendarEvents:[];
+    [...DEFAULT_SCHOOL_EVENTS.filter(x=>!deleted.has(defaultEventKey(x))),...custom].forEach(a=>rows.push({kind:'校曆活動',date:a.start||a.date||'',title:a.title||a.name||'',text:[a.type,a.end].filter(Boolean).join(' ')}));
+    state.activities.forEach(a=>rows.push({kind:'活動紀錄',date:a.date||'',title:a.category||'',text:`${a.title||''} ${a.note||''}`}));
+    const subs=window.__submissionTrackerAPI?.getRecords?.()||state.submissions||[];
+    subs.forEach(r=>rows.push({kind:'追收紀錄',date:r.issueDate||r.dueDate||'',title:`${r.className||''}｜${r.name||''}`,text:`${r.type||''} 欠交 ${(r.missing||[]).map(n=>String(n).padStart(2,'0')).join('、')}`}));
+    return rows;
+  }
+  function renderGlobalSearch(){const out=document.getElementById('pe-search-results');if(!out)return;const q=(document.getElementById('pe-global-query')?.value||'').trim().toLowerCase();if(!q){out.innerHTML='<div class="pe-note">輸入關鍵字開始搜尋。</div>';return}const rows=globalSearchRows().filter(r=>`${r.kind} ${r.date} ${r.title} ${r.text}`.toLowerCase().includes(q)).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,150);out.innerHTML=rows.length?rows.map(r=>`<div class="pe-search-result"><div class="top"><b>${esc(r.title||r.kind)}</b><span>${esc(r.kind)}</span></div><small>${r.date?`${esc(fmt(r.date))}・`:''}${esc(r.text||'')}</small></div>`).join(''):'<div class="pe-note">找不到相符紀錄。</div>'}
 
 
   function findMainTabByKeywords(words){
@@ -551,7 +585,7 @@
     let sheet=document.getElementById('pe-mobile-more');
     if(sheet)return sheet;
     sheet=document.createElement('div');sheet.id='pe-mobile-more';sheet.className='pe-mobile-more';
-    sheet.innerHTML=`<button id="pe-more-dashboard">☀ 今日工作台</button><button id="pe-more-done">✅ 今日完成</button><button id="pe-more-search">🔎 日誌搜尋</button><button id="pe-more-stats">📊 活動統計</button><button id="pe-more-activity">＋ 活動紀錄</button><button id="pe-more-submission">📋 作業／回條</button>`;
+    sheet.innerHTML=`<button id="pe-more-dashboard">☀ 今日工作台</button><button id="pe-more-done">✅ 今日完成</button><button id="pe-more-search">🔎 全站搜尋</button><button id="pe-more-stats">📊 活動統計</button><button id="pe-more-activity">＋ 活動紀錄</button><button id="pe-more-submission">📋 作業／回條</button>`;
     document.body.appendChild(sheet);
     sheet.querySelector('#pe-more-dashboard').addEventListener('click',()=>{
       closeMobileMore();
@@ -570,6 +604,17 @@
     return sheet;
   }
 
+
+  function ensureIpadRail(){
+    let rail=document.getElementById('pe-ipad-rail');if(rail)return rail;
+    rail=document.createElement('nav');rail.id='pe-ipad-rail';rail.className='pe-ipad-rail';rail.innerHTML=`<button data-ipad="today"><span class="ico">☀</span>今日</button><button data-ipad="journal"><span class="ico">📝</span>日誌</button><button data-ipad="calendar"><span class="ico">📅</span>月曆</button><button data-ipad="more"><span class="ico">•••</span>更多</button>`;document.body.appendChild(rail);
+    rail.querySelector('[data-ipad="today"]').addEventListener('click',()=>clickMainTab(['今日課表','當日課表','今日']));
+    rail.querySelector('[data-ipad="journal"]').addEventListener('click',()=>clickMainTab(['教學日誌','日誌']));
+    rail.querySelector('[data-ipad="calendar"]').addEventListener('click',()=>clickMainTab(['月曆','月历']));
+    rail.querySelector('[data-ipad="more"]').addEventListener('click',()=>ensureMobileMore().classList.toggle('open'));
+    return rail;
+  }
+  function updateIpadRailActive(){const rail=ensureIpadRail();rail.querySelectorAll('button').forEach(b=>b.classList.remove('active'));if(isVisible(document.querySelector('.today-board')))rail.querySelector('[data-ipad="today"]')?.classList.add('active');else if(isVisible(document.querySelector('.journal-table')))rail.querySelector('[data-ipad="journal"]')?.classList.add('active');else if(isVisible(document.querySelector('.calendar-grid')))rail.querySelector('[data-ipad="calendar"]')?.classList.add('active')}
 
   function ensureDesktopMoreToggle(){
     let btn=document.getElementById('pe-desktop-more-toggle');
@@ -623,10 +668,14 @@
     }
   }
 
-  function uiTick(){if(document.visibilityState!=='visible')return;renderDashboard();renderContextTools();updateMobileNavActive()}
+  function uiTick(){if(document.visibilityState!=='visible')return;renderDashboard();renderContextTools();updateMobileNavActive();updateIpadRailActive();updateSyncDisplay()}
+
+  window.addEventListener('submission-pending-changed',()=>updateSyncDisplay());
+  window.addEventListener('online',()=>{flushActivityPending();window.__submissionTrackerAPI?.flushPending?.();setTimeout(updateSyncDisplay,300)});
+  window.addEventListener('offline',()=>updateSyncDisplay());
 
   async function start(){
-    addCss();ensureSyncPill();installNetworkStatus();ensureDashboard();ensureContextTools();ensureActivityModal();ensureStatsModal();ensureSearchModal();ensureDoneModal();ensureMobileNav();ensureDesktopMoreToggle();ensureMobileMore();installPwaUpdatePrompt();await connectData();uiTick();
+    addCss();ensureSyncPill();installNetworkStatus();ensureDashboard();ensureContextTools();ensureActivityModal();ensureStatsModal();ensureSearchModal();ensureDoneModal();ensureMobileNav();ensureIpadRail();ensureDesktopMoreToggle();ensureMobileMore();installPwaUpdatePrompt();await connectData();uiTick();
     setInterval(uiTick,1800);
     console.info(`[planner-enhancements] v${VERSION} ready`);
   }
