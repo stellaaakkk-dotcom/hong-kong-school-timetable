@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.5.2';
+  const VERSION = '1.5.3';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PLANNER_LOCAL_KEY = 'hk-school-planner-v3';
@@ -98,7 +98,7 @@
       .submission-launcher{display:none!important}
       .pe-context-tools{display:none!important}
       .pe-desktop-more-toggle{display:none}
-      .pe-cal-activity-layer{position:fixed;inset:0;z-index:2147480500;pointer-events:none}
+      .pe-cal-activity-layer{display:none!important}
       .pe-cal-activity-chip{position:fixed;max-width:46%;border:1px solid #d9b879;border-radius:6px;background:#fff0b8;color:#6f4827;padding:2px 4px;font-size:7px;font-weight:900;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 4px #0002}
       .pe-cal-activity-chip.more{background:#fffaf0;color:#8a6c4e}
       @media(max-width:700px){.pe-cal-activity-chip{font-size:6px;max-width:52%;padding:1px 3px}}
@@ -215,7 +215,8 @@
   function loadLocalActivities() {
     try { const x=JSON.parse(localStorage.getItem(ACTIVITY_LOCAL_KEY)||'[]'); state.activities=Array.isArray(x)?x:[]; } catch { state.activities=[]; }
   }
-  function saveLocalActivities(){ try{localStorage.setItem(ACTIVITY_LOCAL_KEY,JSON.stringify(state.activities));}catch{} }
+  function notifyCalendarActivityChange(){try{window.dispatchEvent(new Event('calendarActivityLogsChanged'))}catch{}}
+  function saveLocalActivities(){ try{localStorage.setItem(ACTIVITY_LOCAL_KEY,JSON.stringify(state.activities));}catch{} notifyCalendarActivityChange(); }
 
   async function connectData() {
     loadLocalActivities();
@@ -471,50 +472,8 @@
     return hkToday().slice(0,7);
   }
 
-  function ensureCalendarActivityLayer(){
-    let layer=document.getElementById('pe-cal-activity-layer');
-    if(!layer){layer=document.createElement('div');layer.id='pe-cal-activity-layer';layer.className='pe-cal-activity-layer';document.body.appendChild(layer)}
-    return layer;
-  }
-
-  function renderCalendarActivityOverlay(){
-    const layer=ensureCalendarActivityLayer();
-    const grid=visibleCalendarGrid();
-    if(!grid){layer.innerHTML='';return}
-
-    const month=visibleCalendarMonth();
-    if(!/^\d{4}-\d{2}$/.test(month)){layer.innerHTML='';return}
-
-    const cells=[...grid.querySelectorAll('.cal-cell:not(.empty)')];
-    const byDate={};
-    state.activities.forEach(a=>{if(a.date&&(byDate[a.date]||=[]))byDate[a.date].push(a)});
-
-    const chips=[];
-    for(const cell of cells){
-      const dayText=cell.querySelector(':scope > b')?.textContent?.trim();
-      const day=Number(dayText);
-      if(!day)continue;
-      const date=`${month}-${String(day).padStart(2,'0')}`;
-      const items=byDate[date]||[];
-      if(!items.length)continue;
-      const r=cell.getBoundingClientRect();
-      const visible=items.slice(0,2);
-      visible.forEach((a,idx)=>{
-        chips.push({
-          text:`紀錄｜${a.category||'活動'}：${a.title||''}`,
-          left:r.left+4,
-          top:r.top+25+idx*14,
-          width:Math.max(55,r.width-8),
-          more:false
-        });
-      });
-      if(items.length>2){
-        chips.push({text:`＋${items.length-2}`,left:r.right-28,top:r.top+53,width:24,more:true});
-      }
-    }
-
-    layer.innerHTML=chips.map(c=>`<div class="pe-cal-activity-chip${c.more?' more':''}" style="left:${Math.round(c.left)}px;top:${Math.round(c.top)}px;width:${Math.round(c.width)}px">${esc(c.text)}</div>`).join('');
-  }
+  function ensureCalendarActivityLayer(){return null}
+  function renderCalendarActivityOverlay(){notifyCalendarActivityChange()}
 
   function currentCalendarVisible(){return !!visibleCalendarGrid()}
   function currentJournalVisible(){const g=document.querySelector('.journal-table');return !!g&&isVisible(g)}
