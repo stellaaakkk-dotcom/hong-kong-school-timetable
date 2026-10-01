@@ -1,33 +1,45 @@
-香港教師教學日誌整合版 v1.2.0
+香港教師教學日誌 v1.3.0
 
 新增：
-1. 全站第 6 款配色：「布甸狗」
-   主色：焦糖啡 #B67A45
-   柔和色：奶油黃 #FFF1B8
+1. PWA 新版本提示
+   - 偵測 service worker 更新
+   - 顯示「有新版本 → 立即更新」
 
-2. 今日課表：
-   - 顯示「📋 今日追收」
-   - 只列已到繳交／追收日期而仍有欠交學生的項目
-   - 「查看全部」會打開完整作業／回條頁
+2. Firestore 同步狀態
+   - ⟳ 連接中／同步中
+   - ☁ 已同步
+   - ⚠ 離線暫存
 
-3. 月曆：
-   - 「＋活動紀錄」：日期／活動類別／活動名稱／備註
-   - 類別會自動重用
-   - 「📊 活動統計」：本月／上學期／下學期／全學年
-   - 按類別顯示次數及日期，可展開查看詳情
-   - Firestore：users/{uid}/calendarActivityLogs/{recordId}
+3. 今日工作台
+   - 目前進行課節（由今日課表讀取）
+   - 今日追收
+   - 今日活動紀錄
+   - 快捷查看追收／新增今日活動
 
-4. 保留 v1.1.0：
-   - 作業／回條 Firestore
-   - 教學日誌功課「＋追收」
+4. 教學日誌搜尋
+   - 搜尋日期、教學進度、功課
+   - 目前載入週亦可配合科目名稱搜尋
+   - 最多顯示 100 筆結果
+
+5. 活動紀錄匯出
+   - 活動統計可匯出 CSV
+   - 可列印／另存 PDF
+
+保留：
+- 布甸狗全站配色
+- 作業／回條 Firestore
+- 教學日誌「＋追收」
+- 月曆活動紀錄與統計
 
 穩定性：
-- 不向 React 原生 main-tabs 插入新 tab
+- 不修改 React 原生 main-tabs
 - 不使用 MutationObserver
-- 今日追收卡及活動工具均放在 React root 外層
-- 以低頻掃描讀取目前頁面狀態
+- enhancement UI 全部掛在 React root 外層
 
 GitHub：
-將 index.html、submission-module.js、planner-enhancements.js 上載到 repo 根目錄並覆蓋同名檔案。
-automate-bridge.js 不需修改。
-Firestore rules 目前 users/{userId}/** 可沿用。
+覆蓋／上載以下三個檔案到 repo 根目錄：
+- index.html
+- submission-module.js
+- planner-enhancements.js
+
+automate-bridge.js、sw.js、Firestore rules 暫時毋須修改。
