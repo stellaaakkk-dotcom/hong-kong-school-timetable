@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.8.1';
+  const VERSION = '1.8.2';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -200,6 +200,70 @@
       }
 
       @media print{.pe-mobile-nav,.pe-mobile-more{display:none!important}}
+
+
+      /* v1.8.2 polished grouped More menu */
+      .pe-mobile-more{
+        box-sizing:border-box!important;
+        padding:10px!important;
+        gap:8px!important;
+      }
+      .pe-mobile-more.open{
+        display:grid!important;
+        grid-template-columns:1fr!important;
+        gap:8px!important;
+      }
+      .pe-more-group{
+        display:grid!important;
+        grid-template-columns:repeat(2,minmax(0,1fr))!important;
+        gap:6px!important;
+        padding:9px!important;
+        border:1px solid #eadfce!important;
+        border-radius:12px!important;
+        background:#fff!important;
+        box-shadow:0 2px 8px #5c3d2410!important;
+      }
+      .pe-more-group:last-child{border-bottom:1px solid #eadfce!important}
+      .pe-more-group>b{
+        grid-column:1/-1!important;
+        display:flex!important;
+        align-items:center!important;
+        min-height:20px!important;
+        padding:0 2px 3px!important;
+        margin:0!important;
+        border-bottom:1px solid #f0e7da!important;
+        color:#936b4d!important;
+        font-size:9px!important;
+        font-weight:900!important;
+        letter-spacing:.08em!important;
+      }
+      .pe-more-group button{
+        width:100%!important;
+        min-width:0!important;
+        min-height:44px!important;
+        margin:0!important;
+        padding:8px 7px!important;
+        border:1px solid #ead9c4!important;
+        border-radius:9px!important;
+        background:#fff9ec!important;
+        color:#6e4d35!important;
+        font-size:9.5px!important;
+        font-weight:850!important;
+        line-height:1.25!important;
+        text-align:center!important;
+        white-space:normal!important;
+      }
+      .pe-more-group button:active{transform:translateY(1px)}
+      .pe-more-group button:last-child:nth-child(even){grid-column:1/-1!important}
+      @media(min-width:701px){
+        .pe-mobile-more{width:360px!important}
+      }
+      @media(max-width:700px){
+        .pe-mobile-more{
+          max-height:min(70vh,520px)!important;
+          overflow:auto!important;
+        }
+      }
 
       /* v1.7.2 stability hotfix: later generic rules must not hide the navigation. */
       @media(max-width:700px){
@@ -1411,28 +1475,94 @@
 
 
   function cycleInfoForDate(date){
-    const p=plannerState();
-    const start=p.weekStart||'2026-08-31';
-    const startD=new Date(`${start}T12:00:00`),d=new Date(`${date}T12:00:00`);
-    const diff=Math.round((d-startD)/86400000);
-    if(diff<0)return null;
-    const weekday=d.getDay();
-    if(weekday===0||weekday===6)return null;
-    const schoolDays=Math.floor(diff/7)*5 + Math.min(Math.max(weekday-1,0),5);
-    const day=(schoolDays%6)+1;
-    return {day};
+    const exact=window.__HK_JOURNAL_CYCLE_MAP?.[date];
+    if(exact && Number(exact.day)>=1 && Number(exact.day)<=6){
+      return {day:Number(exact.day),color:String(exact.color||'').toUpperCase()};
+    }
+    return null;
+  }
+
+  function filterCycleVariant(text='',color=''){
+    const value=String(text||'').trim();
+    if(!value)return '';
+    const matches=[...value.matchAll(/[（(]([AB])[）)]/gi)];
+    if(!matches.length)return value;
+
+    const clean=s=>String(s||'').replace(/^[\s／/、;；]+|[\s／/、;；]+$/g,'').trim();
+    const parts=[];
+    const prefix=clean(value.slice(0,matches[0].index));
+    if(prefix)parts.push(prefix);
+
+    matches.forEach((match,idx)=>{
+      if(match[1].toUpperCase()!==String(color||'').toUpperCase())return;
+      const from=(match.index??0)+match[0].length;
+      const to=idx+1<matches.length?matches[idx+1].index:value.length;
+      const part=clean(value.slice(from,to));
+      if(part)parts.push(part);
+    });
+    return parts.join('／');
+  }
+
+  function semesterWeekForDate(date){
+    const upper=[
+      "2026-08-30","2026-09-06","2026-09-13","2026-09-20","2026-09-27",
+      "2026-10-04","2026-10-11","2026-10-18","2026-10-25","2026-11-01",
+      "2026-11-08","2026-11-15","2026-11-22","2026-11-29","2026-12-06",
+      "2026-12-13","2026-12-20","2026-12-27","2027-01-03","2027-01-10",
+      "2027-01-17","2027-01-24"
+    ];
+    const lower=[
+      "2027-01-31","2027-02-07","2027-02-14","2027-02-21","2027-02-28",
+      "2027-03-07","2027-03-14","2027-03-21","2027-03-28","2027-04-04",
+      "2027-04-11","2027-04-18","2027-04-25","2027-05-02","2027-05-09",
+      "2027-05-16","2027-05-23","2027-05-30","2027-06-06","2027-06-13",
+      "2027-06-20","2027-06-27","2027-07-04","2027-07-11"
+    ];
+    const starts=date<="2027-01-30"?upper:lower;
+    let idx=-1;
+    for(let i=starts.length-1;i>=0;i--){
+      if(starts[i]<=date){idx=i;break}
+    }
+    if(idx<0)return null;
+    const end=addDateDays(starts[idx],6);
+    return date<=end?idx+1:null;
+  }
+
+  function filterOddEvenVariant(text='',week=null){
+    const value=String(text||'').trim();
+    const matches=[...value.matchAll(/[（(](單|雙|双)[）)]/g)];
+    if(!value||!week||!matches.length)return value;
+
+    const clean=s=>String(s||'').replace(/^[\s／/、;；]+|[\s／/、;；]+$/g,'').trim();
+    const parts=[];
+    const prefix=clean(value.slice(0,matches[0].index));
+    if(prefix)parts.push(prefix);
+
+    matches.forEach((match,idx)=>{
+      const odd=match[1]==='單';
+      if((week%2===1)!==odd)return;
+      const from=(match.index??0)+match[0].length;
+      const to=idx+1<matches.length?matches[idx+1].index:value.length;
+      const part=clean(value.slice(from,to));
+      if(part)parts.push(part);
+    });
+    return parts.join('／');
   }
 
   function timetableLessonForHomework(date,period){
     const p=plannerState();
     const ci=cycleInfoForDate(date);
     if(!ci)return '';
+
     if(period===9){
       const d=new Date(`${date}T12:00:00`),weekday=d.getDay();
       if(weekday<1||weekday>5||weekday===5)return '';
-      return String(p.ninthSubjects?.[weekday-1]||'');
+      const raw=String(p.ninthSubjects?.[weekday-1]||'');
+      return filterOddEvenVariant(raw,semesterWeekForDate(date));
     }
-    return String(p.daySubjects?.[ci.day-1]?.[period-1]||'');
+
+    const raw=String(p.daySubjects?.[ci.day-1]?.[period-1]||'');
+    return filterCycleVariant(raw,ci.color);
   }
 
   function classFromTimetableLesson(text=''){
@@ -1490,7 +1620,7 @@
     m=document.createElement('div');m.id='pe-homework-history-modal';m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
       <h3>📚 功課紀錄</h3>
-      <p class="pe-note">列出教學日誌曾輸入過的「功課」，並用「日期＋第幾節」對返原本課表，按該堂課嘅班別分類。只有課表無法辨認班別時，先用追收紀錄／文字作 fallback。</p>
+      <p class="pe-note">列出教學日誌曾輸入過的「功課」。班別及節數直接跟返主日誌本身使用嘅實際日期→Day 1–6／A-B 循環，再對應該日該節課堂；唔再自行用平日推算。只有主日誌該節無法辨認班別時，先用追收紀錄／文字作 fallback。</p>
       <div class="pe-homework-toolbar">
         <select id="pe-homework-class"><option value="">全部班別</option></select>
         <input id="pe-homework-search" placeholder="搜尋功課／科目">
