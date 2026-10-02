@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.8.2';
+  const VERSION = '1.8.3';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -82,7 +82,7 @@
       .pe-homework-item{border:1px solid #eadfce;border-radius:9px;background:#fff;padding:8px}
       .pe-homework-item .top{display:flex;justify-content:space-between;gap:8px}
       .pe-homework-item b{font-size:10px;color:#80542f}.pe-homework-item small{font-size:8px;color:#8d796a}
-      .pe-homework-item p{margin:4px 0 0;font-size:9px;line-height:1.45;color:#5f4b3d;white-space:pre-wrap}
+      .pe-homework-item p{margin:4px 0 0;font-size:9px;line-height:1.45;color:#5f4b3d;white-space:pre-wrap}.pe-homework-unresolved{margin-top:9px;border:1px solid #ead9c4;border-radius:9px;background:#fffaf1;padding:7px}.pe-homework-unresolved>summary{cursor:pointer;font-size:9px;font-weight:850;color:#936b4d}.pe-homework-unresolved[open]>summary{margin-bottom:6px}
       .pe-category-manager-list{display:grid;gap:6px;margin-top:8px}
       .pe-category-manager-row{display:grid;grid-template-columns:1fr auto;gap:7px;align-items:center;border:1px solid #eadfce;border-radius:9px;background:#fff;padding:8px}
       .pe-category-manager-row b{font-size:10px;color:#80542f}.pe-category-manager-row small{display:block;font-size:8px;color:#8c7868;margin-top:2px}
@@ -1549,26 +1549,39 @@
     return parts.join('／');
   }
 
-  function timetableLessonForHomework(date,period){
-    const p=plannerState();
-    const ci=cycleInfoForDate(date);
-    if(!ci)return '';
-
-    if(period===9){
-      const d=new Date(`${date}T12:00:00`),weekday=d.getDay();
-      if(weekday<1||weekday>5||weekday===5)return '';
-      const raw=String(p.ninthSubjects?.[weekday-1]||'');
-      return filterOddEvenVariant(raw,semesterWeekForDate(date));
+  function timetableLessonForHomework(date,periodIndex){
+    try{
+      const exact=window.__HK_GET_JOURNAL_LESSON?.(date,periodIndex);
+      if(typeof exact==='string')return exact.trim();
+    }catch(e){
+      console.warn('[planner-enhancements] exact journal lesson lookup',date,periodIndex,e);
     }
+    return '';
+  }
 
-    const raw=String(p.daySubjects?.[ci.day-1]?.[period-1]||'');
-    return filterCycleVariant(raw,ci.color);
+  function knownClassNames(){
+    const names=new Set();
+    try{
+      const prefs=JSON.parse(localStorage.getItem('hk-school-class-student-counts-v1')||'{}');
+      Object.keys(prefs||{}).forEach(x=>x&&names.add(String(x).trim().toUpperCase()));
+    }catch{}
+    (state.submissions||[]).forEach(r=>{
+      const c=String(r?.className||'').trim().toUpperCase();
+      if(c&&c!=='班別')names.add(c);
+    });
+    return [...names].filter(Boolean).sort((a,b)=>b.length-a.length);
   }
 
   function classFromTimetableLesson(text=''){
-    const s=String(text).toUpperCase();
-    const matches=[...s.matchAll(/(?:^|[^0-9A-Z])([1-6][A-E])(?:[^0-9A-Z]|$)/g)].map(m=>m[1]);
-    return matches[0]||'';
+    const raw=String(text||'').trim();
+    const upper=raw.toUpperCase();
+
+    for(const cls of knownClassNames()){
+      if(upper.includes(cls))return cls;
+    }
+
+    const m=upper.match(/([1-6])\s*([A-E])/);
+    return m?`${m[1]}${m[2]}`:'';
   }
 
   function inferClassFromText(text=''){
@@ -1581,33 +1594,40 @@
     const subs=window.__submissionTrackerAPI?.getRecords?.()||state.submissions||[];
 
     for(const [key,val] of Object.entries(notes)){
-      if(!val||typeof val!=='string')continue;
+      if(!val||typeof val!=='string'||!val.trim())continue;
       const m=key.match(/^(\d{4}-\d{2}-\d{2})-(\d+)-h$/);
       if(!m)continue;
 
-      const date=m[1],period=Number(m[2])+1,text=val.trim();
+      const date=m[1],periodIndex=Number(m[2]),period=periodIndex+1,text=val.trim();
+      if(!Number.isInteger(periodIndex)||periodIndex<0||periodIndex>8)continue;
+
       const linked=subs.find(r=>{
         if(!r?.sourceKey)return false;
         const bits=String(r.sourceKey).split('|');
         return bits[0]===date && bits[3]===text;
       });
 
-      const timetableLesson=timetableLessonForHomework(date,period);
-      const sourceSubject=linked?.sourceSubject||'';
-      const subject=timetableLesson||sourceSubject||'';
+      const timetableLesson=timetableLessonForHomework(date,periodIndex);
       const timetableClass=classFromTimetableLesson(timetableLesson);
-      const className=timetableClass
-        ||((linked?.className && linked.className!=='班別')?linked.className:'')
+
+      const sourceSubject=linked?.sourceSubject||'';
+      const fallbackClass=((linked?.className && linked.className!=='班別')?String(linked.className).trim():'')
         ||inferClassFromText(sourceSubject)
         ||inferClassFromText(text)
-        ||'未分類';
+        ||'';
+
+      const className=timetableClass||fallbackClass||'未分類';
 
       rows.push({
-        date,period,subject,
-        className:String(className||'未分類').trim()||'未分類',
+        date,
+        period,
+        periodIndex,
+        subject:timetableLesson||sourceSubject||'',
+        className,
         text,
         tracked:!!linked,
-        timetableClass:!!timetableClass
+        exactMatched:!!timetableLesson,
+        unresolved:!timetableClass && !fallbackClass
       });
     }
 
@@ -1620,7 +1640,7 @@
     m=document.createElement('div');m.id='pe-homework-history-modal';m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
       <h3>📚 功課紀錄</h3>
-      <p class="pe-note">列出教學日誌曾輸入過的「功課」。班別及節數直接跟返主日誌本身使用嘅實際日期→Day 1–6／A-B 循環，再對應該日該節課堂；唔再自行用平日推算。只有主日誌該節無法辨認班別時，先用追收紀錄／文字作 fallback。</p>
+      <p class="pe-note">列出教學日誌曾輸入過的「功課」。每一筆會直接呼叫主日誌本身同一個課堂解析器，以「日期＋原始節數索引」取得畫面真正顯示嘅課堂，再分類班別。無法對應嘅舊資料會獨立收起，唔再混入正常班別清單。</p>
       <div class="pe-homework-toolbar">
         <select id="pe-homework-class"><option value="">全部班別</option></select>
         <input id="pe-homework-search" placeholder="搜尋功課／科目">
@@ -1641,23 +1661,51 @@
     const m=ensureHomeworkHistoryModal(),all=homeworkHistoryRows();
     const select=m.querySelector('#pe-homework-class');
     const current=select.value;
-    const classes=[...new Set(all.map(x=>x.className))].sort((a,b)=>a.localeCompare(b,'zh-HK'));
-    select.innerHTML='<option value="">全部班別</option>'+classes.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+
+    const normal=all.filter(x=>!x.unresolved);
+    const unresolved=all.filter(x=>x.unresolved);
+    const classes=[...new Set(normal.map(x=>x.className).filter(x=>x&&x!=='未分類'))].sort((a,b)=>a.localeCompare(b,'zh-HK'));
+
+    select.innerHTML='<option value="">全部班別</option>'
+      +classes.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
     if(classes.includes(current))select.value=current;
 
     const cls=select.value;
     const q=(m.querySelector('#pe-homework-search').value||'').trim().toLowerCase();
-    const rows=all.filter(x=>(!cls||x.className===cls)&&(!q||`${x.subject} ${x.text}`.toLowerCase().includes(q)));
+    const rows=normal.filter(x=>(!cls||x.className===cls)&&(!q||`${x.subject} ${x.text}`.toLowerCase().includes(q)));
 
-    m.querySelector('#pe-homework-summary').textContent=`共 ${rows.length} 份功課${cls?`・${cls}`:''}`;
-    m.querySelector('#pe-homework-list').innerHTML=rows.length?rows.map(x=>`
+    m.querySelector('#pe-homework-summary').innerHTML=
+      `已對應 <b>${rows.length}</b> 份功課${cls?`・${esc(cls)}`:''}`
+      +(unresolved.length?`　<small>另有 ${unresolved.length} 筆舊資料無法對應課堂</small>`:'');
+
+    const normalHtml=rows.length?rows.map(x=>`
       <div class="pe-homework-item">
         <div class="top">
-          <div><b>${esc(x.className)}｜${fmt(x.date)}</b><small>第${x.period}節${x.subject?`・${esc(x.subject)}`:''}</small></div>
-          <small>${x.tracked?'📋 已加入追收':'日誌紀錄'}${x.timetableClass?'・課表班別':''}</small>
+          <div>
+            <b>${esc(x.className)}｜${fmt(x.date)}</b>
+            <small>第${x.period}節${x.subject?`・${esc(x.subject)}`:''}</small>
+          </div>
+          <small>${x.exactMatched?'✓ 日誌課堂':(x.tracked?'📋 追收班別':'舊資料')}</small>
         </div>
         <p>${esc(x.text)}</p>
       </div>`).join(''):'<div class="pe-note">暫時未有符合條件的功課紀錄。</div>';
+
+    const unresolvedHtml=unresolved.length?`
+      <details class="pe-homework-unresolved">
+        <summary>⚠ 無法對應舊紀錄（${unresolved.length}）</summary>
+        <div class="pe-homework-list">
+          ${unresolved.map(x=>`
+            <div class="pe-homework-item">
+              <div class="top">
+                <div><b>${fmt(x.date)}</b><small>原記錄：第${x.period}節</small></div>
+                <small>未能對到主日誌課堂</small>
+              </div>
+              <p>${esc(x.text)}</p>
+            </div>`).join('')}
+        </div>
+      </details>`:'';
+
+    m.querySelector('#pe-homework-list').innerHTML=normalHtml+unresolvedHtml;
   }
 
   function openHomeworkHistory(){
