@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.8.0';
+  const VERSION = '1.8.1';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -111,7 +111,7 @@
         .pe-mobile-more button{
           min-height:42px;border:1px solid #e6d8c6;border-radius:10px;background:#fff8e6;
           color:#78533a;padding:7px;font-size:10px;font-weight:800
-        }
+        }.pe-more-group{display:grid;gap:4px;padding:7px 0;border-bottom:1px solid #eadfce}.pe-more-group:last-child{border-bottom:0}.pe-more-group>b{padding:1px 8px 3px;font-size:8px;color:#a17b5d;letter-spacing:.08em}.pe-more-group button{width:100%}
       }
 
 @media(max-width:700px){.pe-sync-pill{top:84px;right:8px;bottom:auto}.pe-dashboard-toggle{right:8px;bottom:62px}.pe-dashboard{right:8px;bottom:102px;width:calc(100vw - 16px);max-height:65vh}.pe-context-tools{left:8px;bottom:8px}.pe-grid{grid-template-columns:1fr}.pe-full{grid-column:auto}.pe-stat-toolbar{grid-template-columns:1fr}.pe-stat-item{grid-template-columns:68px 1fr auto}}
@@ -1409,6 +1409,38 @@
     }else queueActivityPending({op:'delete',id});
   }
 
+
+  function cycleInfoForDate(date){
+    const p=plannerState();
+    const start=p.weekStart||'2026-08-31';
+    const startD=new Date(`${start}T12:00:00`),d=new Date(`${date}T12:00:00`);
+    const diff=Math.round((d-startD)/86400000);
+    if(diff<0)return null;
+    const weekday=d.getDay();
+    if(weekday===0||weekday===6)return null;
+    const schoolDays=Math.floor(diff/7)*5 + Math.min(Math.max(weekday-1,0),5);
+    const day=(schoolDays%6)+1;
+    return {day};
+  }
+
+  function timetableLessonForHomework(date,period){
+    const p=plannerState();
+    const ci=cycleInfoForDate(date);
+    if(!ci)return '';
+    if(period===9){
+      const d=new Date(`${date}T12:00:00`),weekday=d.getDay();
+      if(weekday<1||weekday>5||weekday===5)return '';
+      return String(p.ninthSubjects?.[weekday-1]||'');
+    }
+    return String(p.daySubjects?.[ci.day-1]?.[period-1]||'');
+  }
+
+  function classFromTimetableLesson(text=''){
+    const s=String(text).toUpperCase();
+    const matches=[...s.matchAll(/(?:^|[^0-9A-Z])([1-6][A-E])(?:[^0-9A-Z]|$)/g)].map(m=>m[1]);
+    return matches[0]||'';
+  }
+
   function inferClassFromText(text=''){
     const m=String(text).toUpperCase().match(/\b([1-6][A-E])\b/);
     return m?m[1]:'';
@@ -1430,16 +1462,22 @@
         return bits[0]===date && bits[3]===text;
       });
 
-      const subject=linked?.sourceSubject||'';
-      const className=(linked?.className && linked.className!=='班別')
-        ? linked.className
-        : (inferClassFromText(subject)||inferClassFromText(text)||p.className||'未分類');
+      const timetableLesson=timetableLessonForHomework(date,period);
+      const sourceSubject=linked?.sourceSubject||'';
+      const subject=timetableLesson||sourceSubject||'';
+      const timetableClass=classFromTimetableLesson(timetableLesson);
+      const className=timetableClass
+        ||((linked?.className && linked.className!=='班別')?linked.className:'')
+        ||inferClassFromText(sourceSubject)
+        ||inferClassFromText(text)
+        ||'未分類';
 
       rows.push({
         date,period,subject,
         className:String(className||'未分類').trim()||'未分類',
         text,
-        tracked:!!linked
+        tracked:!!linked,
+        timetableClass:!!timetableClass
       });
     }
 
@@ -1452,7 +1490,7 @@
     m=document.createElement('div');m.id='pe-homework-history-modal';m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
       <h3>📚 功課紀錄</h3>
-      <p class="pe-note">列出教學日誌曾輸入過的「功課」。曾加入「＋追收」的功課會優先使用追收紀錄的班別；舊資料沒有班別時會以可辨認班別／目前任教班別作 fallback。</p>
+      <p class="pe-note">列出教學日誌曾輸入過的「功課」，並用「日期＋第幾節」對返原本課表，按該堂課嘅班別分類。只有課表無法辨認班別時，先用追收紀錄／文字作 fallback。</p>
       <div class="pe-homework-toolbar">
         <select id="pe-homework-class"><option value="">全部班別</option></select>
         <input id="pe-homework-search" placeholder="搜尋功課／科目">
@@ -1486,7 +1524,7 @@
       <div class="pe-homework-item">
         <div class="top">
           <div><b>${esc(x.className)}｜${fmt(x.date)}</b><small>第${x.period}節${x.subject?`・${esc(x.subject)}`:''}</small></div>
-          <small>${x.tracked?'📋 已加入追收':'日誌紀錄'}</small>
+          <small>${x.tracked?'📋 已加入追收':'日誌紀錄'}${x.timetableClass?'・課表班別':''}</small>
         </div>
         <p>${esc(x.text)}</p>
       </div>`).join(''):'<div class="pe-note">暫時未有符合條件的功課紀錄。</div>';
@@ -1538,7 +1576,23 @@
     let sheet=document.getElementById('pe-mobile-more');
     if(sheet)return sheet;
     sheet=document.createElement('div');sheet.id='pe-mobile-more';sheet.className='pe-mobile-more';
-    sheet.innerHTML=`<button id="pe-more-dashboard">☀ 今日工作台</button><button id="pe-more-done">✅ 今日完成</button><button id="pe-more-pending">⏳ 待處理事項</button><button id="pe-more-homework">📚 功課紀錄</button><button id="pe-more-tags">🏷 月曆標籤</button><button id="pe-more-search">🔎 全站搜尋</button><button id="pe-more-stats">📊 活動統計</button><button id="pe-more-categories">🏷 類型管理</button><button id="pe-more-activity">＋ 活動紀錄</button><button id="pe-more-submission">📋 作業／回條</button>`;
+    sheet.innerHTML=`
+      <div class="pe-more-group"><b>今日</b>
+        <button id="pe-more-dashboard">☀ 今日工作台</button>
+        <button id="pe-more-done">✅ 今日完成</button>
+        <button id="pe-more-pending">⏳ 待處理事項</button>
+      </div>
+      <div class="pe-more-group"><b>記錄</b>
+        <button id="pe-more-homework">📚 功課紀錄</button>
+        <button id="pe-more-submission">📋 作業／回條</button>
+        <button id="pe-more-activity">＋ 活動紀錄</button>
+        <button id="pe-more-stats">📊 活動統計</button>
+      </div>
+      <div class="pe-more-group"><b>工具</b>
+        <button id="pe-more-search">🔎 全站搜尋</button>
+        <button id="pe-more-tags">🏷 月曆標籤</button>
+        <button id="pe-more-categories">🏷 類型管理</button>
+      </div>`;
     document.body.appendChild(sheet);
     sheet.querySelector('#pe-more-dashboard').addEventListener('click',()=>{
       closeMobileMore();
