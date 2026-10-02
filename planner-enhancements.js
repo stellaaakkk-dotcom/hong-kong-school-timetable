@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.9.2';
+  const VERSION = '1.9.3';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -114,6 +114,11 @@
       .pe-dialog{width:min(760px,100%);max-height:90vh;overflow:auto;border:1px solid #e8d9c4;border-radius:16px;background:#fffdf8;color:#4a3428;box-shadow:0 15px 48px #0005;padding:14px}.pe-dialog h3{margin:0 0 5px;color:#80542f;font-size:15px}.pe-note{margin:0 0 10px;color:#857365;font-size:10px;line-height:1.45}.pe-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.pe-field label{display:block;margin:0 0 3px;color:#857365;font-size:10px;font-weight:700}.pe-field input,.pe-field select,.pe-field textarea{width:100%;border:1px solid #decdb9;border-radius:8px;background:#fff;color:#4a3428;padding:8px;font:600 11px inherit;box-sizing:border-box}.pe-field textarea{min-height:62px;resize:vertical}.pe-full{grid-column:1/-1}.pe-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:10px}.pe-btn{border:1px solid #d9c2a4;border-radius:8px;background:#fff;color:#80542f;padding:7px 10px;font-size:10px;font-weight:800}.pe-btn.primary{background:#a86f3d;border-color:#a86f3d;color:#fff}.pe-btn.danger{color:#c64545}
       .pe-stat-toolbar{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;margin:9px 0}.pe-stat-actions{display:grid;grid-template-columns:repeat(2,auto);gap:4px;align-items:stretch}.pe-stat-actions button{min-width:44px;padding:7px 8px}.pe-stat-toolbar select,.pe-stat-toolbar input{width:100%;border:1px solid #decdb9;border-radius:8px;padding:7px;background:#fff;color:#4a3428;font-size:10px}.pe-stat-toolbar button{border:1px solid #d8c2a4;border-radius:8px;background:#fff8db;color:#80542f;padding:7px 8px;font-size:9px;font-weight:800}.pe-stat-group{border:1px solid #eadfce;border-radius:10px;background:#fff;padding:8px;margin-top:7px}.pe-stat-group summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:10px;font-size:11px;font-weight:800;color:#80542f}.pe-stat-group summary::-webkit-details-marker{display:none}.pe-stat-list{margin-top:6px;border-top:1px dashed #eadfce;padding-top:5px}.pe-stat-item{display:grid;grid-template-columns:78px 1fr auto;gap:6px;align-items:start;padding:5px 0;border-bottom:1px solid #f1e9dd;font-size:9px}.pe-stat-item:last-child{border-bottom:0}.pe-stat-item b{color:#6d5545}.pe-stat-item small{color:#8b7768;line-height:1.4}.pe-stat-item button{border:0;background:transparent;color:#c64545;font-size:9px;font-weight:800;padding:2px}.pe-stat-row-actions{display:flex;gap:2px;justify-content:flex-end;align-items:center}.pe-stat-row-actions button:first-child{color:#7b5b3d}
       .pe-search-results{margin-top:9px;display:grid;gap:6px}.pe-search-result{border:1px solid #eadfce;border-radius:9px;background:#fff;padding:8px}.pe-search-result .top{display:flex;justify-content:space-between;gap:8px;align-items:center}.pe-search-result b{font-size:10px;color:#80542f}.pe-search-result span{font-size:9px;color:#5f4b3d;line-height:1.45}.pe-search-result small{display:block;margin-top:3px;font-size:8px;color:#998678}.pe-search-hint{font-size:9px;color:#8c7868;line-height:1.5;margin-top:6px}
+      .pe-search-result{cursor:pointer;transition:transform .12s ease,box-shadow .12s ease}
+      .pe-search-result:hover{box-shadow:0 3px 10px #5c3d2418;transform:translateY(-1px)}
+      .pe-search-result .jump{margin-left:auto;border:1px solid #ddc9ad;border-radius:999px;background:#fff8e8;color:#80542f;padding:3px 7px;font-size:7.5px;font-weight:900;white-space:nowrap}
+      .pe-source-flash{outline:3px solid #e7b75d!important;outline-offset:3px!important;box-shadow:0 0 0 7px #fff1b899!important;transition:box-shadow .2s ease}
+
       
       @media(min-width:701px){
         .pe-desktop-more-toggle{
@@ -2037,21 +2042,240 @@
     renderHomeworkHistory();
   }
 
-  function openJournalSearch(){const m=ensureSearchModal();m.classList.add('open');document.getElementById('pe-global-query').focus();renderGlobalSearch()}
-  function currentVisibleSubjectMap(){const map={};document.querySelectorAll('.journal-table tbody tr').forEach(row=>{const subject=row.querySelector('.subject-cell')?.textContent?.trim();const ta=row.querySelector('textarea[aria-label*="進度"],textarea[aria-label*="功課"]');const label=ta?.getAttribute('aria-label')||'';const m=label.match(/第(\d+)節/);if(subject&&m)map[Number(m[1])-1]=subject});return map}
-  function journalRows(){const data=readPlannerData(),notes=data.lessonNotes||{},subjects=currentVisibleSubjectMap(),rows=[];for(const[key,val]of Object.entries(notes)){if(!val||typeof val!=='string')continue;const m=key.match(/^(\d{4}-\d{2}-\d{2})-(\d+)-(p|h)$/);if(!m)continue;rows.push({kind:m[3]==='p'?'教學進度':'功課',date:m[1],title:`第${Number(m[2])+1}節${subjects[Number(m[2])]?`・${subjects[Number(m[2])]}`:''}`,text:val})}return rows}
-  function globalSearchRows(){
-    const p=readPlannerData(),rows=[...journalRows()];
-    for(const[date,note]of Object.entries(p.calendarNotes||{}))if(String(note||'').trim())rows.push({kind:'月曆記事',date,title:'自行輸入',text:String(note)});
-    const deleted=new Set(Array.isArray(p.deletedDefaultEventKeys)?p.deletedDefaultEventKeys:[]),custom=Array.isArray(p.customCalendarEvents)?p.customCalendarEvents:[];
-    [...DEFAULT_SCHOOL_EVENTS.filter(x=>!deleted.has(defaultEventKey(x))),...custom].forEach(a=>rows.push({kind:'校曆活動',date:a.start||a.date||'',title:a.title||a.name||'',text:[a.type,a.end].filter(Boolean).join(' ')}));
-    state.activities.forEach(a=>rows.push({kind:'活動紀錄',date:a.date||'',title:a.category||'',text:`${a.title||''} ${a.note||''}`}));
-    const subs=window.__submissionTrackerAPI?.getRecords?.()||state.submissions||[];
-    subs.forEach(r=>rows.push({kind:'追收紀錄',date:r.issueDate||r.dueDate||'',title:`${r.className||''}｜${r.name||''}`,text:`${r.type||''} 欠交 ${(r.missing||[]).map(n=>String(n).padStart(2,'0')).join('、')}`}));
+  function openJournalSearch(){
+    const m=ensureSearchModal();
+    m.classList.add('open');
+    document.getElementById('pe-global-query').focus();
+    renderGlobalSearch();
+  }
+
+  function currentVisibleSubjectMap(){
+    const map={};
+    document.querySelectorAll('.journal-table tbody tr').forEach(row=>{
+      const subject=row.querySelector('.subject-cell')?.textContent?.trim();
+      const ta=row.querySelector('textarea[aria-label*="進度"],textarea[aria-label*="功課"]');
+      const label=ta?.getAttribute('aria-label')||'';
+      const m=label.match(/第(\d+)節/);
+      if(subject&&m)map[Number(m[1])-1]=subject;
+    });
+    return map;
+  }
+
+  function journalRows(){
+    const data=readPlannerData(),notes=data.lessonNotes||{},subjects=currentVisibleSubjectMap(),rows=[];
+    for(const[key,val]of Object.entries(notes)){
+      if(!val||typeof val!=='string')continue;
+      const m=key.match(/^(\d{4}-\d{2}-\d{2})-(\d+)-(p|h)$/);
+      if(!m)continue;
+      const periodIndex=Number(m[2]);
+      rows.push({
+        kind:m[3]==='p'?'教學進度':'功課',
+        date:m[1],
+        periodIndex,
+        noteType:m[3],
+        title:`第${periodIndex+1}節${subjects[periodIndex]?`・${subjects[periodIndex]}`:''}`,
+        text:val,
+        route:'journal'
+      });
+    }
     return rows;
   }
-  function renderGlobalSearch(){const out=document.getElementById('pe-search-results');if(!out)return;const q=(document.getElementById('pe-global-query')?.value||'').trim().toLowerCase();if(!q){out.innerHTML='<div class="pe-note">輸入關鍵字開始搜尋。</div>';return}const rows=globalSearchRows().filter(r=>`${r.kind} ${r.date} ${r.title} ${r.text}`.toLowerCase().includes(q)).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,150);out.innerHTML=rows.length?rows.map(r=>`<div class="pe-search-result"><div class="top"><b>${esc(r.title||r.kind)}</b><span>${esc(r.kind)}</span></div><small>${r.date?`${esc(fmt(r.date))}・`:''}${esc(r.text||'')}</small></div>`).join(''):'<div class="pe-note">找不到相符紀錄。</div>'}
 
+  function globalSearchRows(){
+    const p=readPlannerData(),rows=[...journalRows()];
+
+    for(const[date,note]of Object.entries(p.calendarNotes||{})){
+      if(String(note||'').trim())rows.push({
+        kind:'月曆記事',date,title:'自行輸入',text:String(note),route:'calendar'
+      });
+    }
+
+    const deleted=new Set(Array.isArray(p.deletedDefaultEventKeys)?p.deletedDefaultEventKeys:[]);
+    const custom=Array.isArray(p.customCalendarEvents)?p.customCalendarEvents:[];
+    [...DEFAULT_SCHOOL_EVENTS.filter(x=>!deleted.has(defaultEventKey(x))),...custom].forEach(a=>rows.push({
+      kind:'校曆活動',
+      date:a.start||a.date||'',
+      title:a.title||a.name||'',
+      text:[a.type,a.end].filter(Boolean).join(' '),
+      route:'calendar'
+    }));
+
+    state.activities.forEach(a=>rows.push({
+      kind:'活動紀錄',
+      date:a.date||'',
+      title:a.category||'',
+      text:`${a.title||''} ${a.note||''}`,
+      route:'activity',
+      id:a.id||''
+    }));
+
+    const subs=window.__submissionTrackerAPI?.getRecords?.()||state.submissions||[];
+    subs.forEach(r=>rows.push({
+      kind:'追收紀錄',
+      date:r.issueDate||r.dueDate||'',
+      title:`${r.className||''}｜${r.name||''}`,
+      text:`${r.type||''} 欠交 ${(r.missing||[]).map(n=>String(n).padStart(2,'0')).join('、')}`,
+      route:'submission',
+      id:r.id||''
+    }));
+
+    (state.pendingItems||[]).forEach(x=>rows.push({
+      kind:'待處理事項',
+      date:x.dueDate||'',
+      title:x.title||'',
+      text:[x.note,pendingPriorityLabel(x.priority),x.completed?'已完成':'未完成'].filter(Boolean).join(' '),
+      route:'pending',
+      id:x.id||''
+    }));
+
+    return rows;
+  }
+
+  function nativeSetInputValue(el,value){
+    if(!el)return false;
+    try{
+      const proto=el instanceof HTMLInputElement?HTMLInputElement.prototype:HTMLElement.prototype;
+      const desc=Object.getOwnPropertyDescriptor(proto,'value');
+      if(desc?.set)desc.set.call(el,value);
+      else el.value=value;
+      el.dispatchEvent(new Event('input',{bubbles:true}));
+      el.dispatchEvent(new Event('change',{bubbles:true}));
+      return true;
+    }catch{
+      try{
+        el.value=value;
+        el.dispatchEvent(new Event('change',{bubbles:true}));
+        return true;
+      }catch{return false}
+    }
+  }
+
+  function waitForElement(getter,timeout=2500){
+    return new Promise(resolve=>{
+      const started=Date.now();
+      const tick=()=>{
+        const el=typeof getter==='function'?getter():document.querySelector(getter);
+        if(el)return resolve(el);
+        if(Date.now()-started>=timeout)return resolve(null);
+        setTimeout(tick,60);
+      };
+      tick();
+    });
+  }
+
+  function flashSource(el){
+    if(!el)return;
+    el.classList.add('pe-source-flash');
+    try{el.scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'})}catch{el.scrollIntoView()}
+    setTimeout(()=>el.classList.remove('pe-source-flash'),2200);
+  }
+
+  function mondayForDate(dateStr){
+    const d=new Date(`${dateStr}T12:00:00`);
+    const day=d.getDay();
+    d.setDate(d.getDate()+(day===0?-6:1-day));
+    return dateKeyLocal(d);
+  }
+
+  async function jumpToJournalSource(row){
+    clickMainTab(['循環週教學日誌','教學日誌','日誌']);
+    const weekInput=await waitForElement(()=>document.querySelector('.week-nav input[type="date"]'));
+    if(weekInput)nativeSetInputValue(weekInput,mondayForDate(row.date));
+
+    await new Promise(r=>setTimeout(r,220));
+    const weekday=new Date(`${row.date}T12:00:00`).getDay();
+    const dayIndex=weekday>=1&&weekday<=5?weekday-1:0;
+    const day=await waitForElement(()=>document.querySelectorAll('.journal-day')[dayIndex]||null,2200);
+    if(!day)return;
+
+    let target=null;
+    const wanted=`第${Number(row.periodIndex)+1}節`;
+    const typeWord=row.noteType==='p'?'進度':'功課';
+    target=[...day.querySelectorAll('textarea')].find(x=>{
+      const a=x.getAttribute('aria-label')||'';
+      return a.includes(wanted)&&a.includes(typeWord);
+    })||[...day.querySelectorAll('textarea')].find(x=>(x.getAttribute('aria-label')||'').includes(wanted))||day;
+
+    flashSource(target);
+    if(target instanceof HTMLTextAreaElement)setTimeout(()=>target.focus({preventScroll:true}),280);
+  }
+
+  async function jumpToCalendarSource(row){
+    clickMainTab(['校務月曆','月曆']);
+    const monthInput=await waitForElement(()=>document.querySelector('.month-nav input[type="month"]'));
+    if(monthInput&&row.date)nativeSetInputValue(monthInput,row.date.slice(0,7));
+
+    await new Promise(r=>setTimeout(r,220));
+    const cell=await waitForElement(()=>document.querySelector(`.cal-cell[data-date="${row.date}"]`),2500);
+    flashSource(cell);
+  }
+
+  async function jumpToSearchSource(row){
+    if(!row)return;
+    closeModal(document.getElementById('pe-search-modal'));
+
+    if(row.route==='journal')return jumpToJournalSource(row);
+    if(row.route==='calendar')return jumpToCalendarSource(row);
+
+    if(row.route==='activity'&&row.id){
+      openActivityEdit(row.id);
+      return;
+    }
+
+    if(row.route==='submission'&&row.id){
+      window.__submissionTrackerAPI?.openRecord?.(row.id);
+      return;
+    }
+
+    if(row.route==='pending'&&row.id){
+      openPendingEdit(row.id);
+      return;
+    }
+  }
+
+  function renderGlobalSearch(){
+    const out=document.getElementById('pe-search-results');
+    if(!out)return;
+    const q=(document.getElementById('pe-global-query')?.value||'').trim().toLowerCase();
+
+    if(!q){
+      state.searchResults=[];
+      out.innerHTML='<div class="pe-note">輸入關鍵字開始搜尋。</div>';
+      return;
+    }
+
+    const rows=globalSearchRows()
+      .filter(r=>`${r.kind} ${r.date} ${r.title} ${r.text}`.toLowerCase().includes(q))
+      .sort((a,b)=>(b.date||'').localeCompare(a.date||''))
+      .slice(0,150);
+
+    state.searchResults=rows;
+
+    out.innerHTML=rows.length?rows.map((r,i)=>`
+      <div class="pe-search-result" data-search-index="${i}" role="button" tabindex="0">
+        <div class="top">
+          <b>${esc(r.title||r.kind)}</b>
+          <span>${esc(r.kind)}</span>
+          <button class="jump" type="button" data-search-jump="${i}">前往來源</button>
+        </div>
+        <small>${r.date?`${esc(fmt(r.date))}・`:''}${esc(r.text||'')}</small>
+      </div>`).join(''):'<div class="pe-note">找不到相符紀錄。</div>';
+
+    const jump=i=>jumpToSearchSource(state.searchResults?.[Number(i)]);
+    out.querySelectorAll('[data-search-jump]').forEach(btn=>btn.addEventListener('click',e=>{
+      e.stopPropagation();
+      jump(btn.dataset.searchJump);
+    }));
+    out.querySelectorAll('[data-search-index]').forEach(card=>{
+      card.addEventListener('click',()=>jump(card.dataset.searchIndex));
+      card.addEventListener('keydown',e=>{
+        if(e.key==='Enter'||e.key===' '){
+          e.preventDefault();
+          jump(card.dataset.searchIndex);
+        }
+      });
+    });
+  }
 
   function findMainTabByKeywords(words){
     return [...document.querySelectorAll('.main-tabs button')].find(btn=>{
