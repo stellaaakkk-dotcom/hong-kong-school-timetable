@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.0.9';
+  const VERSION = '2.1.0';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -1436,8 +1436,9 @@
     m.id='pe-inbox-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>📥 統一 Inbox</h3>
+      <h3>📥 工作 Inbox</h3>
       <p class="pe-note">將未完成待辦、deadline 同功課追收集中處理。</p>
+
       <div class="pe-chip-row" id="pe-inbox-chips">
         <button class="pe-filter-chip active" data-inbox-chip="all">全部</button>
         <button class="pe-filter-chip" data-inbox-chip="today">今日</button>
@@ -1449,11 +1450,25 @@
         <button class="pe-filter-chip" data-inbox-chip="school">全校</button>
         <button class="pe-filter-chip" data-inbox-chip="other">其他</button>
       </div>
+
       <div class="pe-inbox-toolbar">
-        <select id="pe-inbox-scope"><option value="">全部範圍</option><option value="personal">個人</option><option value="class">班別</option><option value="grade">年級</option><option value="subject">科組</option><option value="school">全校</option><option value="other">其他</option></select>
+        <select id="pe-inbox-scope">
+          <option value="">全部範圍</option>
+          <option value="personal">個人</option>
+          <option value="class">班別</option>
+          <option value="grade">年級</option>
+          <option value="subject">科組</option>
+          <option value="school">全校</option>
+          <option value="other">其他</option>
+        </select>
         <select id="pe-inbox-class"><option value="">全部班別</option></select>
-        <select id="pe-inbox-type"><option value="">全部類型</option><option value="pending">待辦／Deadline</option><option value="submission">功課追收</option></select>
+        <select id="pe-inbox-type">
+          <option value="">全部類型</option>
+          <option value="pending">待辦／Deadline</option>
+          <option value="submission">功課追收</option>
+        </select>
       </div>
+
       <div class="pe-actions" style="margin:6px 0 8px">
         <button class="pe-btn primary" id="pe-inbox-add">＋ 新增待辦</button>
       </div>
@@ -1462,31 +1477,81 @@
       <div class="pe-actions"><button class="pe-btn" id="pe-inbox-close">關閉</button></div>
     </div>`;
     document.body.appendChild(m);
-    m.addEventListener('click',e=>{if(e.target===m)closeModal(m)});
+
+    m.dataset.statusFilter='all';
+
+    m.addEventListener('click',e=>{
+      if(e.target===m){closeModal(m);return}
+
+      const chip=e.target.closest('[data-inbox-chip]');
+      if(chip){
+        const key=chip.dataset.inboxChip||'all';
+        const scopeSel=m.querySelector('#pe-inbox-scope');
+
+        if(key==='today'||key==='overdue'){
+          m.dataset.statusFilter=key;
+          scopeSel.value='';
+        }else if(key==='all'){
+          m.dataset.statusFilter='all';
+          scopeSel.value='';
+        }else{
+          m.dataset.statusFilter='all';
+          scopeSel.value=key;
+        }
+        renderInbox();
+        return;
+      }
+
+      const openBtn=e.target.closest('[data-inbox-open]');
+      if(openBtn){
+        const type=openBtn.dataset.inboxOpen,id=openBtn.dataset.inboxId;
+        closeModal(m);
+        if(type==='submission')window.__submissionTrackerAPI?.openRecord?.(id);
+        else if(type==='pending')openPendingEdit(id);
+        return;
+      }
+
+      const doneBtn=e.target.closest('[data-inbox-done]');
+      if(doneBtn){
+        togglePendingComplete(doneBtn.dataset.inboxDone).then(renderInbox);
+      }
+    });
+
     m.querySelector('#pe-inbox-close').addEventListener('click',()=>closeModal(m));
     m.querySelector('#pe-inbox-add').addEventListener('click',()=>{
       closeModal(m);
       openPendingModal();
     });
+
+    m.querySelector('#pe-inbox-scope').addEventListener('change',()=>{
+      m.dataset.statusFilter='all';
+      renderInbox();
+    });
+
+    m.querySelector('#pe-inbox-type').addEventListener('change',renderInbox);
+
+    m.querySelector('#pe-inbox-class').addEventListener('change',()=>{
+      const v=m.querySelector('#pe-inbox-class').value;
+      m.querySelector('#pe-inbox-class').dataset.lastClass=v;
+      if(v)setActiveClass(v);
+      renderInbox();
+    });
+
     return m;
   }
 
   function renderInbox(){
-    const m=ensureInboxModal(),all=unifiedInboxRows();
-    const quick=m.dataset.quickFilter||'all';
+    const m=ensureInboxModal();
+    const all=unifiedInboxRows();
+
     const scopeSel=m.querySelector('#pe-inbox-scope');
-    const typeSel=m.querySelector('#pe-inbox-type');
     const classSel=m.querySelector('#pe-inbox-class');
+    const typeSel=m.querySelector('#pe-inbox-type');
 
-    const previousType=typeSel.value;
-    const previousClass=classSel.value||classSel.dataset.lastClass||getActiveClass()||'';
-
-    const scopeQuickTypes=new Set(['personal','class','grade','subject','school','other']);
-    let scope=scopeSel.value||'';
-    if(scopeQuickTypes.has(quick)){
-      scope=quick;
-      scopeSel.value=scope;
-    }
+    const statusFilter=m.dataset.statusFilter||'all';
+    const scope=scopeSel.value||'';
+    const type=typeSel.value||'';
+    const rememberedClass=classSel.value||classSel.dataset.lastClass||getActiveClass()||'';
 
     const classes=[...new Set(
       all.filter(x=>x.scopeType==='class')
@@ -1496,60 +1561,63 @@
 
     classSel.innerHTML='<option value="">全部班別</option>'+
       classes.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+
     classSel.disabled=scope!=='class';
 
     if(scope==='class'){
-      const desired=normalizeClassId(previousClass);
-      if(classes.includes(desired))classSel.value=desired;
+      const normalized=normalizeClassId(rememberedClass);
+      classSel.value=classes.includes(normalized)?normalized:'';
     }else{
       classSel.value='';
     }
 
     const cls=classSel.value;
+
     const rows=all.filter(x=>{
-      if(quick==='today'&&x.status!=='today')return false;
-      if(quick==='overdue'&&x.status!=='overdue')return false;
+      if(statusFilter==='today'&&x.status!=='today')return false;
+      if(statusFilter==='overdue'&&x.status!=='overdue')return false;
       if(scope&&x.scopeType!==scope)return false;
       if(scope==='class'&&cls&&normalizeClassId(x.className||x.scopeName)!==cls)return false;
-      if(previousType&&x.type!==previousType)return false;
+      if(type&&x.type!==type)return false;
       return true;
     });
 
     const overdue=rows.filter(x=>x.status==='overdue').length;
     const today=rows.filter(x=>x.status==='today').length;
-    m.querySelector('#pe-inbox-summary').innerHTML=`共 <b>${rows.length}</b> 項・逾期 <b>${overdue}</b>・今日 <b>${today}</b>`;
+
+    m.querySelector('#pe-inbox-summary').innerHTML=
+      `共 <b>${rows.length}</b> 項・逾期 <b>${overdue}</b>・今日 <b>${today}</b>`;
 
     m.querySelector('#pe-inbox-list').innerHTML=rows.length?rows.map(x=>`
       <div class="pe-inbox-item ${x.status}">
-        <div class="pe-inbox-top"><b>${esc(x.kind)}｜${esc(x.title)}</b><small>${x.date?fmt(x.date):'未設日期'}</small></div>
-        <div class="pe-inbox-meta"><span class="pe-scope-tag ${esc(x.scopeType||'personal')}">${esc(x.scopeName||scopeLabel(x.scopeType))}</span> ${esc(x.meta||'')}</div>
+        <div class="pe-inbox-top">
+          <b>${esc(x.kind)}｜${esc(x.title)}</b>
+          <small>${x.date?fmt(x.date):'未設日期'}</small>
+        </div>
+        <div class="pe-inbox-meta">
+          <span class="pe-scope-tag ${esc(x.scopeType||'personal')}">${esc(x.scopeName||scopeLabel(x.scopeType))}</span>
+          ${esc(x.meta||'')}
+        </div>
         <div class="pe-inbox-actions">
           <button type="button" data-inbox-open="${esc(x.type)}" data-inbox-id="${esc(x.id||'')}">開啟來源</button>
           ${x.type==='pending'?`<button type="button" data-inbox-done="${esc(x.id||'')}">✓ 完成</button>`:''}
         </div>
       </div>`).join(''):'<div class="pe-note">目前冇符合條件嘅未完成工作。</div>';
 
-    classSel.onchange=()=>{
-      classSel.dataset.lastClass=classSel.value;
-      if(classSel.value)setActiveClass(classSel.value);
-      renderInbox();
-    };
-
-    m.querySelectorAll('[data-inbox-open]').forEach(btn=>btn.addEventListener('click',()=>{
-      const type=btn.dataset.inboxOpen,id=btn.dataset.inboxId;
-      closeModal(m);
-      if(type==='submission')window.__submissionTrackerAPI?.openRecord?.(id);
-      else if(type==='pending')openPendingEdit(id);
-    }));
-
-    m.querySelectorAll('[data-inbox-done]').forEach(btn=>btn.addEventListener('click',async()=>{
-      await togglePendingComplete(btn.dataset.inboxDone);
-      renderInbox();
-    }));
+    m.querySelectorAll('[data-inbox-chip]').forEach(btn=>{
+      const key=btn.dataset.inboxChip;
+      let active=false;
+      if(key==='all')active=(statusFilter==='all'&&!scope);
+      else if(key==='today'||key==='overdue')active=(statusFilter===key&&!scope);
+      else active=(statusFilter==='all'&&scope===key);
+      btn.classList.toggle('active',active);
+    });
   }
 
   function openInbox(){
-    safeOpenInbox();
+    const m=ensureInboxModal();
+    m.classList.add('open');
+    try{renderInbox()}catch(err){showInboxRenderError(err)}
   }
 
   function ensurePendingModal(){
@@ -2556,6 +2624,7 @@
       <div class="pe-workflow-stack">
         <div class="pe-workflow-card"><h4>↩ 上次進度 ${prevDate?`・${prevDate}`:''}</h4><div>${esc(prevProgress)}</div></div>
         <div class="pe-workflow-card"><h4>📚 上次功課</h4><div>${esc(prevHomework)}</div></div>
+        <div class="pe-workflow-card"><h4>📘 今堂課堂／科目</h4><div>${esc(d.lesson||'未能辨認課堂')}</div></div>
         <div class="pe-workflow-card pe-workflow-primary"><h4>📝 今堂進度</h4><div>${esc(d.progress||'尚未填寫')}</div></div>
         <div class="pe-workflow-card pe-workflow-primary"><h4>📖 今堂功課</h4><div>${esc(d.homework||'尚未填寫')}</div></div>
         <div class="pe-workflow-card"><h4>📋 追收狀態</h4><div>${esc(trackingText)}</div></div>
@@ -3644,7 +3713,7 @@
     document.documentElement.dataset.peCriticalDelegates='1';
 
     document.addEventListener('click',e=>{
-      const t=e.target.closest('button,[data-inbox-chip]');
+      const t=e.target.closest('button');
       if(!t)return;
 
       if(t.id==='pe-more-workflow'||t.id==='pe-v2-flow'){
@@ -3653,34 +3722,12 @@
         safeOpenWorkflow();
         return;
       }
+
       if(t.id==='pe-more-inbox'||t.id==='pe-v2-inbox'||t.id==='pe-today-inbox'){
         e.preventDefault();
         closeMobileMore();
         safeOpenInbox();
         return;
-      }
-      if(t.matches('[data-inbox-chip]')){
-        const m=document.getElementById('pe-inbox-modal');
-        if(!m)return;
-        e.preventDefault();
-        m.dataset.quickFilter=t.dataset.inboxChip||'all';
-        m.querySelectorAll('[data-inbox-chip]').forEach(x=>x.classList.toggle('active',x===t));
-        try{renderInbox()}catch(err){showInboxRenderError(err)}
-      }
-    },true);
-
-    document.addEventListener('change',e=>{
-      const t=e.target;
-      if(!(t instanceof HTMLSelectElement))return;
-      if(t.id==='pe-inbox-scope'){
-        const m=document.getElementById('pe-inbox-modal');
-        if(!m)return;
-        m.dataset.quickFilter='all';
-        m.querySelectorAll('[data-inbox-chip]').forEach(x=>x.classList.toggle('active',x.dataset.inboxChip==='all'));
-        try{renderInbox()}catch(err){showInboxRenderError(err)}
-      }
-      if(t.id==='pe-inbox-type'||t.id==='pe-inbox-class'){
-        try{renderInbox()}catch(err){showInboxRenderError(err)}
       }
     },true);
   }
