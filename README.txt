@@ -1,67 +1,64 @@
-香港教師教學日誌 v2.0.0 — 教師工作台核心
+香港教師教學日誌 v2.0.1 — 整合細節完善
 
-今次不是加幾個小功能，而是建立新架構。
+本版不加入座位表，集中完善 v2.0 底層整合。
 
-A. 班別／學生資料核心
-- 更多 → 記錄 → 👥 班別／學生
-- 可建立班別及學生名單（每行一位）
-- 自動由現有功課／追收辨認已有班別
-- 班別資料儲存在：
-  localStorage: hk-school-class-core-v2
-  Firestore: users/{uid}/classProfiles/{classId}
-- 呢份資料會成為之後：
-  座位表、積分、學生紀錄、追收的共用學生核心
+1. 跨模組保留所選班別
+新增 active class：
+localStorage: hk-school-active-class-v2
 
-B. 課堂工作流
-- 更多 → 工作台 → 🧭 課堂流程
-- 揀日期／節數
-- 直接讀主日誌真正課堂資料
-- 集中顯示：
-  上次同班進度
-  今堂進度
-  今堂功課
-  追收狀態
-- 可以：
-  前往日誌
-  查看追收／前往功課
-  為該堂快速建立待辦
+以下模組會盡量沿用同一班：
+- 班別／學生中心
+- 班別總覽
+- 功課紀錄
+- 統一 Inbox
+- 課堂工作流
 
-C. 統一 Inbox
-- 更多 → 工作台 → 📥 統一 Inbox
-- 合併：
-  未完成待辦
-  deadline
-  功課追收
-- 按班別／類型篩選
-- 排序：逾期 → 今日 → 之後
-- 可直接：
-  開啟待辦
-  開啟追收
-  完成待辦
+例：
+在班別中心選 3C → 開功課紀錄／Inbox／班別總覽時優先維持 3C。
 
-D. 教師工作台 v2 首頁
-- 更多 → 工作台 → 🧰 教師工作台 v2
-- 顯示 KPI：
-  班別數
-  學生數
-  追收中
-  逾期
-- 四個核心入口：
-  班別／學生中心
-  課堂工作流
-  統一 Inbox
-  班別總覽
+2. 正式關聯欄位
+課堂工作流會建立：
+- classId
+- className
+- lessonId
+- homeworkId
 
-架構原則：
+lessonId 格式：
+YYYY-MM-DD-p{節數}-{班別}
+
+例：
+2026-10-05-p3-3C
+
+homeworkId：
+{lessonId}-hw
+
+3. 由課堂工作流建立待辦
+現在會自動把以下 metadata 寫入 pendingItems：
+- classId
+- className
+- lessonId
+- homeworkId
+- sourceType = lessonWorkflow
+
+所以之後：
+Inbox／搜尋／班別中心不再只靠文字估班別。
+
+4. 統一 Inbox
+- 待辦優先使用正式 className metadata
+- 舊待辦仍會 fallback 文字辨認
+- 新舊資料可以共存
+
+5. 搜尋
+- 待處理事項搜尋內容加入 className
+- 更容易用班別搜尋
+
+架構仍然保留：
 - 不新增 React tab
-- 不替換 .workspace
-- 全部用 body-level modal
-- 保留 v1.9.6 所有穩定功能
+- 不替換 workspace
+- v2.0 班別核心／課堂工作流／Inbox
+- v1.9.x 搜尋、功課、雲端狀態等全部保留
 
-之後 v2.1：
-- 座位表直接讀 classProfiles 學生名單
+之後等座位表穩定：
+v2.1 再直接接 classProfiles。
 
-之後 v2.2：
-- 積分／課堂表現使用同一 student/class core
-
-Service Worker cache：v200
+Service Worker cache：v201

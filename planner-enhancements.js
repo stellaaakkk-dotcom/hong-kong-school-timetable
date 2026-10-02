@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.0.0';
+  const VERSION = '2.0.1';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -10,6 +10,7 @@
   const PLANNER_LOCAL_KEY = 'hk-school-planner-v3';
   const CLASS_CORE_LOCAL_KEY = 'hk-school-class-core-v2';
   const CLASS_CORE_QUEUE_KEY = 'hk-school-class-core-queue-v2';
+  const ACTIVE_CLASS_KEY = 'hk-school-active-class-v2';
   const state = {
     user: null,
     submissions: [],
@@ -555,6 +556,33 @@
   const pendingCollection = () => window.firebase.firestore().collection('users').doc(state.user.uid).collection('pendingItems');
   const classCoreCollection = () => window.firebase.firestore().collection('users').doc(state.user.uid).collection('classProfiles');
 
+
+
+  function getActiveClass(){
+    if(state.activeWorkspaceClass)return state.activeWorkspaceClass;
+    try{
+      const x=localStorage.getItem(ACTIVE_CLASS_KEY)||'';
+      state.activeWorkspaceClass=normalizeClassId(x);
+    }catch{}
+    return state.activeWorkspaceClass||'';
+  }
+
+  function setActiveClass(name=''){
+    const cls=normalizeClassId(name);
+    state.activeWorkspaceClass=cls;
+    try{localStorage.setItem(ACTIVE_CLASS_KEY,cls)}catch{}
+    try{window.dispatchEvent(new CustomEvent('activeClassChanged',{detail:{className:cls}}))}catch{}
+    return cls;
+  }
+
+  function classProfileByName(name=''){
+    const cls=normalizeClassId(name);
+    return state.classCore.find(x=>normalizeClassId(x.name)===cls)||null;
+  }
+
+  function classIdForName(name=''){
+    return classProfileByName(name)?.id||'';
+  }
 
   function normalizeClassId(name=''){
     return String(name||'').trim().toUpperCase().replace(/\s+/g,'');
@@ -1219,7 +1247,7 @@
         type:'pending',
         id:x.id,
         date:x.dueDate||'',
-        className:inferClassFromText(`${x.title||''} ${x.note||''}`),
+        className:x.className||inferClassFromText(`${x.title||''} ${x.note||''}`),
         title:x.title||'待辦',
         meta:[pendingReminderText(x),`優先：${pendingPriorityLabel(x.priority)}`].filter(Boolean).join('・'),
         status:st
@@ -1268,14 +1296,17 @@
     document.body.appendChild(m);
     m.addEventListener('click',e=>{if(e.target===m)closeModal(m)});
     m.querySelector('#pe-inbox-close').addEventListener('click',()=>closeModal(m));
-    m.querySelector('#pe-inbox-class').addEventListener('change',renderInbox);
+    m.querySelector('#pe-inbox-class').addEventListener('change',()=>{
+      setActiveClass(m.querySelector('#pe-inbox-class').value);
+      renderInbox();
+    });
     m.querySelector('#pe-inbox-type').addEventListener('change',renderInbox);
     return m;
   }
 
   function renderInbox(){
     const m=ensureInboxModal(),all=unifiedInboxRows();
-    const sel=m.querySelector('#pe-inbox-class'),current=sel.value;
+    const sel=m.querySelector('#pe-inbox-class'),current=sel.value||getActiveClass();
     const classes=[...new Set(all.map(x=>normalizeClassId(x.className)).filter(Boolean))].sort();
     sel.innerHTML='<option value="">全部班別</option>'+classes.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
     if(classes.includes(current))sel.value=current;
@@ -1347,13 +1378,14 @@
   }
 
 
-  function openPendingPrefill(title='',date='',note=''){
+  function openPendingPrefill(title='',date='',note='',meta={}){
     const m=ensurePendingModal();
     document.getElementById('pe-pending-date').value=date||hkToday();
     document.getElementById('pe-pending-title').value=title;
     document.getElementById('pe-pending-note').value=note;
     document.getElementById('pe-pending-repeat').value='none';
     document.getElementById('pe-pending-remind').value='1';
+    m.dataset.prefillMeta=JSON.stringify(meta||{});
     m.classList.add('open');
     renderPendingList();
   }
@@ -1365,6 +1397,7 @@
     document.getElementById('pe-pending-note').value='';
     document.getElementById('pe-pending-repeat').value='none';
     document.getElementById('pe-pending-remind').value='1';
+    m.dataset.prefillMeta='';
     m.classList.add('open');
     renderPendingList();
   }
@@ -1377,7 +1410,20 @@
     const remindDays=Number(document.getElementById('pe-pending-remind').value||0);
     const note=document.getElementById('pe-pending-note').value.trim();
     if(!title||!dueDate){alert('請填寫事項及 deadline。');return}
-    const rec={id:`todo_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,title,dueDate,priority,repeat,remindDays,note,completed:false,completedAt:'',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+    let meta={};
+    try{meta=JSON.parse(document.getElementById('pe-pending-modal')?.dataset.prefillMeta||'{}')}catch{}
+    const rec={
+      id:`todo_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
+      title,dueDate,priority,repeat,remindDays,note,
+      classId:meta.classId||'',
+      className:meta.className||'',
+      lessonId:meta.lessonId||'',
+      homeworkId:meta.homeworkId||'',
+      sourceType:meta.sourceType||'manual',
+      completed:false,completedAt:'',
+      createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()
+    };
+    try{document.getElementById('pe-pending-modal').dataset.prefillMeta=''}catch{}
     state.pendingItems.unshift(rec);saveLocalPending();renderPendingList();renderDashboard();
 
     if(state.firebaseReady&&navigator.onLine){
@@ -2180,10 +2226,13 @@
     }
     prev.sort((a,b)=>b.date.localeCompare(a.date)||b.period-a.period);
 
-    const hwRow={date,period:periodIndex+1,periodIndex,className,subject:lesson,text:homework};
+    const classId=classIdForName(className);
+    const lessonId=`${date}-p${periodIndex+1}-${normalizeClassId(className)||'unknown'}`;
+    const homeworkId=homework?`${lessonId}-hw`:'';
+    const hwRow={date,period:periodIndex+1,periodIndex,className,subject:lesson,text:homework,lessonId,homeworkId,classId};
     const tracking=homework?submissionStatusForHomework(hwRow):{type:'none',label:'未追收',record:null};
 
-    return {date,periodIndex,period:periodIndex+1,lesson,className,progress,homework,previous:prev[0]||null,tracking};
+    return {date,periodIndex,period:periodIndex+1,lesson,className,classId,lessonId,homeworkId,progress,homework,previous:prev[0]||null,tracking};
   }
 
   function ensureWorkflowModal(){
@@ -2237,6 +2286,7 @@
 
     const d=lessonWorkflowData(date,periodIndex);
     m.querySelector('#pe-workflow-class').value=d.className;
+    if(d.className&&d.className!=='未分類')setActiveClass(d.className);
 
     const content=m.querySelector('#pe-workflow-content');
     content.innerHTML=`
@@ -2269,7 +2319,18 @@
 
     content.querySelector('#pe-workflow-todo')?.addEventListener('click',()=>{
       closeModal(m);
-      openPendingPrefill(`跟進 ${d.className} 第${d.period}節`,date,`${d.lesson}${d.homework?`｜功課：${d.homework}`:''}`);
+      openPendingPrefill(
+        `跟進 ${d.className} 第${d.period}節`,
+        date,
+        `${d.lesson}${d.homework?`｜功課：${d.homework}`:''}`,
+        {
+          classId:d.classId,
+          className:d.className,
+          lessonId:d.lessonId,
+          homeworkId:d.homeworkId,
+          sourceType:'lessonWorkflow'
+        }
+      );
     });
   }
 
@@ -2310,7 +2371,10 @@
     document.body.appendChild(m);
     m.addEventListener('click',e=>{if(e.target===m)closeModal(m)});
     m.querySelector('#pe-homework-close').addEventListener('click',()=>closeModal(m));
-    m.querySelector('#pe-homework-class').addEventListener('change',renderHomeworkHistory);
+    m.querySelector('#pe-homework-class').addEventListener('change',()=>{
+      setActiveClass(m.querySelector('#pe-homework-class').value);
+      renderHomeworkHistory();
+    });
     m.querySelector('#pe-homework-search').addEventListener('input',renderHomeworkHistory);
     if(!m.dataset.period)m.dataset.period='all';
     m.querySelectorAll('[data-period]').forEach(btn=>btn.addEventListener('click',()=>{
@@ -2328,7 +2392,7 @@
   function renderHomeworkHistory(){
     const m=ensureHomeworkHistoryModal(),all=homeworkHistoryRows();
     const select=m.querySelector('#pe-homework-class');
-    const current=select.value;
+    const current=select.value||getActiveClass();
     const normal=all.filter(x=>!x.unresolved);
     const unresolved=all.filter(x=>x.unresolved);
     const classes=[...new Set(normal.map(x=>x.className).filter(x=>x&&x!=='未分類'))].sort((a,b)=>a.localeCompare(b,'zh-HK'));
@@ -2477,6 +2541,8 @@
       </button>`).join(''):'<div class="pe-note">尚未建立班別。</div>';
     out.querySelectorAll('[data-class-core-id]').forEach(btn=>btn.addEventListener('click',()=>{
       m.dataset.classId=btn.dataset.classCoreId;
+      const rec=state.classCore.find(x=>x.id===m.dataset.classId);
+      if(rec)setActiveClass(rec.name);
       renderClassCoreList();
       renderClassCoreEditor();
     }));
@@ -2508,6 +2574,7 @@
     }
     Object.assign(rec,{name,students,updatedAt:new Date().toISOString()});
     m.dataset.classId=rec.id;
+    setActiveClass(name);
     await syncClassProfile(rec);
     renderClassCoreList();
     renderClassCoreEditor();
@@ -2517,7 +2584,10 @@
   function openClassCore(){
     const m=ensureClassCoreModal();
     bootstrapClassCoreFromExisting();
-    if(!m.dataset.classId && state.classCore[0])m.dataset.classId=state.classCore[0].id;
+    const active=getActiveClass();
+    const preferred=classProfileByName(active);
+    if(preferred)m.dataset.classId=preferred.id;
+    else if(!m.dataset.classId && state.classCore[0])m.dataset.classId=state.classCore[0].id;
     renderClassCoreList();
     renderClassCoreEditor();
     m.classList.add('open');
@@ -2539,7 +2609,10 @@
     document.body.appendChild(m);
     m.addEventListener('click',e=>{if(e.target===m)closeModal(m)});
     m.querySelector('#pe-class-overview-close').addEventListener('click',()=>closeModal(m));
-    m.querySelector('#pe-class-overview-class').addEventListener('change',renderClassOverview);
+    m.querySelector('#pe-class-overview-class').addEventListener('change',()=>{
+      setActiveClass(m.querySelector('#pe-class-overview-class').value);
+      renderClassOverview();
+    });
     m.querySelector('#pe-class-overview-refresh').addEventListener('click',renderClassOverview);
     return m;
   }
@@ -2553,7 +2626,7 @@
 
   function renderClassOverview(){
     const m=ensureClassOverviewModal(),sel=m.querySelector('#pe-class-overview-class');
-    const current=sel.value;
+    const current=sel.value||getActiveClass();
     const classes=classOverviewClasses();
     sel.innerHTML='<option value="">選擇班別</option>'+classes.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
     if(classes.includes(current))sel.value=current;
@@ -2733,7 +2806,7 @@
       kind:'待處理事項',
       date:x.dueDate||'',
       title:x.title||'',
-      text:[x.note,pendingPriorityLabel(x.priority),x.completed?'已完成':'未完成'].filter(Boolean).join(' '),
+      text:[x.className,x.note,pendingPriorityLabel(x.priority),x.completed?'已完成':'未完成'].filter(Boolean).join(' '),
       route:'pending',
       id:x.id||''
     }));
@@ -2949,6 +3022,7 @@
 
   function openWorkspace(){
     bootstrapClassCoreFromExisting();
+    getActiveClass();
     const m=ensureWorkspaceModal();
     renderWorkspace();
     m.classList.add('open');
@@ -3202,6 +3276,7 @@
     ensureWorkflowModal();
     ensureWorkspaceModal();
     loadClassCore();
+    getActiveClass();
     ensureMobileNav();
     ensureIpadRail();
     ensureDesktopMoreToggle();
