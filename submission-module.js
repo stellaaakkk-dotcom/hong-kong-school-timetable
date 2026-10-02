@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.4.2';
+  const VERSION = '1.5.0';
   const LOCAL_KEY = 'hk-school-submission-records-v1';
   const PENDING_KEY = 'hk-school-submission-pending-v1';
   const CLASS_PREF_KEY = 'hk-school-class-student-counts-v1';
@@ -856,6 +856,7 @@
   window.__submissionTrackerAPI={
     getRecords:()=>state.records.map(r=>({...r})),
     getById:(id)=>state.records.find(r=>r.id===id)||null,
+    findBySourceKey:(key)=>state.records.find(r=>r.sourceKey===key)||null,
     getPendingCount:()=>{loadPending();return state.pendingCount},
     flushPending,
     open:showPage,
