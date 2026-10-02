@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.1.1';
+  const VERSION = '2.1.2';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -2625,6 +2625,7 @@
     const p=plannerState(),notes=p.lessonNotes||{};
     const lesson=timetableLessonForHomework(date,periodIndex);
     const className=classFromTimetableLesson(lesson)||'未分類';
+    const subjectName=subjectFromLessonText(lesson,className);
     const progress=String(notes[`${date}-${periodIndex}-p`]||'').trim();
     const homework=String(notes[`${date}-${periodIndex}-h`]||'').trim();
 
@@ -2632,28 +2633,63 @@
     for(const [key,val] of Object.entries(notes)){
       const m=key.match(/^(\d{4}-\d{2}-\d{2})-(\d+)-p$/);
       if(!m||!val||m[1]>=date)continue;
+
       const pi=Number(m[2]);
-      const l=timetableLessonForHomework(m[1],pi);
-      if(classFromTimetableLesson(l)!==className)continue;
+      const previousLesson=timetableLessonForHomework(m[1],pi);
+      const previousClass=classFromTimetableLesson(previousLesson)||'未分類';
+      const previousSubject=subjectFromLessonText(previousLesson,previousClass);
+
+      // 「上次」必須係同一班 + 同一科目。
+      // 例如 4C 視藝只會搵上一個 4C 視藝課堂，
+      // 不會誤用前一日 4C 中文／常識等其他課堂。
+      if(normalizeClassId(previousClass)!==normalizeClassId(className))continue;
+      if(String(previousSubject).trim().toLowerCase()!==String(subjectName).trim().toLowerCase())continue;
+
       prev.push({
         date:m[1],
         period:pi+1,
         periodIndex:pi,
+        lesson:previousLesson,
+        subject:previousSubject,
         text:String(val),
         homework:String(notes[`${m[1]}-${pi}-h`]||'').trim()
       });
     }
+
     prev.sort((a,b)=>b.date.localeCompare(a.date)||b.period-a.period);
 
     const classId=classIdForName(className);
     const lessonId=`${date}-p${periodIndex+1}-${normalizeClassId(className)||'unknown'}`;
     const homeworkId=homework?`${lessonId}-hw`:'';
-    const hwRow={date,period:periodIndex+1,periodIndex,className,subject:lesson,text:homework,lessonId,homeworkId,classId};
-    const tracking=homework?submissionStatusForHomework(hwRow):{type:'none',label:'沒有功課',record:null};
+    const hwRow={
+      date,
+      period:periodIndex+1,
+      periodIndex,
+      className,
+      subject:lesson,
+      text:homework,
+      lessonId,
+      homeworkId,
+      classId
+    };
+    const tracking=homework
+      ? submissionStatusForHomework(hwRow)
+      : {type:'none',label:'沒有功課',record:null};
 
     return {
-      date,periodIndex,period:periodIndex+1,lesson,className,classId,lessonId,homeworkId,
-      progress,homework,previous:prev[0]||null,tracking
+      date,
+      periodIndex,
+      period:periodIndex+1,
+      lesson,
+      subjectName,
+      className,
+      classId,
+      lessonId,
+      homeworkId,
+      progress,
+      homework,
+      previous:prev[0]||null,
+      tracking
     };
   }
 
@@ -2723,8 +2759,8 @@
 
     content.innerHTML=`
       <div class="pe-workflow-stack">
-        <div class="pe-workflow-card"><h4>↩ 上次進度 ${prevDate?`・${prevDate}`:''}</h4><div>${esc(prevProgress)}</div></div>
-        <div class="pe-workflow-card"><h4>📚 上次功課</h4><div>${esc(prevHomework)}</div></div>
+        <div class="pe-workflow-card"><h4>↩ 上次同科進度 ${prevDate?`・${prevDate}`:''}</h4><div>${esc(prevProgress)}</div></div>
+        <div class="pe-workflow-card"><h4>📚 上次同科功課</h4><div>${esc(prevHomework)}</div></div>
         <div class="pe-workflow-card"><h4>📘 今堂科目</h4><div>${esc(subjectFromLessonText(d.lesson,d.className))}</div></div>
         <div class="pe-workflow-card pe-workflow-primary"><h4>📝 今堂進度</h4><div>${esc(d.progress||'尚未填寫')}</div></div>
         <div class="pe-workflow-card pe-workflow-primary"><h4>📖 今堂功課</h4><div>${esc(d.homework||'尚未填寫')}</div></div>
