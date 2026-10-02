@@ -1,0 +1,26 @@
+部署修復包 v1.7.3
+
+請將以下 4 個檔案全部上載到 GitHub repo 根目錄：
+1. index.html
+2. planner-enhancements.js
+3. submission-module.js
+4. sw.js
+
+重要：
+- planner-enhancements.js 及 submission-module.js 必須真正出現在 repo 根目錄。
+- 不要只覆蓋 index.html / sw.js。
+- automate-bridge.js 保留原有檔案，不需刪除或修改。
+
+上載完成後，repo 根目錄應至少見到：
+automate-bridge.js
+index.html
+planner-enhancements.js
+submission-module.js
+sw.js
+
+本版 index 會載入：
+submission-module.js?v=173
+planner-enhancements.js?v=173
+
+sw cache：
+hk-teacher-journal-pwa-v73
