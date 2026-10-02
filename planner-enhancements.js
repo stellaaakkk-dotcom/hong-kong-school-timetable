@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.0.1';
+  const VERSION = '2.0.2';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -118,7 +118,7 @@
       .pe-kpi-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:7px 0}
       .pe-kpi{border:1px solid #eadfce;border-radius:9px;background:#fffaf2;padding:7px;text-align:center}
       .pe-kpi b{display:block;font-size:14px;color:#80542f}.pe-kpi small{font-size:7.5px;color:#8c7868}
-      .pe-inbox-toolbar{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:7px 0}
+      .pe-inbox-toolbar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:7px 0}.pe-scope-tag{display:inline-block;margin-right:4px;border:1px solid #ddcbb4;border-radius:999px;background:#fff7e8;color:#79543b;padding:2px 6px;font-size:7px;font-weight:850}.pe-scope-tag.school{background:#eef4ff;border-color:#cad8ef;color:#4d6484}.pe-scope-tag.subject{background:#f4efff;border-color:#d8ccef;color:#695589}.pe-scope-tag.grade{background:#eef8ef;border-color:#c8dec9;color:#547255}.pe-scope-tag.personal{background:#f5f5f5;border-color:#dddddd;color:#666}
       .pe-inbox-list{display:grid;gap:6px}
       .pe-inbox-item{border:1px solid #eadfce;border-radius:10px;background:#fff;padding:8px}
       .pe-inbox-item.overdue{background:#fff6f4;border-color:#e9c3bb}
@@ -1214,6 +1214,88 @@
   }
   function repeatLabel(v){return v==='weekly'?'每週':v==='biweekly'?'隔週':v==='monthly'?'每月':'不重複'}
 
+
+  const SCOPE_LABELS={personal:'個人',class:'班別',grade:'年級',subject:'科組',school:'全校',other:'其他'};
+
+  function normalizedPendingScope(item={}){
+    let type=String(item.scopeType||'').trim();
+    let name=String(item.scopeName||'').trim();
+    let id=String(item.scopeId||'').trim();
+    if(!type){
+      if(item.classId||item.className||item.lessonId||item.sourceType==='lessonWorkflow'){
+        type='class'; name=String(item.className||'').trim(); id=String(item.classId||'').trim();
+      }else{
+        type='personal'; name='個人';
+      }
+    }
+    if(type==='class'){
+      name=name||String(item.className||'').trim();
+      id=id||String(item.classId||'').trim()||classIdForName(name);
+    }else if(type==='school') name=name||'全校';
+    else if(type==='personal') name=name||'個人';
+    return {type,name,id};
+  }
+
+  function scopeLabel(type){return SCOPE_LABELS[type]||'其他'}
+
+  function pendingScopeText(item={}){
+    const s=normalizedPendingScope(item);
+    return (s.type==='personal'||s.type==='school')
+      ? scopeLabel(s.type)
+      : (s.name?`${scopeLabel(s.type)}・${s.name}`:scopeLabel(s.type));
+  }
+
+  function classScopeOptions(selected=''){
+    const names=new Set();
+    state.classCore.forEach(c=>c.name&&names.add(normalizeClassId(c.name)));
+    try{knownClassNames().forEach(c=>c&&names.add(normalizeClassId(c)))}catch{}
+    return [...names].filter(Boolean).sort().map(c=>`<option value="${esc(c)}" ${normalizeClassId(selected)===c?'selected':''}>${esc(c)}</option>`).join('');
+  }
+
+  function refreshScopeEditor(prefix,scope={}){
+    const typeEl=document.getElementById(`${prefix}-scope-type`);
+    if(!typeEl)return;
+    const type=typeEl.value||scope.type||'personal';
+    const classField=document.getElementById(`${prefix}-scope-class-field`);
+    const gradeField=document.getElementById(`${prefix}-scope-grade-field`);
+    const nameField=document.getElementById(`${prefix}-scope-name-field`);
+    const classEl=document.getElementById(`${prefix}-scope-class`);
+    const gradeEl=document.getElementById(`${prefix}-scope-grade`);
+    const nameEl=document.getElementById(`${prefix}-scope-name`);
+    if(classField)classField.style.display=type==='class'?'':'none';
+    if(gradeField)gradeField.style.display=type==='grade'?'':'none';
+    if(nameField)nameField.style.display=(type==='subject'||type==='other')?'':'none';
+    if(classEl){
+      const selected=scope.name||classEl.value||getActiveClass();
+      classEl.innerHTML='<option value="">選擇班別</option>'+classScopeOptions(selected);
+      if(selected && [...classEl.options].some(o=>o.value===normalizeClassId(selected)))classEl.value=normalizeClassId(selected);
+    }
+    if(gradeEl && scope.name && /^P\.[1-6]$/i.test(scope.name))gradeEl.value=scope.name.toUpperCase();
+    if(nameEl && scope.name && (type==='subject'||type==='other'))nameEl.value=scope.name;
+  }
+
+  function readScopeEditor(prefix){
+    const type=document.getElementById(`${prefix}-scope-type`)?.value||'personal';
+    let name='',id='';
+    if(type==='class'){
+      name=normalizeClassId(document.getElementById(`${prefix}-scope-class`)?.value||'');
+      id=classIdForName(name);
+    }else if(type==='grade'){
+      name=document.getElementById(`${prefix}-scope-grade`)?.value||'';
+    }else if(type==='subject'||type==='other'){
+      name=document.getElementById(`${prefix}-scope-name`)?.value.trim()||'';
+    }else if(type==='school') name='全校';
+    else name='個人';
+    return {scopeType:type,scopeName:name,scopeId:id};
+  }
+
+  function validateScope(scope){
+    if(scope.scopeType==='class'&&!scope.scopeName)return '請選擇班別。';
+    if(scope.scopeType==='grade'&&!scope.scopeName)return '請選擇年級。';
+    if((scope.scopeType==='subject'||scope.scopeType==='other')&&!scope.scopeName)return '請輸入工作範圍名稱。';
+    return '';
+  }
+
   function pendingStatus(item){
     if(item.completed)return 'done';
     const t=hkToday();
@@ -1247,9 +1329,11 @@
         type:'pending',
         id:x.id,
         date:x.dueDate||'',
-        className:x.className||inferClassFromText(`${x.title||''} ${x.note||''}`),
+        className:normalizedPendingScope(x).type==='class'?(normalizedPendingScope(x).name||x.className||''):'',
+        scopeType:normalizedPendingScope(x).type,
+        scopeName:normalizedPendingScope(x).name,
         title:x.title||'待辦',
-        meta:[pendingReminderText(x),`優先：${pendingPriorityLabel(x.priority)}`].filter(Boolean).join('・'),
+        meta:[pendingScopeText(x),pendingReminderText(x),`優先：${pendingPriorityLabel(x.priority)}`].filter(Boolean).join('・'),
         status:st
       });
     });
@@ -1264,8 +1348,10 @@
         id:r.id,
         date,
         className:r.className||'',
+        scopeType:'class',
+        scopeName:r.className||'',
         title:r.name||r.type||'追收項目',
-        meta:`${r.className||''}・欠 ${r.missing.length} 人`,
+        meta:`班別・${r.className||''}・欠 ${r.missing.length} 人`,
         status:st
       });
     });
@@ -1284,8 +1370,9 @@
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
       <h3>📥 統一 Inbox</h3>
-      <p class="pe-note">將未完成待辦、deadline 同功課追收集中處理。可以按班別或類型篩選。</p>
+      <p class="pe-note">將未完成待辦、deadline 同功課追收集中處理。可按工作範圍、班別或類型篩選。</p>
       <div class="pe-inbox-toolbar">
+        <select id="pe-inbox-scope"><option value="">全部範圍</option><option value="personal">個人</option><option value="class">班別</option><option value="grade">年級</option><option value="subject">科組</option><option value="school">全校</option><option value="other">其他</option></select>
         <select id="pe-inbox-class"><option value="">全部班別</option></select>
         <select id="pe-inbox-type"><option value="">全部類型</option><option value="pending">待辦／Deadline</option><option value="submission">功課追收</option></select>
       </div>
@@ -1296,23 +1383,36 @@
     document.body.appendChild(m);
     m.addEventListener('click',e=>{if(e.target===m)closeModal(m)});
     m.querySelector('#pe-inbox-close').addEventListener('click',()=>closeModal(m));
-    m.querySelector('#pe-inbox-class').addEventListener('change',()=>{
-      setActiveClass(m.querySelector('#pe-inbox-class').value);
-      renderInbox();
-    });
+    m.querySelector('#pe-inbox-scope').addEventListener('change',renderInbox);
     m.querySelector('#pe-inbox-type').addEventListener('change',renderInbox);
     return m;
   }
 
   function renderInbox(){
     const m=ensureInboxModal(),all=unifiedInboxRows();
-    const sel=m.querySelector('#pe-inbox-class'),current=sel.value||getActiveClass();
-    const classes=[...new Set(all.map(x=>normalizeClassId(x.className)).filter(Boolean))].sort();
+    const scope=m.querySelector('#pe-inbox-scope').value;
+    const sel=m.querySelector('#pe-inbox-class');
+    const classes=[...new Set(all.filter(x=>x.scopeType==='class').map(x=>normalizeClassId(x.className)).filter(Boolean))].sort();
+
+    const previous=sel.dataset.lastClass||getActiveClass()||'';
     sel.innerHTML='<option value="">全部班別</option>'+classes.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
-    if(classes.includes(current))sel.value=current;
+    sel.disabled=scope!=='class';
+
+    if(scope==='class'){
+      const desired=normalizeClassId(previous);
+      if(classes.includes(desired))sel.value=desired;
+    }else{
+      sel.value='';
+    }
 
     const cls=sel.value,type=m.querySelector('#pe-inbox-type').value;
-    const rows=all.filter(x=>(!cls||normalizeClassId(x.className)===cls)&&(!type||x.type===type));
+    const rows=all.filter(x=>{
+      if(scope && x.scopeType!==scope)return false;
+      if(scope==='class' && cls && normalizeClassId(x.className)!==cls)return false;
+      if(type && x.type!==type)return false;
+      return true;
+    });
+
     const overdue=rows.filter(x=>x.status==='overdue').length;
     const today=rows.filter(x=>x.status==='today').length;
     m.querySelector('#pe-inbox-summary').innerHTML=`共 <b>${rows.length}</b> 項・逾期 <b>${overdue}</b>・今日 <b>${today}</b>`;
@@ -1320,12 +1420,18 @@
     m.querySelector('#pe-inbox-list').innerHTML=rows.length?rows.map(x=>`
       <div class="pe-inbox-item ${x.status}">
         <div class="pe-inbox-top"><b>${esc(x.kind)}｜${esc(x.title)}</b><small>${x.date?fmt(x.date):'未設日期'}</small></div>
-        <div class="pe-inbox-meta">${esc(x.meta||'')}</div>
+        <div class="pe-inbox-meta"><span class="pe-scope-tag ${esc(x.scopeType||'personal')}">${esc(x.scopeName||scopeLabel(x.scopeType))}</span> ${esc(x.meta||'')}</div>
         <div class="pe-inbox-actions">
           <button type="button" data-inbox-open="${esc(x.type)}" data-inbox-id="${esc(x.id||'')}">開啟來源</button>
           ${x.type==='pending'?`<button type="button" data-inbox-done="${esc(x.id||'')}">✓ 完成</button>`:''}
         </div>
       </div>`).join(''):'<div class="pe-note">目前冇符合條件嘅未完成工作。</div>';
+
+    sel.onchange=()=>{
+      sel.dataset.lastClass=sel.value;
+      if(sel.value)setActiveClass(sel.value);
+      renderInbox();
+    };
 
     m.querySelectorAll('[data-inbox-open]').forEach(btn=>btn.addEventListener('click',()=>{
       const type=btn.dataset.inboxOpen,id=btn.dataset.inboxId;
@@ -1355,6 +1461,10 @@
       <div class="pe-grid">
         <div class="pe-field pe-full"><label>事項</label><input id="pe-pending-title" placeholder="例如：回覆家長、交報告"></div>
         <div class="pe-field"><label>Deadline</label><input id="pe-pending-date" type="date"></div>
+        <div class="pe-field"><label>工作範圍</label><select id="pe-pending-scope-type"><option value="personal">個人</option><option value="class">班別</option><option value="grade">年級</option><option value="subject">科組</option><option value="school">全校</option><option value="other">其他</option></select></div>
+        <div class="pe-field" id="pe-pending-scope-class-field" style="display:none"><label>班別</label><select id="pe-pending-scope-class"></select></div>
+        <div class="pe-field" id="pe-pending-scope-grade-field" style="display:none"><label>年級</label><select id="pe-pending-scope-grade"><option value="P.1">P.1</option><option value="P.2">P.2</option><option value="P.3">P.3</option><option value="P.4">P.4</option><option value="P.5">P.5</option><option value="P.6">P.6</option></select></div>
+        <div class="pe-field" id="pe-pending-scope-name-field" style="display:none"><label>範圍名稱</label><input id="pe-pending-scope-name" placeholder="例如：中文科／校務處"></div>
         <div class="pe-field"><label>優先級</label><select id="pe-pending-priority"><option value="high">高</option><option value="medium" selected>中</option><option value="low">低</option></select></div>
         <div class="pe-field"><label>重複</label><select id="pe-pending-repeat"><option value="none">不重複</option><option value="weekly">每週</option><option value="biweekly">隔週</option><option value="monthly">每月</option></select></div>
         <div class="pe-field"><label>提前提醒</label><select id="pe-pending-remind"><option value="0">到期日</option><option value="1" selected>1日前</option><option value="3">3日前</option><option value="7">7日前</option></select></div>
@@ -1371,6 +1481,7 @@
     document.body.appendChild(modal);
     modal.addEventListener('click',e=>{if(e.target===modal)closeModal(modal)});
     modal.querySelector('#pe-pending-close').addEventListener('click',()=>closeModal(modal));
+    modal.querySelector('#pe-pending-scope-type').addEventListener('change',()=>refreshScopeEditor('pe-pending'));
     modal.querySelector('#pe-pending-add').addEventListener('click',addPendingItem);
     modal.querySelector('#pe-pending-filter').addEventListener('change',renderPendingList);
     modal.querySelector('#pe-pending-search').addEventListener('input',renderPendingList);
@@ -1386,6 +1497,9 @@
     document.getElementById('pe-pending-repeat').value='none';
     document.getElementById('pe-pending-remind').value='1';
     m.dataset.prefillMeta=JSON.stringify(meta||{});
+    const preScope={type:meta.scopeType||(meta.className||meta.classId?'class':'personal'),name:meta.scopeName||meta.className||'',id:meta.scopeId||meta.classId||''};
+    document.getElementById('pe-pending-scope-type').value=preScope.type;
+    refreshScopeEditor('pe-pending',preScope);
     m.classList.add('open');
     renderPendingList();
   }
@@ -1398,6 +1512,8 @@
     document.getElementById('pe-pending-repeat').value='none';
     document.getElementById('pe-pending-remind').value='1';
     m.dataset.prefillMeta='';
+    document.getElementById('pe-pending-scope-type').value='personal';
+    refreshScopeEditor('pe-pending',{type:'personal',name:'個人'});
     m.classList.add('open');
     renderPendingList();
   }
@@ -1410,13 +1526,19 @@
     const remindDays=Number(document.getElementById('pe-pending-remind').value||0);
     const note=document.getElementById('pe-pending-note').value.trim();
     if(!title||!dueDate){alert('請填寫事項及 deadline。');return}
+    const manualScope=readScopeEditor('pe-pending');
+    const scopeError=validateScope(manualScope);
+    if(scopeError){alert(scopeError);return}
     let meta={};
     try{meta=JSON.parse(document.getElementById('pe-pending-modal')?.dataset.prefillMeta||'{}')}catch{}
     const rec={
       id:`todo_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
       title,dueDate,priority,repeat,remindDays,note,
-      classId:meta.classId||'',
-      className:meta.className||'',
+      scopeType:meta.scopeType||manualScope.scopeType,
+      scopeName:meta.scopeName||meta.className||manualScope.scopeName,
+      scopeId:meta.scopeId||meta.classId||manualScope.scopeId,
+      classId:(meta.scopeType==='class'||meta.classId||manualScope.scopeType==='class')?(meta.classId||manualScope.scopeId||''):'',
+      className:(meta.scopeType==='class'||meta.className||manualScope.scopeType==='class')?(meta.className||manualScope.scopeName||''):'',
       lessonId:meta.lessonId||'',
       homeworkId:meta.homeworkId||'',
       sourceType:meta.sourceType||'manual',
@@ -1493,14 +1615,14 @@
     let arr=state.pendingItems.filter(x=>{
       if(mode==='open'&&x.completed)return false;
       if(mode==='done'&&!x.completed)return false;
-      return !q||`${x.title||''} ${x.note||''}`.toLowerCase().includes(q);
+      return !q||`${x.title||''} ${x.note||''} ${pendingScopeText(x)}`.toLowerCase().includes(q);
     }).sort((a,b)=>a.completed!==b.completed?(a.completed?1:-1):(a.dueDate||'').localeCompare(b.dueDate||''));
 
     const open=state.pendingItems.filter(x=>!x.completed);
     const today=open.filter(x=>pendingStatus(x)==='today').length;
     const overdue=open.filter(x=>pendingStatus(x)==='overdue').length;
     out.innerHTML=`<div class="pe-pending-summary"><span class="pe-pending-badge">未完成 ${open.length}</span><span class="pe-pending-badge today">今日到期 ${today}</span><span class="pe-pending-badge overdue">已逾期 ${overdue}</span></div>`+
-      (arr.length?arr.map(x=>{const st=pendingStatus(x);return `<div class="pe-pending-item ${st}"><div class="pe-pending-title">${x.completed?'✓ ':''}${esc(x.title)}</div><div class="pe-pending-meta">Deadline：${fmt(x.dueDate)}｜優先：${pendingPriorityLabel(x.priority)}｜${repeatLabel(x.repeat||'none')}｜提醒：${Number(x.remindDays??0)}日前${pendingReminderText(x)?`<br><span class="pe-reminder-soon">${pendingReminderText(x)}</span>`:''}${x.note?`<br>${esc(x.note)}`:''}</div><div class="pe-pending-actions"><button class="${x.completed?'':'primary'}" data-pending-toggle="${esc(x.id)}">${x.completed?'設為未完成':'✓ 完成'}</button><button data-pending-delete="${esc(x.id)}">刪除</button></div></div>`}).join(''):'<div class="pe-note">暫時未有符合條件的待處理事項。</div>');
+      (arr.length?arr.map(x=>{const st=pendingStatus(x);return `<div class="pe-pending-item ${st}"><div class="pe-pending-title">${x.completed?'✓ ':''}${esc(x.title)}</div><div class="pe-pending-meta"><span class="pe-scope-tag ${normalizedPendingScope(x).type}">${esc(pendingScopeText(x))}</span> Deadline：${fmt(x.dueDate)}｜優先：${pendingPriorityLabel(x.priority)}｜${repeatLabel(x.repeat||'none')}｜提醒：${Number(x.remindDays??0)}日前${pendingReminderText(x)?`<br><span class="pe-reminder-soon">${pendingReminderText(x)}</span>`:''}${x.note?`<br>${esc(x.note)}`:''}</div><div class="pe-pending-actions"><button class="${x.completed?'':'primary'}" data-pending-toggle="${esc(x.id)}">${x.completed?'設為未完成':'✓ 完成'}</button><button data-pending-delete="${esc(x.id)}">刪除</button></div></div>`}).join(''):'<div class="pe-note">暫時未有符合條件的待處理事項。</div>');
     out.querySelectorAll('[data-pending-toggle]').forEach(b=>b.addEventListener('click',()=>togglePendingComplete(b.dataset.pendingToggle)));
     out.querySelectorAll('[data-pending-delete]').forEach(b=>b.addEventListener('click',()=>deletePendingItem(b.dataset.pendingDelete)));
   }
@@ -1519,6 +1641,10 @@
       <div class="pe-grid">
         <div class="pe-field pe-full"><label>事項</label><input id="pe-edit-pending-title"></div>
         <div class="pe-field"><label>Deadline</label><input id="pe-edit-pending-date" type="date"></div>
+        <div class="pe-field"><label>工作範圍</label><select id="pe-edit-pending-scope-type"><option value="personal">個人</option><option value="class">班別</option><option value="grade">年級</option><option value="subject">科組</option><option value="school">全校</option><option value="other">其他</option></select></div>
+        <div class="pe-field" id="pe-edit-pending-scope-class-field" style="display:none"><label>班別</label><select id="pe-edit-pending-scope-class"></select></div>
+        <div class="pe-field" id="pe-edit-pending-scope-grade-field" style="display:none"><label>年級</label><select id="pe-edit-pending-scope-grade"><option value="P.1">P.1</option><option value="P.2">P.2</option><option value="P.3">P.3</option><option value="P.4">P.4</option><option value="P.5">P.5</option><option value="P.6">P.6</option></select></div>
+        <div class="pe-field" id="pe-edit-pending-scope-name-field" style="display:none"><label>範圍名稱</label><input id="pe-edit-pending-scope-name" placeholder="例如：中文科／校務處"></div>
         <div class="pe-field"><label>優先級</label><select id="pe-edit-pending-priority"><option value="high">高</option><option value="medium">中</option><option value="low">低</option></select></div>
         <div class="pe-field"><label>重複</label><select id="pe-edit-pending-repeat"><option value="none">不重複</option><option value="weekly">每週</option><option value="biweekly">隔週</option><option value="monthly">每月</option></select></div>
         <div class="pe-field"><label>提前提醒</label><select id="pe-edit-pending-remind"><option value="0">到期日</option><option value="1">1日前</option><option value="3">3日前</option><option value="7">7日前</option></select></div>
@@ -1547,6 +1673,7 @@
       closeModal(modal);
       await deletePendingItem(id,true);
     });
+    modal.querySelector('#pe-edit-pending-scope-type').addEventListener('change',()=>refreshScopeEditor('pe-edit-pending'));
     modal.querySelector('#pe-edit-pending-save').addEventListener('click',savePendingEdit);
     modal.querySelector('#pe-edit-pending-complete').addEventListener('click',async()=>{
       const id=modal.dataset.editId;closeModal(modal);await togglePendingComplete(id);
@@ -1566,6 +1693,9 @@
     document.getElementById('pe-edit-pending-repeat').value=rec.repeat||'none';
     document.getElementById('pe-edit-pending-remind').value=String(rec.remindDays??0);
     document.getElementById('pe-edit-pending-note').value=rec.note||'';
+    const scope=normalizedPendingScope(rec);
+    document.getElementById('pe-edit-pending-scope-type').value=scope.type;
+    refreshScopeEditor('pe-edit-pending',scope);
     m.classList.add('open');
   }
 
@@ -1575,12 +1705,20 @@
     const title=document.getElementById('pe-edit-pending-title').value.trim();
     const dueDate=document.getElementById('pe-edit-pending-date').value;
     if(!title||!dueDate){alert('請填寫事項及 deadline。');return}
+    const scope=readScopeEditor('pe-edit-pending');
+    const scopeError=validateScope(scope);
+    if(scopeError){alert(scopeError);return}
     Object.assign(rec,{
       title,dueDate,
       priority:document.getElementById('pe-edit-pending-priority').value,
       repeat:document.getElementById('pe-edit-pending-repeat').value,
       remindDays:Number(document.getElementById('pe-edit-pending-remind').value||0),
       note:document.getElementById('pe-edit-pending-note').value.trim(),
+      scopeType:scope.scopeType,
+      scopeName:scope.scopeName,
+      scopeId:scope.scopeId,
+      classId:scope.scopeType==='class'?scope.scopeId:'',
+      className:scope.scopeType==='class'?scope.scopeName:'',
       updatedAt:new Date().toISOString()
     });
     saveLocalPending();renderPendingList();renderDashboard();closeModal(m);
@@ -2324,6 +2462,9 @@
         date,
         `${d.lesson}${d.homework?`｜功課：${d.homework}`:''}`,
         {
+          scopeType:'class',
+          scopeName:d.className,
+          scopeId:d.classId,
           classId:d.classId,
           className:d.className,
           lessonId:d.lessonId,
@@ -2655,7 +2796,10 @@
 
     const todos=(state.pendingItems||[]).filter(x=>{
       if(x.completed)return false;
-      return `${x.title||''} ${x.note||''}`.toUpperCase().includes(cls.toUpperCase());
+      const s=normalizedPendingScope(x);
+      if(s.type==='class')return normalizeClassId(s.name)===normalizeClassId(cls);
+      if(!x.scopeType)return `${x.title||''} ${x.note||''}`.toUpperCase().includes(cls.toUpperCase());
+      return false;
     }).slice(0,6);
 
     grid.innerHTML=`
@@ -2806,7 +2950,7 @@
       kind:'待處理事項',
       date:x.dueDate||'',
       title:x.title||'',
-      text:[x.className,x.note,pendingPriorityLabel(x.priority),x.completed?'已完成':'未完成'].filter(Boolean).join(' '),
+      text:[pendingScopeText(x),x.className,x.note,pendingPriorityLabel(x.priority),x.completed?'已完成':'未完成'].filter(Boolean).join(' '),
       route:'pending',
       id:x.id||''
     }));

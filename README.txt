@@ -1,64 +1,32 @@
-香港教師教學日誌 v2.0.1 — 整合細節完善
+香港教師教學日誌 v2.0.2 — 待辦工作範圍模型
 
-本版不加入座位表，集中完善 v2.0 底層整合。
+新增正式工作範圍：
+- 個人 personal
+- 班別 class
+- 年級 grade
+- 科組 subject
+- 全校 school
+- 其他 other
 
-1. 跨模組保留所選班別
-新增 active class：
-localStorage: hk-school-active-class-v2
+手動新增／修改待辦都可以設定範圍。
+課堂工作流建立的待辦會自動標示為班別範圍，並保留 classId / lessonId / homeworkId。
 
-以下模組會盡量沿用同一班：
-- 班別／學生中心
-- 班別總覽
-- 功課紀錄
-- 統一 Inbox
-- 課堂工作流
+舊待辦兼容：
+- 有 classId/className/lessonId 的舊資料 → 視為班別
+- 其他舊待辦 → 視為個人
+- 不強制改寫舊資料
 
-例：
-在班別中心選 3C → 開功課紀錄／Inbox／班別總覽時優先維持 3C。
+統一 Inbox：
+- 新增「工作範圍」篩選
+- 預設顯示全部範圍
+- 只有選「班別」時才啟用班別篩選
+- 全校／年級／科組／個人工作不會再被班別篩選誤藏
 
-2. 正式關聯欄位
-課堂工作流會建立：
-- classId
-- className
-- lessonId
-- homeworkId
+班別總覽：
+- 新資料只收 scopeType=class 且班別吻合的待辦
+- 舊資料保留文字 fallback
 
-lessonId 格式：
-YYYY-MM-DD-p{節數}-{班別}
+搜尋：
+- 可搜尋「全校」「中文科」「P.3」等工作範圍
 
-例：
-2026-10-05-p3-3C
-
-homeworkId：
-{lessonId}-hw
-
-3. 由課堂工作流建立待辦
-現在會自動把以下 metadata 寫入 pendingItems：
-- classId
-- className
-- lessonId
-- homeworkId
-- sourceType = lessonWorkflow
-
-所以之後：
-Inbox／搜尋／班別中心不再只靠文字估班別。
-
-4. 統一 Inbox
-- 待辦優先使用正式 className metadata
-- 舊待辦仍會 fallback 文字辨認
-- 新舊資料可以共存
-
-5. 搜尋
-- 待處理事項搜尋內容加入 className
-- 更容易用班別搜尋
-
-架構仍然保留：
-- 不新增 React tab
-- 不替換 workspace
-- v2.0 班別核心／課堂工作流／Inbox
-- v1.9.x 搜尋、功課、雲端狀態等全部保留
-
-之後等座位表穩定：
-v2.1 再直接接 classProfiles。
-
-Service Worker cache：v201
+Service Worker cache：v202
