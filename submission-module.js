@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.2.2';
+  const VERSION = '2.2.3';
   const LOCAL_KEY = 'hk-school-submission-records-v1';
   const PENDING_KEY = 'hk-school-submission-pending-v1';
   const CLASS_PREF_KEY = 'hk-school-class-student-counts-v1';
@@ -478,6 +478,15 @@
       @media(max-width:600px){.sub-missing-row{grid-template-columns:54px 1fr}.sub-missing-row input{grid-column:1/-1}}
       @media print{#submission-page,.submission-launcher,.today-submission-card,.journal-followup-btn,.journal-followup-modal{display:none!important}}
     `;
+    style.textContent += `
+      .jf-items{display:grid;gap:6px}
+      .jf-item{display:flex;align-items:flex-start;gap:8px;border:1px solid ${COLORS.line};border-radius:9px;background:#fffdf8;padding:8px}
+      .jf-item input[type="checkbox"]{width:18px;height:18px;margin-top:1px;flex:0 0 auto}
+      .jf-item-main{min-width:0;flex:1}
+      .jf-item-name{font-size:12px;font-weight:800;color:${COLORS.caramelDark};white-space:pre-wrap;word-break:break-word}
+      .jf-item-status{font-size:9px;color:${COLORS.muted};margin-top:2px}
+      .jf-item.added{opacity:.62;background:#f4f1eb}
+    `;
     document.head.appendChild(style);
   }
 
@@ -755,6 +764,19 @@
     return `${year}-${pad(month)}-${pad(day)}`;
   }
 
+
+  function splitJournalHomeworkLines(text=''){
+    return String(text||'')
+      .replace(/\r\n?/g,'\n')
+      .split('\n')
+      .map(x=>x.trim())
+      .filter(Boolean);
+  }
+
+  function journalHomeworkLineSourceKey(issueDate='',subject='',period='',homework=''){
+    return [issueDate,subject,period,homework].join('|');
+  }
+
   function journalSourceFromButton(btn) {
     const cell = btn.closest('td');
     const row = btn.closest('tr');
@@ -763,11 +785,12 @@
     const subject = row?.querySelector('.subject-cell')?.textContent?.trim() || '';
     const issueDate = inferJournalDate(dayEl);
     const homework = textarea?.value?.trim() || '';
+    const homeworkLines = splitJournalHomeworkLines(homework);
     const label = textarea?.getAttribute('aria-label') || '';
     const periodMatch = label.match(/第(\d+)節/);
     const period = periodMatch ? `第${periodMatch[1]}節` : '';
     const sourceKey = [issueDate, subject, period, homework].join('|');
-    return { issueDate, subject, homework, period, sourceKey };
+    return { issueDate, subject, homework, homeworkLines, period, sourceKey };
   }
 
   function isJournalRecordAdded(sourceKey) {
@@ -786,7 +809,10 @@
         <h3>加入追收項目</h3>
         <p class="source" id="jf-source"></p>
         <div class="sub-grid">
-          <div class="sub-field full"><label>功課名稱</label><input id="jf-name"></div>
+          <div class="sub-field full">
+            <label>功課項目（每個換行＝一份獨立追收）</label>
+            <div id="jf-items" class="jf-items"></div>
+          </div>
           <div class="sub-field"><label>班別</label><input id="jf-class" list="jf-class-list" placeholder="例如：3A"><datalist id="jf-class-list"></datalist></div>
           <div class="sub-field"><label>學生人數</label><input id="jf-count" type="number" min="1" max="60" value="30"></div>
           <div class="sub-field"><label>派發日期</label><input id="jf-issue" type="date"></div>
@@ -815,35 +841,48 @@
 
   function openJournalModal(btn) {
     const src = journalSourceFromButton(btn);
-    if (!src.homework) {
+    if (!src.homeworkLines.length) {
       toast('請先填寫功課內容', 'error');
-      return;
-    }
-    if (isJournalRecordAdded(src.sourceKey)) {
-      toast('這項功課已加入追收');
       return;
     }
 
     const modal = ensureJournalModal();
-    modal.dataset.sourceKey = src.sourceKey;
     modal.dataset.subject = src.subject;
     modal.dataset.period = src.period;
+    modal.dataset.issueDate = src.issueDate;
 
     document.getElementById('jf-source').textContent =
       `${src.issueDate} ・ ${src.subject || '未有科目'}${src.period ? ' ・ ' + src.period : ''}`;
-    document.getElementById('jf-name').value =
-      `${src.subject ? src.subject + '｜' : ''}${src.homework}`;
+
+    const items=document.getElementById('jf-items');
+    items.innerHTML=src.homeworkLines.map((line,idx)=>{
+      const key=journalHomeworkLineSourceKey(src.issueDate,src.subject,src.period,line);
+      const added=isJournalRecordAdded(key);
+      return `<label class="jf-item ${added?'added':''}">
+        <input type="checkbox"
+          data-jf-line="${esc(line)}"
+          data-jf-source-key="${esc(key)}"
+          ${added?'disabled':'checked'}>
+        <div class="jf-item-main">
+          <div class="jf-item-name">${esc(line)}</div>
+          <div class="jf-item-status">${added?'已加入追收':`第 ${idx+1} 項・將建立獨立追收紀錄`}</div>
+        </div>
+      </label>`;
+    }).join('');
+
     const prefs=knownClassPrefs(),classes=Object.keys(prefs).sort((a,b)=>a.localeCompare(b,'zh-HK'));
     const dl=document.getElementById('jf-class-list');
     if(dl)dl.innerHTML=classes.map(c=>`<option value="${esc(c)}"></option>`).join('');
+
     document.getElementById('jf-class').value = '';
     document.getElementById('jf-count').value = '30';
     attachClassAutoFill('jf-class','jf-count');
+
     document.getElementById('jf-issue').value = src.issueDate;
-    document.getElementById('jf-due').dataset.userEdited = '';
     document.getElementById('jf-due').dataset.userEdited = '';
     document.getElementById('jf-due').value = nextSchoolDate(src.issueDate);
     document.getElementById('jf-deadline').value = '';
+
     modal.classList.add('open');
   }
 
@@ -851,34 +890,47 @@
     const modal = document.getElementById('journal-followup-modal');
     if (!modal) return;
 
-    const name = document.getElementById('jf-name').value.trim();
-    if (!name) return toast('請輸入功課名稱', 'error');
+    const selected=[...modal.querySelectorAll('#jf-items input[type="checkbox"]:checked:not(:disabled)')];
+    if(!selected.length)return toast('請至少選擇一份未加入嘅功課', 'error');
 
-    const sourceKey = modal.dataset.sourceKey || '';
-    if (isJournalRecordAdded(sourceKey)) {
-      closeJournalModal();
-      refreshJournalButtons();
-      return toast('這項功課已加入追收');
+    const className=document.getElementById('jf-class').value.trim() || '班別';
+    const studentCount=Number(document.getElementById('jf-count').value) || 30;
+    const issueDate=document.getElementById('jf-issue').value;
+    const dueDate=document.getElementById('jf-due').value;
+    const deadlineDate=document.getElementById('jf-deadline').value;
+    const subject=modal.dataset.subject || '';
+    const period=modal.dataset.period || '';
+
+    let addedCount=0;
+
+    for(const checkbox of selected){
+      const homework=checkbox.dataset.jfLine||'';
+      // Rebuild with current issue date in case teacher changed it in modal.
+      const sourceKey=journalHomeworkLineSourceKey(issueDate,subject,period,homework);
+      if(isJournalRecordAdded(sourceKey))continue;
+
+      await upsertRecord({
+        id:id(),
+        name:`${subject ? subject + '｜' : ''}${homework}`,
+        type:'作業',
+        className,
+        studentCount,
+        issueDate,
+        dueDate,
+        deadlineDate,
+        missing:[],
+        sourceKey,
+        sourceSubject:subject,
+        sourcePeriod:period
+      });
+      addedCount++;
     }
-
-    await upsertRecord({
-      id: id(),
-      name,
-      type: '作業',
-      className: document.getElementById('jf-class').value.trim() || '班別',
-      studentCount: Number(document.getElementById('jf-count').value) || 30,
-      issueDate: document.getElementById('jf-issue').value,
-      dueDate: document.getElementById('jf-due').value,
-      deadlineDate: document.getElementById('jf-deadline').value,
-      missing: [],
-      sourceKey,
-      sourceSubject: modal.dataset.subject || '',
-      sourcePeriod: modal.dataset.period || ''
-    });
 
     closeJournalModal();
     refreshJournalButtons();
-    toast('已加入追收項目');
+
+    if(addedCount===1)toast('已加入 1 份功課追收');
+    else toast(`已加入 ${addedCount} 份功課追收`);
   }
 
   function refreshJournalButtons() {
@@ -903,10 +955,27 @@
       }
 
       const src = journalSourceFromButton(btn);
-      const added = !!src.homework && isJournalRecordAdded(src.sourceKey);
-      btn.classList.toggle('added', added);
-      btn.textContent = added ? '已加入 ✓' : '＋追收';
-      btn.title = added ? '已加入追收項目' : '將這項功課加入追收';
+      const lines=src.homeworkLines||[];
+      const addedCount=lines.filter(line=>
+        isJournalRecordAdded(journalHomeworkLineSourceKey(src.issueDate,src.subject,src.period,line))
+      ).length;
+      const allAdded=lines.length>0&&addedCount===lines.length;
+      const someAdded=addedCount>0&&!allAdded;
+
+      btn.classList.toggle('added',allAdded);
+      btn.textContent=allAdded
+        ? '已加入 ✓'
+        : someAdded
+          ? `＋追收 ${addedCount}/${lines.length}`
+          : lines.length>1
+            ? `＋追收（${lines.length}份）`
+            : '＋追收';
+
+      btn.title=allAdded
+        ? '全部功課已加入追收'
+        : lines.length>1
+          ? `偵測到 ${lines.length} 份功課；每個換行會建立獨立追收`
+          : '將這項功課加入追收';
     });
   }
 
