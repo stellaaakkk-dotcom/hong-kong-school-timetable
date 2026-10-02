@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.0.6';
+  const VERSION = '2.0.7';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -119,6 +119,18 @@
       .pe-kpi{border:1px solid #eadfce;border-radius:9px;background:#fffaf2;padding:7px;text-align:center}
       .pe-kpi b{display:block;font-size:14px;color:#80542f}.pe-kpi small{font-size:7.5px;color:#8c7868}
       .pe-inbox-toolbar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:7px 0}.pe-scope-tag{display:inline-block;margin-right:4px;border:1px solid #ddcbb4;border-radius:999px;background:#fff7e8;color:#79543b;padding:2px 6px;font-size:7px;font-weight:850}.pe-scope-tag.school{background:#eef4ff;border-color:#cad8ef;color:#4d6484}.pe-scope-tag.subject{background:#f4efff;border-color:#d8ccef;color:#695589}.pe-scope-tag.grade{background:#eef8ef;border-color:#c8dec9;color:#547255}.pe-scope-tag.personal{background:#f5f5f5;border-color:#dddddd;color:#666}
+      .pe-chip-row{display:flex;gap:6px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:none}
+      .pe-chip-row::-webkit-scrollbar{display:none}
+      .pe-filter-chip{flex:0 0 auto;border:1px solid #dfd7cd;background:#fff;border-radius:999px;padding:6px 10px;font-size:8px;font-weight:800;color:#5c5147}
+      .pe-filter-chip.active{background:#2f6fed;color:#fff;border-color:#2f6fed}
+      .pe-workflow-stack{display:grid;gap:7px}
+      .pe-workflow-card{border:1px solid #e5ded5;border-radius:12px;padding:9px;background:#fff}
+      .pe-workflow-card h4{margin:0 0 4px;font-size:9px}
+      .pe-workflow-primary{border-color:#cfdcf6;background:#f7faff}
+      .pe-workflow-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px}
+      .pe-settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+      .pe-settings-grid button{min-height:42px}
+
       .pe-inbox-list{display:grid;gap:6px}
       .pe-inbox-item{border:1px solid #eadfce;border-radius:10px;background:#fff;padding:8px}
       .pe-inbox-item.overdue{background:#fff6f4;border-color:#e9c3bb}
@@ -1425,7 +1437,14 @@
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
       <h3>📥 統一 Inbox</h3>
-      <p class="pe-note">將未完成待辦、deadline 同功課追收集中處理。可按工作範圍、班別或類型篩選。</p>
+      <p class="pe-note">將未完成待辦、deadline 同功課追收集中處理。</p>
+      <div class="pe-chip-row" id="pe-inbox-chips">
+        <button class="pe-filter-chip active" data-inbox-chip="all">全部</button>
+        <button class="pe-filter-chip" data-inbox-chip="today">今日</button>
+        <button class="pe-filter-chip" data-inbox-chip="overdue">逾期</button>
+        <button class="pe-filter-chip" data-inbox-chip="class">班別</button>
+        <button class="pe-filter-chip" data-inbox-chip="school">全校</button>
+      </div>
       <div class="pe-inbox-toolbar">
         <select id="pe-inbox-scope"><option value="">全部範圍</option><option value="personal">個人</option><option value="class">班別</option><option value="grade">年級</option><option value="subject">科組</option><option value="school">全校</option><option value="other">其他</option></select>
         <select id="pe-inbox-class"><option value="">全部班別</option></select>
@@ -1441,6 +1460,12 @@
     document.body.appendChild(m);
     m.addEventListener('click',e=>{if(e.target===m)closeModal(m)});
     m.querySelector('#pe-inbox-close').addEventListener('click',()=>closeModal(m));
+    m.dataset.quickFilter=m.dataset.quickFilter||'all';
+    m.querySelectorAll('[data-inbox-chip]').forEach(btn=>btn.addEventListener('click',()=>{
+      m.dataset.quickFilter=btn.dataset.inboxChip;
+      m.querySelectorAll('[data-inbox-chip]').forEach(x=>x.classList.toggle('active',x.dataset.inboxChip===m.dataset.quickFilter));
+      renderInbox();
+    }));
     m.querySelector('#pe-inbox-add').addEventListener('click',()=>{
       closeModal(m);
       openPendingModal();
@@ -1452,26 +1477,36 @@
 
   function renderInbox(){
     const m=ensureInboxModal(),all=unifiedInboxRows();
-    const scope=m.querySelector('#pe-inbox-scope').value;
+    const quick=m.dataset.quickFilter||'all';
+    const scopeSel=m.querySelector('#pe-inbox-scope');
+    const typeSel=m.querySelector('#pe-inbox-type');
     const sel=m.querySelector('#pe-inbox-class');
+
+    const prevScope=scopeSel.value;
+    const prevType=typeSel.value;
+    const prevClass=sel.value||sel.dataset.lastClass||getActiveClass()||'';
+
     const classes=[...new Set(all.filter(x=>x.scopeType==='class').map(x=>normalizeClassId(x.className||x.scopeName)).filter(Boolean))].sort();
-
-    const previous=sel.dataset.lastClass||getActiveClass()||'';
     sel.innerHTML='<option value="">全部班別</option>'+classes.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+
+    let scope=prevScope;
+    if(quick==='class')scope='class';
+    else if(quick==='school')scope='school';
+
+    scopeSel.value=scope;
     sel.disabled=scope!=='class';
-
     if(scope==='class'){
-      const desired=normalizeClassId(previous);
+      const desired=normalizeClassId(prevClass);
       if(classes.includes(desired))sel.value=desired;
-    }else{
-      sel.value='';
-    }
+    }else sel.value='';
 
-    const cls=sel.value,type=m.querySelector('#pe-inbox-type').value;
+    const cls=sel.value,type=prevType;
     const rows=all.filter(x=>{
-      if(scope && x.scopeType!==scope)return false;
-      if(scope==='class' && cls && normalizeClassId(x.className)!==cls)return false;
-      if(type && x.type!==type)return false;
+      if(quick==='today'&&x.status!=='today')return false;
+      if(quick==='overdue'&&x.status!=='overdue')return false;
+      if(scope&&x.scopeType!==scope)return false;
+      if(scope==='class'&&cls&&normalizeClassId(x.className)!==cls)return false;
+      if(type&&x.type!==type)return false;
       return true;
     });
 
@@ -1494,7 +1529,6 @@
       if(sel.value)setActiveClass(sel.value);
       renderInbox();
     };
-
     m.querySelectorAll('[data-inbox-open]').forEach(btn=>btn.addEventListener('click',()=>{
       const type=btn.dataset.inboxOpen,id=btn.dataset.inboxId;
       closeModal(m);
@@ -1502,8 +1536,7 @@
       else if(type==='pending')openPendingEdit(id);
     }));
     m.querySelectorAll('[data-inbox-done]').forEach(btn=>btn.addEventListener('click',async()=>{
-      await togglePendingComplete(btn.dataset.inboxDone);
-      renderInbox();
+      await togglePendingComplete(btn.dataset.inboxDone);renderInbox();
     }));
   }
 
@@ -2436,7 +2469,7 @@
     const hwRow={date,period:periodIndex+1,periodIndex,className,subject:lesson,text:homework,lessonId,homeworkId,classId};
     const tracking=homework?submissionStatusForHomework(hwRow):{type:'none',label:'未追收',record:null};
 
-    return {date,periodIndex,period:periodIndex+1,lesson,className,classId,lessonId,homeworkId,progress,homework,previous:prev[0]||null,tracking};
+    return {date,periodIndex,period:periodIndex+1,lesson,className,classId,lessonId,homeworkId,progress,homework,previous:prev[0]?{...prev[0],homework:previousHomework}:null,tracking};
   }
 
   function ensureWorkflowModal(){
@@ -2465,79 +2498,64 @@
   }
 
   function renderWorkflow(){
-    const m=ensureWorkflowModal(),date=m.querySelector('#pe-workflow-date').value||hkToday();
-    let periodIndex=Number(m.dataset.period||0);
+    const m=ensureWorkflowModal();
+    const date=m.querySelector('#pe-workflow-date')?.value||hkToday();
+    const currentPeriod=Number(m.dataset.periodIndex||0);
+    const d=lessonWorkflowData(date,currentPeriod);
 
-    const buttons=[];
-    for(let i=0;i<9;i++){
-      const lesson=timetableLessonForHomework(date,i);
-      if(!lesson)continue;
-      buttons.push({i,lesson});
-    }
-    if(!buttons.some(x=>x.i===periodIndex) && buttons[0])periodIndex=buttons[0].i;
-    m.dataset.period=String(periodIndex);
-
-    const periods=m.querySelector('#pe-workflow-periods');
-    periods.innerHTML=buttons.length?buttons.map(x=>`
-      <button type="button" data-workflow-period="${x.i}" class="${x.i===periodIndex?'active':''}">
-        第${x.i+1}節<br><small>${esc(x.lesson)}</small>
-      </button>`).join(''):'<div class="pe-note">呢日冇可識別課堂。</div>';
-
-    periods.querySelectorAll('[data-workflow-period]').forEach(btn=>btn.addEventListener('click',()=>{
-      m.dataset.period=btn.dataset.workflowPeriod;
-      renderWorkflow();
-    }));
-
-    const d=lessonWorkflowData(date,periodIndex);
-    m.querySelector('#pe-workflow-class').value=d.className;
+    if(m.querySelector('#pe-workflow-class'))m.querySelector('#pe-workflow-class').value=d.className;
     if(d.className&&d.className!=='未分類')setActiveClass(d.className);
 
+    const periodWrap=m.querySelector('#pe-workflow-periods');
+    if(periodWrap){
+      const periods=[];
+      for(let i=0;i<9;i++){
+        const lesson=timetableLessonForHomework(date,i);
+        if(!lesson)continue;
+        periods.push(`<button type="button" class="${i===currentPeriod?'active':''}" data-workflow-period="${i}">第${i+1}節</button>`);
+      }
+      periodWrap.innerHTML=periods.join('');
+      periodWrap.querySelectorAll('[data-workflow-period]').forEach(btn=>btn.addEventListener('click',()=>{
+        m.dataset.periodIndex=btn.dataset.workflowPeriod;renderWorkflow();
+      }));
+    }
+
     const content=m.querySelector('#pe-workflow-content');
+    if(!content)return;
+    const prevProgress=d.previous?.text||'未有上次進度';
+    const prevDate=d.previous?.date?fmt(d.previous.date):'';
+    const prevHomework=d.previous?.homework||'未有紀錄';
+    const trackingText=d.tracking
+      ? (Array.isArray(d.tracking.missing)&&d.tracking.missing.length?`追收中・欠 ${d.tracking.missing.length} 人`:'已交齊')
+      : (d.homework?'未建立追收':'沒有功課');
+
     content.innerHTML=`
-      <div class="pe-workflow-card">
-        <h4>${esc(d.lesson||`第${d.period}節`)}</h4>
-        <div class="pe-workflow-block"><b>↩ 上次進度</b><br>${d.previous?`${fmt(d.previous.date)}・${esc(d.previous.text)}`:'未有上一筆同班進度'}</div>
-        <div class="pe-workflow-block"><b>📝 今堂進度</b><br>${d.progress?esc(d.progress):'尚未填寫'}</div>
-        <div class="pe-workflow-block"><b>📚 功課</b><br>${d.homework?esc(d.homework):'尚未填寫'}${d.homework?`<br><span class="pe-homework-status ${d.tracking.type}">追收：${d.tracking.label}</span>`:''}</div>
-        <div class="pe-workflow-actions">
-          <button type="button" class="primary" id="pe-workflow-journal">前往日誌</button>
-          <button type="button" id="pe-workflow-track" ${d.homework?'':'disabled'}>${d.tracking.record?'查看追收':'建立／查看追收'}</button>
-          <button type="button" id="pe-workflow-todo">＋ 加待辦</button>
-        </div>
+      <div class="pe-workflow-stack">
+        <div class="pe-workflow-card"><h4>↩ 上次進度 ${prevDate?`・${prevDate}`:''}</h4><div>${esc(prevProgress)}</div></div>
+        <div class="pe-workflow-card"><h4>📚 上次功課</h4><div>${esc(prevHomework)}</div></div>
+        <div class="pe-workflow-card pe-workflow-primary"><h4>📝 今堂進度</h4><div>${esc(d.progress||'尚未填寫')}</div></div>
+        <div class="pe-workflow-card pe-workflow-primary"><h4>📖 今堂功課</h4><div>${esc(d.homework||'尚未填寫')}</div></div>
+        <div class="pe-workflow-card"><h4>📋 追收狀態</h4><div>${esc(trackingText)}</div></div>
+      </div>
+      <div class="pe-workflow-actions">
+        <button class="pe-btn primary" id="pe-workflow-go-journal">開日誌</button>
+        <button class="pe-btn" id="pe-workflow-go-tracking">追收</button>
+        <button class="pe-btn" id="pe-workflow-add-todo">＋待辦</button>
       </div>`;
 
-    content.querySelector('#pe-workflow-journal')?.addEventListener('click',()=>{
-      closeModal(m);
-      jumpToJournalSource({route:'journal',date,periodIndex,noteType:'p'});
+    content.querySelector('#pe-workflow-go-journal')?.addEventListener('click',()=>{
+      closeModal(m);jumpToJournalSource({route:'journal',date,periodIndex:currentPeriod,noteType:'p'});
     });
-
-    content.querySelector('#pe-workflow-track')?.addEventListener('click',()=>{
-      if(d.tracking.record){
-        closeModal(m);
-        window.__submissionTrackerAPI?.openRecord?.(d.tracking.record.id);
-      }else{
-        closeModal(m);
-        jumpToJournalSource({route:'journal',date,periodIndex,noteType:'h'});
-      }
-    });
-
-    content.querySelector('#pe-workflow-todo')?.addEventListener('click',()=>{
+    content.querySelector('#pe-workflow-go-tracking')?.addEventListener('click',()=>{
       closeModal(m);
-      openPendingPrefill(
-        `跟進 ${d.className} 第${d.period}節`,
-        date,
+      if(d.tracking)window.__submissionTrackerAPI?.openRecord?.(d.tracking.id);
+      else jumpToJournalSource({route:'journal',date,periodIndex:currentPeriod,noteType:'h'});
+    });
+    content.querySelector('#pe-workflow-add-todo')?.addEventListener('click',()=>{
+      closeModal(m);
+      openPendingPrefill(`跟進 ${d.className} 第${d.period}節`,date,
         `${d.lesson}${d.homework?`｜功課：${d.homework}`:''}`,
-        {
-          scopeType:'class',
-          scopeName:d.className,
-          scopeId:d.classId,
-          classId:d.classId,
-          className:d.className,
-          lessonId:d.lessonId,
-          homeworkId:d.homeworkId,
-          sourceType:'lessonWorkflow'
-        }
-      );
+        {scopeType:'class',scopeName:d.className,scopeId:d.classId,classId:d.classId,className:d.className,lessonId:d.lessonId,homeworkId:d.homeworkId,sourceType:'lessonWorkflow'});
     });
   }
 
@@ -2676,6 +2694,36 @@
 
 
 
+
+  function ensureSettingsManager(){
+    let m=document.getElementById('pe-settings-manager-modal');
+    if(m)return m;
+    m=document.createElement('div');
+    m.id='pe-settings-manager-modal';
+    m.className='pe-modal';
+    m.innerHTML=`<div class="pe-dialog">
+      <h3>⚙ 設定與管理</h3>
+      <p class="pe-note">集中放低頻管理功能，令「更多」選單保持簡潔。</p>
+      <div class="pe-settings-grid">
+        <button class="pe-btn" id="pe-settings-stats">📊 活動統計</button>
+        <button class="pe-btn" id="pe-settings-tags">🏷 月曆標籤</button>
+        <button class="pe-btn" id="pe-settings-categories">🏷 類型管理</button>
+      </div>
+      <div class="pe-actions"><button class="pe-btn" id="pe-settings-close">關閉</button></div>
+    </div>`;
+    document.body.appendChild(m);
+    m.addEventListener('click',e=>{if(e.target===m)closeModal(m)});
+    m.querySelector('#pe-settings-close').addEventListener('click',()=>closeModal(m));
+    m.querySelector('#pe-settings-stats').addEventListener('click',()=>{closeModal(m);openStatsModal()});
+    m.querySelector('#pe-settings-tags').addEventListener('click',()=>{closeModal(m);openTagVisibilityModal()});
+    m.querySelector('#pe-settings-categories').addEventListener('click',()=>{closeModal(m);openCategoryManager()});
+    return m;
+  }
+
+  function openSettingsManager(){
+    ensureSettingsManager().classList.add('open');
+  }
+
   function ensureClassCenterModal(){
     let m=document.getElementById('pe-class-center-modal');
     if(m)return m;
@@ -2688,6 +2736,8 @@
       <div class="pe-v2-tabs">
         <button type="button" data-class-center-tab="overview" class="active">總覽</button>
         <button type="button" data-class-center-tab="students">學生</button>
+        <button type="button" data-class-center-tab="homework">功課</button>
+        <button type="button" data-class-center-tab="submission">追收</button>
       </div>
       <div id="pe-class-center-content"></div>
       <div class="pe-actions"><button class="pe-btn" id="pe-class-center-close">關閉</button></div>
@@ -2707,42 +2757,56 @@
   function renderClassCenter(){
     const m=ensureClassCenterModal();
     const out=m.querySelector('#pe-class-center-content');
-
-    if(m.dataset.tab==='students'){
-      out.innerHTML=`<div class="pe-note">學生資料沿用現有穩定班別／學生管理。</div>
-        <div class="pe-actions"><button class="pe-btn primary" id="pe-class-center-students-open">管理班別／學生</button></div>`;
-      out.querySelector('#pe-class-center-students-open').addEventListener('click',()=>{
-        closeModal(m);openClassCore();
-      });
-      return;
-    }
-
     const classes=classOverviewClasses();
     const active=getActiveClass();
+    const tab=m.dataset.tab||'overview';
+
     out.innerHTML=`<div class="pe-grid">
       <div class="pe-field pe-full"><label>班別</label><select id="pe-class-center-class">
         <option value="">選擇班別</option>
         ${classes.map(c=>`<option value="${esc(c)}" ${normalizeClassId(active)===normalizeClassId(c)?'selected':''}>${esc(c)}</option>`).join('')}
       </select></div>
-    </div>
-    <div id="pe-class-center-summary"></div>`;
+    </div><div id="pe-class-center-body"></div>`;
 
     const sel=out.querySelector('#pe-class-center-class');
     if(!sel.value&&classes[0])sel.value=classes[0];
 
-    const renderSummary=()=>{
+    const renderBody=()=>{
       const cls=sel.value;
-      if(!cls){
-        out.querySelector('#pe-class-center-summary').innerHTML='<div class="pe-note">暫時未有班別資料。</div>';
-        return;
-      }
+      const body=out.querySelector('#pe-class-center-body');
+      if(!cls){body.innerHTML='<div class="pe-note">暫時未有班別資料。</div>';return}
       setActiveClass(cls);
 
-      const hw=homeworkHistoryRows().filter(x=>x.className===cls&&!x.unresolved).slice(0,5);
-      const subs=(window.__submissionTrackerAPI?.getRecords?.()||state.submissions||[])
-        .filter(r=>r.className===cls&&Array.isArray(r.missing)&&r.missing.length)
-        .slice(0,5);
+      if(tab==='students'){
+        const rec=classProfileByName(cls);
+        const students=Array.isArray(rec?.students)?rec.students:[];
+        body.innerHTML=`<div class="pe-class-card"><h4>👥 學生名單・${students.length} 人</h4>
+          <div class="pe-class-overview-list">${students.length?students.map((s,i)=>`<div class="pe-class-overview-item">${String(i+1).padStart(2,'0')}　${esc(typeof s==='string'?s:(s?.name||''))}</div>`).join(''):'<div class="pe-note">未建立學生名單</div>'}</div>
+          <div class="pe-actions"><button class="pe-btn primary" id="pe-class-center-edit-students">管理學生</button></div></div>`;
+        body.querySelector('#pe-class-center-edit-students')?.addEventListener('click',()=>{closeModal(m);openClassCore()});
+        return;
+      }
 
+      if(tab==='homework'){
+        const hw=homeworkHistoryRows().filter(x=>x.className===cls&&!x.unresolved).slice(0,12);
+        body.innerHTML=`<div class="pe-class-card"><h4>📚 ${esc(cls)} 功課</h4>
+          <div class="pe-class-overview-list">${hw.length?hw.map(x=>`<div class="pe-class-overview-item">${fmt(x.date)}・第${x.period}節<br>${esc(x.text)}</div>`).join(''):'<div class="pe-note">暫無功課紀錄</div>'}</div>
+          <div class="pe-actions"><button class="pe-btn primary" id="pe-class-center-open-homework">開啟功課管理</button></div></div>`;
+        body.querySelector('#pe-class-center-open-homework')?.addEventListener('click',()=>{closeModal(m);openHomeworkHistory()});
+        return;
+      }
+
+      if(tab==='submission'){
+        const subs=(window.__submissionTrackerAPI?.getRecords?.()||state.submissions||[]).filter(r=>r.className===cls).slice(0,12);
+        body.innerHTML=`<div class="pe-class-card"><h4>📋 ${esc(cls)} 追收</h4>
+          <div class="pe-class-overview-list">${subs.length?subs.map(r=>`<div class="pe-class-overview-item">${r.dueDate?fmt(r.dueDate):''}<br>${esc(r.name||r.type||'項目')}・${Array.isArray(r.missing)&&r.missing.length?`欠 ${r.missing.length} 人`:'已交齊'}</div>`).join(''):'<div class="pe-note">暫無追收紀錄</div>'}</div>
+          <div class="pe-actions"><button class="pe-btn primary" id="pe-class-center-open-submission">開啟作業／回條</button></div></div>`;
+        body.querySelector('#pe-class-center-open-submission')?.addEventListener('click',()=>{closeModal(m);document.querySelector('.submission-launcher')?.click()});
+        return;
+      }
+
+      const hw=homeworkHistoryRows().filter(x=>x.className===cls&&!x.unresolved).slice(0,5);
+      const subs=(window.__submissionTrackerAPI?.getRecords?.()||state.submissions||[]).filter(r=>r.className===cls&&Array.isArray(r.missing)&&r.missing.length).slice(0,5);
       const p=plannerState(),notes=p.lessonNotes||{},progress=[];
       for(const [key,val] of Object.entries(notes)){
         const mm=key.match(/^(\d{4}-\d{2}-\d{2})-(\d+)-p$/);
@@ -2753,23 +2817,21 @@
         progress.push({date,period:periodIndex+1,text:val});
       }
       progress.sort((a,b)=>b.date.localeCompare(a.date)||a.period-b.period);
-
       const todos=(state.pendingItems||[]).filter(x=>{
         if(x.completed)return false;
         const s=normalizedPendingScope(x);
         return s.type==='class'&&normalizeClassId(s.name)===normalizeClassId(cls);
       }).slice(0,5);
 
-      out.querySelector('#pe-class-center-summary').innerHTML=`
-        <div class="pe-class-overview-grid">
-          <div class="pe-class-card"><h4>📚 最近功課</h4><div class="pe-class-overview-list">${hw.length?hw.map(x=>`<div class="pe-class-overview-item">${fmt(x.date)}・第${x.period}節<br>${esc(x.text)}</div>`).join(''):'<div class="pe-note">暫無紀錄</div>'}</div></div>
-          <div class="pe-class-card"><h4>📋 未完成追收</h4><div class="pe-class-overview-list">${subs.length?subs.map(r=>`<div class="pe-class-overview-item">${r.dueDate?fmt(r.dueDate):''}<br>${esc(r.name||r.type||'項目')}・欠 ${r.missing.length} 人</div>`).join(''):'<div class="pe-note">暫無未完成追收</div>'}</div></div>
-          <div class="pe-class-card"><h4>📝 最近教學進度</h4><div class="pe-class-overview-list">${progress.length?progress.slice(0,5).map(x=>`<div class="pe-class-overview-item">${fmt(x.date)}・第${x.period}節<br>${esc(x.text)}</div>`).join(''):'<div class="pe-note">暫無進度紀錄</div>'}</div></div>
-          <div class="pe-class-card"><h4>⏳ 班別待辦</h4><div class="pe-class-overview-list">${todos.length?todos.map(x=>`<div class="pe-class-overview-item">${x.dueDate?fmt(x.dueDate):'未設日期'}<br>${esc(x.title||'')}</div>`).join(''):'<div class="pe-note">暫無相關待辦</div>'}</div></div>
-        </div>`;
+      body.innerHTML=`<div class="pe-class-overview-grid">
+        <div class="pe-class-card"><h4>📚 最近功課</h4><div class="pe-class-overview-list">${hw.length?hw.map(x=>`<div class="pe-class-overview-item">${fmt(x.date)}・第${x.period}節<br>${esc(x.text)}</div>`).join(''):'<div class="pe-note">暫無紀錄</div>'}</div></div>
+        <div class="pe-class-card"><h4>📋 未完成追收</h4><div class="pe-class-overview-list">${subs.length?subs.map(r=>`<div class="pe-class-overview-item">${r.dueDate?fmt(r.dueDate):''}<br>${esc(r.name||r.type||'項目')}・欠 ${r.missing.length} 人</div>`).join(''):'<div class="pe-note">暫無未完成追收</div>'}</div></div>
+        <div class="pe-class-card"><h4>📝 最近教學進度</h4><div class="pe-class-overview-list">${progress.length?progress.slice(0,5).map(x=>`<div class="pe-class-overview-item">${fmt(x.date)}・第${x.period}節<br>${esc(x.text)}</div>`).join(''):'<div class="pe-note">暫無進度紀錄</div>'}</div></div>
+        <div class="pe-class-card"><h4>⏳ 班別待辦</h4><div class="pe-class-overview-list">${todos.length?todos.map(x=>`<div class="pe-class-overview-item">${x.dueDate?fmt(x.dueDate):'未設日期'}<br>${esc(x.title||'')}</div>`).join(''):'<div class="pe-note">暫無相關待辦</div>'}</div></div>
+      </div>`;
     };
-    sel.addEventListener('change',renderSummary);
-    renderSummary();
+    sel.addEventListener('change',renderBody);
+    renderBody();
   }
 
   function openClassCenter(){
@@ -3359,33 +3421,22 @@
       <div class="pe-more-group"><b>管理</b>
         <button id="pe-more-workspace">🧰 教師工作台</button>
         <button id="pe-more-activity">＋ 活動紀錄</button>
-        <button id="pe-more-stats">📊 活動統計</button>
         <button id="pe-more-search">🔎 全站搜尋</button>
-        <button id="pe-more-tags">🏷 月曆標籤</button>
-        <button id="pe-more-categories">🏷 類型管理</button>
+        <button id="pe-more-settings">⚙ 設定與管理</button>
       </div>`;
     document.body.appendChild(sheet);
-
     sheet.querySelector('#pe-more-dashboard').addEventListener('click',()=>{
-      closeMobileMore();
-      const panel=ensureDashboard();
-      panel.classList.add('open');
-      renderDashboard();
+      closeMobileMore();const panel=ensureDashboard();panel.classList.add('open');renderDashboard();
     });
     sheet.querySelector('#pe-more-inbox').addEventListener('click',()=>{closeMobileMore();openInbox()});
     sheet.querySelector('#pe-more-class-center').addEventListener('click',()=>{closeMobileMore();openClassCenter()});
     sheet.querySelector('#pe-more-workflow').addEventListener('click',()=>{closeMobileMore();openWorkflow()});
     sheet.querySelector('#pe-more-homework').addEventListener('click',()=>{closeMobileMore();openHomeworkHistory()});
-    sheet.querySelector('#pe-more-submission').addEventListener('click',()=>{
-      closeMobileMore();
-      document.querySelector('.submission-launcher')?.click();
-    });
+    sheet.querySelector('#pe-more-submission').addEventListener('click',()=>{closeMobileMore();document.querySelector('.submission-launcher')?.click()});
     sheet.querySelector('#pe-more-workspace').addEventListener('click',()=>{closeMobileMore();openWorkspace()});
     sheet.querySelector('#pe-more-activity').addEventListener('click',()=>{closeMobileMore();openActivityModal(hkToday())});
-    sheet.querySelector('#pe-more-stats').addEventListener('click',()=>{closeMobileMore();openStatsModal()});
     sheet.querySelector('#pe-more-search').addEventListener('click',()=>{closeMobileMore();openJournalSearch()});
-    sheet.querySelector('#pe-more-tags').addEventListener('click',()=>{closeMobileMore();openTagVisibilityModal()});
-    sheet.querySelector('#pe-more-categories').addEventListener('click',()=>{closeMobileMore();openCategoryManager()});
+    sheet.querySelector('#pe-more-settings').addEventListener('click',()=>{closeMobileMore();openSettingsManager()});
     return sheet;
   }
 
@@ -3578,6 +3629,7 @@
     ensureHomeworkHistoryModal();
     ensureClassOverviewModal();
     ensureCategoryManager();
+    ensureSettingsManager();
     ensureClassCenterModal();
     ensureClassCoreModal();
     ensureInboxModal();
