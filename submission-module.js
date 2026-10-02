@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.3.0';
+  const VERSION = '1.4.0';
   const LOCAL_KEY = 'hk-school-submission-records-v1';
   const PENDING_KEY = 'hk-school-submission-pending-v1';
   const CLASS_PREF_KEY = 'hk-school-class-student-counts-v1';
@@ -857,7 +857,13 @@
     getRecords:()=>state.records.map(r=>({...r})),
     getPendingCount:()=>{loadPending();return state.pendingCount},
     flushPending,
-    open:showPage
+    open:showPage,
+    openRecord:(id)=>{
+      if(!id)return;
+      state.activeId=id;
+      showPage();
+      render();
+    }
   };
   window.addEventListener('online',()=>flushPending());
 

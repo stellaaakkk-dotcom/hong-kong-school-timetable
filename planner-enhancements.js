@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.8.4';
+  const VERSION = '1.9.0';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -83,6 +83,22 @@
       .pe-homework-item .top{display:flex;justify-content:space-between;gap:8px}
       .pe-homework-item b{font-size:10px;color:#80542f}.pe-homework-item small{font-size:8px;color:#8d796a}
       .pe-homework-item p{margin:4px 0 0;font-size:9px;line-height:1.45;color:#5f4b3d;white-space:pre-wrap}.pe-homework-unresolved{margin-top:9px;border:1px solid #ead9c4;border-radius:9px;background:#fffaf1;padding:7px}.pe-homework-unresolved>summary{cursor:pointer;font-size:9px;font-weight:850;color:#936b4d}.pe-homework-unresolved[open]>summary{margin-bottom:6px}
+      .pe-homework-periods{display:flex;flex-wrap:wrap;gap:4px;margin:7px 0}
+      .pe-homework-periods button{border:1px solid #e5d5bf;border-radius:999px;background:#fffaf0;color:#7d5b42;padding:5px 8px;font-size:8px;font-weight:800}
+      .pe-homework-periods button.active{background:#b67a45;color:#fff;border-color:#b67a45}
+      .pe-homework-status{display:inline-flex;align-items:center;border-radius:999px;padding:3px 6px;font-size:7.5px;font-weight:850;margin-left:4px}
+      .pe-homework-status.none{background:#f3eee8;color:#76695e}
+      .pe-homework-status.open{background:#fff2d8;color:#9a641f}
+      .pe-homework-status.done{background:#edf7ef;color:#4c7b55}
+      .pe-homework-dup{margin-top:5px;padding:5px 6px;border:1px solid #f0d4ae;border-radius:7px;background:#fff8e8;color:#8a5f2d;font-size:8px;line-height:1.35}
+      .pe-homework-link{margin-left:4px;border:0;background:transparent;color:#8a5f2d;text-decoration:underline;font-size:7.5px;font-weight:850;cursor:pointer}
+      .pe-class-overview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+      .pe-class-card{border:1px solid #eadfce;border-radius:10px;background:#fff;padding:8px}
+      .pe-class-card h4{margin:0 0 6px;color:#80542f;font-size:10px}
+      .pe-class-overview-list{display:grid;gap:5px}
+      .pe-class-overview-item{padding:6px;border-radius:8px;background:#fff9ef;border:1px solid #efe1ce;font-size:8.5px;line-height:1.4}
+      @media(max-width:700px){.pe-class-overview-grid{grid-template-columns:1fr}}
+
       .pe-category-manager-list{display:grid;gap:6px;margin-top:8px}
       .pe-category-manager-row{display:grid;grid-template-columns:1fr auto;gap:7px;align-items:center;border:1px solid #eadfce;border-radius:9px;background:#fff;padding:8px}
       .pe-category-manager-row b{font-size:10px;color:#80542f}.pe-category-manager-row small{display:block;font-size:8px;color:#8c7868;margin-top:2px}
@@ -1590,6 +1606,77 @@
     return m?m[1]:'';
   }
 
+
+  function startOfWeekHK(dateStr){
+    const d=new Date(`${dateStr}T12:00:00`);
+    const day=d.getDay();
+    d.setDate(d.getDate()+(day===0?-6:1-day));
+    return cnDate(d);
+  }
+
+  function monthRange(dateStr){
+    const [y,m]=dateStr.split('-').map(Number);
+    const first=`${y}-${String(m).padStart(2,'0')}-01`;
+    const last=new Date(y,m,0,12,0,0);
+    return [first,cnDate(last)];
+  }
+
+  function academicTermRange(dateStr){
+    return dateStr<='2027-01-30'
+      ? ['2026-08-31','2027-01-30']
+      : ['2027-01-31','2027-07-14'];
+  }
+
+  function normalizeHomeworkText(text=''){
+    return String(text)
+      .toLowerCase()
+      .replace(/\s+/g,'')
+      .replace(/[，。！？、；：,.!?;:（）()\[\]【】「」『』"'`]/g,'');
+  }
+
+  function similarityScore(a,b){
+    a=normalizeHomeworkText(a);b=normalizeHomeworkText(b);
+    if(!a||!b)return 0;
+    if(a===b)return 1;
+    if(a.includes(b)||b.includes(a))return Math.min(a.length,b.length)/Math.max(a.length,b.length);
+    const bigrams=s=>{const arr=[];for(let i=0;i<s.length-1;i++)arr.push(s.slice(i,i+2));return arr};
+    const A=bigrams(a),B=bigrams(b);
+    if(!A.length||!B.length)return 0;
+    const counts=new Map();
+    A.forEach(x=>counts.set(x,(counts.get(x)||0)+1));
+    let inter=0;
+    B.forEach(x=>{const c=counts.get(x)||0;if(c>0){inter++;counts.set(x,c-1)}});
+    return (2*inter)/(A.length+B.length);
+  }
+
+  function findRecentDuplicate(row,allRows){
+    const sameClass=allRows.filter(x=>x!==row&&x.className===row.className&&x.date<row.date);
+    for(const x of sameClass){
+      const days=Math.round((new Date(`${row.date}T12:00:00`)-new Date(`${x.date}T12:00:00`))/86400000);
+      if(days<0||days>21)continue;
+      const score=similarityScore(row.text,x.text);
+      if(score>=0.82)return {row:x,score};
+    }
+    return null;
+  }
+
+  function matchingSubmission(row){
+    const subs=window.__submissionTrackerAPI?.getRecords?.()||state.submissions||[];
+    return subs.find(r=>{
+      const bits=String(r.sourceKey||'').split('|');
+      return bits[0]===row.date && bits[3]===row.text;
+    })||null;
+  }
+
+  function submissionStatusForHomework(row){
+    const record=matchingSubmission(row);
+    if(!record)return {type:'none',label:'未追收',record:null};
+    const missing=Array.isArray(record.missing)?record.missing:[];
+    return missing.length
+      ? {type:'open',label:'追收中',record}
+      : {type:'done',label:'已交齊',record};
+  }
+
   function homeworkHistoryRows(){
     const p=plannerState(),notes=p.lessonNotes||{},rows=[];
     const subs=window.__submissionTrackerAPI?.getRecords?.()||state.submissions||[];
@@ -1646,6 +1733,17 @@
         <select id="pe-homework-class"><option value="">全部班別</option></select>
         <input id="pe-homework-search" placeholder="搜尋功課／科目">
       </div>
+      <div class="pe-homework-periods">
+        <button type="button" data-period="all" class="active">全部</button>
+        <button type="button" data-period="week">本週</button>
+        <button type="button" data-period="month">本月</button>
+        <button type="button" data-period="term">本學期</button>
+        <button type="button" data-period="custom">自訂</button>
+      </div>
+      <div id="pe-homework-custom-range" class="pe-homework-toolbar" style="display:none">
+        <input type="date" id="pe-homework-from">
+        <input type="date" id="pe-homework-to">
+      </div>
       <div id="pe-homework-summary" class="pe-note"></div>
       <div id="pe-homework-list" class="pe-homework-list"></div>
       <div class="pe-actions"><button class="pe-btn" id="pe-homework-close">關閉</button></div>
@@ -1655,6 +1753,15 @@
     m.querySelector('#pe-homework-close').addEventListener('click',()=>closeModal(m));
     m.querySelector('#pe-homework-class').addEventListener('change',renderHomeworkHistory);
     m.querySelector('#pe-homework-search').addEventListener('input',renderHomeworkHistory);
+    m.dataset.period='all';
+    m.querySelectorAll('[data-period]').forEach(btn=>btn.addEventListener('click',()=>{
+      m.dataset.period=btn.dataset.period;
+      m.querySelectorAll('[data-period]').forEach(x=>x.classList.toggle('active',x===btn));
+      m.querySelector('#pe-homework-custom-range').style.display=btn.dataset.period==='custom'?'grid':'none';
+      renderHomeworkHistory();
+    }));
+    m.querySelector('#pe-homework-from').addEventListener('change',renderHomeworkHistory);
+    m.querySelector('#pe-homework-to').addEventListener('change',renderHomeworkHistory);
     return m;
   }
 
@@ -1662,7 +1769,6 @@
     const m=ensureHomeworkHistoryModal(),all=homeworkHistoryRows();
     const select=m.querySelector('#pe-homework-class');
     const current=select.value;
-
     const normal=all.filter(x=>!x.unresolved);
     const unresolved=all.filter(x=>x.unresolved);
     const classes=[...new Set(normal.map(x=>x.className).filter(x=>x&&x!=='未分類'))].sort((a,b)=>a.localeCompare(b,'zh-HK'));
@@ -1673,23 +1779,42 @@
 
     const cls=select.value;
     const q=(m.querySelector('#pe-homework-search').value||'').trim().toLowerCase();
-    const rows=normal.filter(x=>(!cls||x.className===cls)&&(!q||`${x.subject} ${x.text}`.toLowerCase().includes(q)));
+    const period=m.dataset.period||'all';
+    const today=hkToday();
+
+    let from='',to='';
+    if(period==='week'){from=startOfWeekHK(today);to=addDateDays(from,6)}
+    else if(period==='month'){[from,to]=monthRange(today)}
+    else if(period==='term'){[from,to]=academicTermRange(today)}
+    else if(period==='custom'){from=m.querySelector('#pe-homework-from').value||'';to=m.querySelector('#pe-homework-to').value||''}
+
+    let rows=normal.filter(x=>(!cls||x.className===cls)&&(!q||`${x.subject} ${x.text}`.toLowerCase().includes(q)));
+    if(from)rows=rows.filter(x=>x.date>=from);
+    if(to)rows=rows.filter(x=>x.date<=to);
 
     m.querySelector('#pe-homework-summary').innerHTML=
       `已對應 <b>${rows.length}</b> 份功課${cls?`・${esc(cls)}`:''}`
+      +(from&&to?`・${fmt(from)}–${fmt(to)}`:'')
       +(unresolved.length?`　<small>另有 ${unresolved.length} 筆舊資料無法對應課堂</small>`:'');
 
-    const normalHtml=rows.length?rows.map(x=>`
+    const normalHtml=rows.length?rows.map(x=>{
+      const status=submissionStatusForHomework(x);
+      const dup=findRecentDuplicate(x,normal);
+      return `
       <div class="pe-homework-item">
         <div class="top">
           <div>
             <b>${esc(x.className)}｜${fmt(x.date)}</b>
             <small>第${x.period}節${x.subject?`・${esc(x.subject)}`:''}</small>
           </div>
-          <small>${x.exactMatched?'✓ 日誌課堂':(x.tracked?'📋 追收班別':'舊資料')}</small>
+          <div>
+            <span class="pe-homework-status ${status.type}">${status.label}</span>
+            ${status.record?`<button class="pe-homework-link" data-submission-id="${esc(status.record.id||'')}">查看</button>`:''}
+          </div>
         </div>
         <p>${esc(x.text)}</p>
-      </div>`).join(''):'<div class="pe-note">暫時未有符合條件的功課紀錄。</div>';
+        ${dup?`<div class="pe-homework-dup">⚠ 近 21 日曾有相似功課：${fmt(dup.row.date)}・第${dup.row.period}節<br>${esc(dup.row.text)}</div>`:''}
+      </div>`}).join(''):'<div class="pe-note">暫時未有符合條件的功課紀錄。</div>';
 
     const unresolvedHtml=unresolved.length?`
       <details class="pe-homework-unresolved">
@@ -1707,6 +1832,86 @@
       </details>`:'';
 
     m.querySelector('#pe-homework-list').innerHTML=normalHtml+unresolvedHtml;
+    m.querySelectorAll('[data-submission-id]').forEach(btn=>btn.addEventListener('click',()=>{
+      closeModal(m);
+      window.__submissionTrackerAPI?.openRecord?.(btn.dataset.submissionId);
+    }));
+  }
+
+
+  function ensureClassOverviewModal(){
+    let m=document.getElementById('pe-class-overview-modal');
+    if(m)return m;
+    m=document.createElement('div');m.id='pe-class-overview-modal';m.className='pe-modal';
+    m.innerHTML=`<div class="pe-dialog">
+      <h3>🏫 班別總覽</h3>
+      <div class="pe-homework-toolbar">
+        <select id="pe-class-overview-class"><option value="">選擇班別</option></select>
+        <button class="pe-btn" id="pe-class-overview-refresh">更新</button>
+      </div>
+      <div id="pe-class-overview-grid" class="pe-class-overview-grid"></div>
+      <div class="pe-actions"><button class="pe-btn" id="pe-class-overview-close">關閉</button></div>
+    </div>`;
+    document.body.appendChild(m);
+    m.addEventListener('click',e=>{if(e.target===m)closeModal(m)});
+    m.querySelector('#pe-class-overview-close').addEventListener('click',()=>closeModal(m));
+    m.querySelector('#pe-class-overview-class').addEventListener('change',renderClassOverview);
+    m.querySelector('#pe-class-overview-refresh').addEventListener('click',renderClassOverview);
+    return m;
+  }
+
+  function classOverviewClasses(){
+    const set=new Set();
+    homeworkHistoryRows().forEach(x=>x.className&&x.className!=='未分類'&&set.add(x.className));
+    (state.submissions||[]).forEach(r=>r.className&&r.className!=='班別'&&set.add(r.className));
+    return [...set].sort((a,b)=>a.localeCompare(b,'zh-HK'));
+  }
+
+  function renderClassOverview(){
+    const m=ensureClassOverviewModal(),sel=m.querySelector('#pe-class-overview-class');
+    const current=sel.value;
+    const classes=classOverviewClasses();
+    sel.innerHTML='<option value="">選擇班別</option>'+classes.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    if(classes.includes(current))sel.value=current;
+    const cls=sel.value||classes[0]||'';
+    if(!sel.value&&cls)sel.value=cls;
+
+    const grid=m.querySelector('#pe-class-overview-grid');
+    if(!cls){grid.innerHTML='<div class="pe-note">暫時未有班別資料。</div>';return}
+
+    const hw=homeworkHistoryRows().filter(x=>x.className===cls&&!x.unresolved).slice(0,6);
+    const subs=(window.__submissionTrackerAPI?.getRecords?.()||state.submissions||[])
+      .filter(r=>r.className===cls && Array.isArray(r.missing) && r.missing.length)
+      .slice(0,6);
+
+    const progress=[];
+    const p=plannerState(),notes=p.lessonNotes||{};
+    for(const [key,val] of Object.entries(notes)){
+      const mm=key.match(/^(\d{4}-\d{2}-\d{2})-(\d+)-p$/);
+      if(!mm||!val||typeof val!=='string')continue;
+      const date=mm[1],periodIndex=Number(mm[2]);
+      const lesson=timetableLessonForHomework(date,periodIndex);
+      if(classFromTimetableLesson(lesson)!==cls)continue;
+      progress.push({date,period:periodIndex+1,text:val});
+    }
+    progress.sort((a,b)=>b.date.localeCompare(a.date)||a.period-b.period);
+
+    const todos=(state.pendingItems||[]).filter(x=>{
+      if(x.completed)return false;
+      return `${x.title||''} ${x.note||''}`.toUpperCase().includes(cls.toUpperCase());
+    }).slice(0,6);
+
+    grid.innerHTML=`
+      <div class="pe-class-card"><h4>📚 最近功課</h4><div class="pe-class-overview-list">${hw.length?hw.map(x=>`<div class="pe-class-overview-item">${fmt(x.date)}・第${x.period}節<br>${esc(x.text)}</div>`).join(''):'<div class="pe-note">暫無紀錄</div>'}</div></div>
+      <div class="pe-class-card"><h4>📋 未完成追收</h4><div class="pe-class-overview-list">${subs.length?subs.map(r=>`<div class="pe-class-overview-item">${r.dueDate?fmt(r.dueDate):''}<br>${esc(r.name||r.type||'項目')}・欠 ${r.missing.length} 人</div>`).join(''):'<div class="pe-note">暫無未完成追收</div>'}</div></div>
+      <div class="pe-class-card"><h4>📝 最近教學進度</h4><div class="pe-class-overview-list">${progress.length?progress.slice(0,6).map(x=>`<div class="pe-class-overview-item">${fmt(x.date)}・第${x.period}節<br>${esc(x.text)}</div>`).join(''):'<div class="pe-note">暫無進度紀錄</div>'}</div></div>
+      <div class="pe-class-card"><h4>⏳ 班別相關待辦</h4><div class="pe-class-overview-list">${todos.length?todos.map(x=>`<div class="pe-class-overview-item">${x.dueDate?fmt(x.dueDate):'未設日期'}<br>${esc(x.title||'')}</div>`).join(''):'<div class="pe-note">暫無相關待辦</div>'}</div></div>`;
+  }
+
+  function openClassOverview(){
+    const m=ensureClassOverviewModal();
+    m.classList.add('open');
+    renderClassOverview();
   }
 
   function openHomeworkHistory(){
@@ -1763,6 +1968,7 @@
       </div>
       <div class="pe-more-group"><b>記錄</b>
         <button id="pe-more-homework">📚 功課紀錄</button>
+        <button id="pe-more-class-overview">🏫 班別總覽</button>
         <button id="pe-more-submission">📋 作業／回條</button>
         <button id="pe-more-activity">＋ 活動紀錄</button>
         <button id="pe-more-stats">📊 活動統計</button>
@@ -1782,6 +1988,7 @@
     sheet.querySelector('#pe-more-done').addEventListener('click',()=>{closeMobileMore();openDoneCheck()});
     sheet.querySelector('#pe-more-pending').addEventListener('click',()=>{closeMobileMore();openPendingModal()});
     sheet.querySelector('#pe-more-homework').addEventListener('click',()=>{closeMobileMore();openHomeworkHistory()});
+    sheet.querySelector('#pe-more-class-overview').addEventListener('click',()=>{closeMobileMore();openClassOverview()});
     sheet.querySelector('#pe-more-categories').addEventListener('click',()=>{closeMobileMore();openCategoryManager()});
     sheet.querySelector('#pe-more-tags').addEventListener('click',()=>{closeMobileMore();openTagVisibilityModal()});
     sheet.querySelector('#pe-more-search').addEventListener('click',()=>{closeMobileMore();openJournalSearch()});
@@ -1929,6 +2136,7 @@
     ensureTagVisibilityModal();
     ensureDateQuickModal();
     ensureHomeworkHistoryModal();
+    ensureClassOverviewModal();
     ensureCategoryManager();
     ensureMobileNav();
     ensureIpadRail();
