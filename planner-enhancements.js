@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.9.1';
+  const VERSION = '1.9.2';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -92,6 +92,9 @@
       .pe-homework-status.done{background:#edf7ef;color:#4c7b55}
       .pe-homework-dup{margin-top:5px;padding:5px 6px;border:1px solid #f0d4ae;border-radius:7px;background:#fff8e8;color:#8a5f2d;font-size:8px;line-height:1.35}
       .pe-homework-link{margin-left:4px;border:0;background:transparent;color:#8a5f2d;text-decoration:underline;font-size:7.5px;font-weight:850;cursor:pointer}
+      .pe-homework-status-row{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:5px;padding-top:5px;border-top:1px dashed #eee1d0}
+      .pe-homework-status-row .label{font-size:7.5px;color:#8b7768;font-weight:800}
+
       .pe-class-overview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
       .pe-class-card{border:1px solid #eadfce;border-radius:10px;background:#fff;padding:8px}
       .pe-class-card h4{margin:0 0 6px;color:#80542f;font-size:10px}
@@ -1607,21 +1610,26 @@
   }
 
 
+  function dateKeyLocal(d){
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
   function startOfWeekHK(dateStr){
     const d=new Date(`${dateStr}T12:00:00`);
     const day=d.getDay();
     d.setDate(d.getDate()+(day===0?-6:1-day));
-    return cnDate(d);
+    return dateKeyLocal(d);
   }
 
   function monthRange(dateStr){
     const [y,m]=dateStr.split('-').map(Number);
-    const first=`${y}-${String(m).padStart(2,'0')}-01`;
+    const first=new Date(y,m-1,1,12,0,0);
     const last=new Date(y,m,0,12,0,0);
-    return [first,cnDate(last)];
+    return [dateKeyLocal(first),dateKeyLocal(last)];
   }
 
   function academicTermRange(dateStr){
+    if(dateStr<'2026-08-31')return ['2026-08-31','2027-01-30'];
     return dateStr<='2027-01-30'
       ? ['2026-08-31','2027-01-30']
       : ['2027-01-31','2027-07-14'];
@@ -1629,14 +1637,19 @@
 
   function splitHomeworkItems(text=''){
     return String(text||'')
+      .replace(/<br\s*\/?>/gi,'\n')
+      .replace(/\\n/g,'\n')
       .split(/\r?\n+/)
       .map(x=>x.trim())
       .filter(Boolean);
   }
 
   function normalizeHomeworkText(text=''){
-    return String(text)
+    return String(text||'')
       .toLowerCase()
+      .replace(/^[\s\-–—•·●○▪▫◆◇★☆＊*✓✔☐☑]+/g,'')
+      .replace(/^\(?\d{1,2}\)?[.)、．:\-]\s*/g,'')
+      .replace(/^[a-z][.)、．:\-]\s*/i,'')
       .replace(/\s+/g,'')
       .replace(/[，。！？、；：,.!?;:（）()\[\]【】「」『』"'`]/g,'');
   }
@@ -1645,14 +1658,25 @@
     a=normalizeHomeworkText(a);b=normalizeHomeworkText(b);
     if(!a||!b)return 0;
     if(a===b)return 1;
-    if(a.includes(b)||b.includes(a))return Math.min(a.length,b.length)/Math.max(a.length,b.length);
-    const bigrams=s=>{const arr=[];for(let i=0;i<s.length-1;i++)arr.push(s.slice(i,i+2));return arr};
+
+    const min=Math.min(a.length,b.length),max=Math.max(a.length,b.length);
+    if(min>=3 && (a.includes(b)||b.includes(a)))return min/max;
+
+    const bigrams=s=>{
+      const arr=[];
+      for(let i=0;i<s.length-1;i++)arr.push(s.slice(i,i+2));
+      return arr;
+    };
     const A=bigrams(a),B=bigrams(b);
     if(!A.length||!B.length)return 0;
+
     const counts=new Map();
     A.forEach(x=>counts.set(x,(counts.get(x)||0)+1));
     let inter=0;
-    B.forEach(x=>{const c=counts.get(x)||0;if(c>0){inter++;counts.set(x,c-1)}});
+    B.forEach(x=>{
+      const c=counts.get(x)||0;
+      if(c>0){inter++;counts.set(x,c-1)}
+    });
     return (2*inter)/(A.length+B.length);
   }
 
@@ -1675,14 +1699,18 @@
 
         for(const prevItem of splitHomeworkItems(x.text)){
           const score=similarityScore(item,prevItem);
-          if(score>=0.82 && (!best || score>best.score)){
-            best={current:item,previous:prevItem,row:x,score};
+          const exact=normalizeHomeworkText(item)===normalizeHomeworkText(prevItem);
+          if((exact || score>=0.76) && (!best || score>best.score)){
+            best={current:item,previous:prevItem,row:x,score:exact?1:score};
           }
         }
       }
       if(best){
-        const key=`${best.current}|${best.row.date}|${best.previous}`;
-        if(!seen.has(key)){seen.add(key);results.push(best)}
+        const key=`${normalizeHomeworkText(best.current)}|${best.row.date}|${normalizeHomeworkText(best.previous)}`;
+        if(!seen.has(key)){
+          seen.add(key);
+          results.push(best);
+        }
       }
     }
     return results;
@@ -1690,36 +1718,66 @@
 
   function matchingSubmission(row){
     const subs=window.__submissionTrackerAPI?.getRecords?.()||state.submissions||[];
+    const rowClass=String(row.className||'').trim().toUpperCase();
+    const rowPeriod=`第${row.period}節`;
     const norm=s=>normalizeHomeworkText(String(s||''));
 
-    // Strongest match: exact sourceKey fields.
+    const sourceParts=r=>{
+      const raw=String(r.sourceKey||'');
+      const p1=raw.indexOf('|');
+      const p2=p1>=0?raw.indexOf('|',p1+1):-1;
+      const p3=p2>=0?raw.indexOf('|',p2+1):-1;
+      return {
+        date:p1>=0?raw.slice(0,p1):'',
+        subject:p1>=0&&p2>=0?raw.slice(p1+1,p2):'',
+        period:p2>=0&&p3>=0?raw.slice(p2+1,p3):'',
+        homework:p3>=0?raw.slice(p3+1):''
+      };
+    };
+
+    // 1) Strong match: actual journal-source fields.
     let hit=subs.find(r=>{
-      const bits=String(r.sourceKey||'').split('|');
-      return bits[0]===row.date && norm(bits[3])===norm(row.text);
+      const parts=sourceParts(r);
+      const date=String(r.issueDate||parts.date||'').slice(0,10);
+      const period=String(r.sourcePeriod||parts.period||'').trim();
+      const subject=String(r.sourceSubject||parts.subject||'').trim();
+      const homework=parts.homework||r.name||'';
+
+      if(date!==row.date)return false;
+      if(period && period!==rowPeriod)return false;
+
+      const className=String(r.className||'').trim().toUpperCase();
+      if(className && className!=='班別' && rowClass && className!==rowClass)return false;
+
+      if(norm(homework)===norm(row.text))return true;
+      if(similarityScore(homework,row.text)>=0.72)return true;
+
+      // If date+period are exact, subject is enough for legacy records whose name was edited later.
+      return !!period && period===rowPeriod && (
+        subject===row.subject ||
+        similarityScore(subject,row.subject)>=0.8
+      );
     });
     if(hit)return hit;
 
-    // Fallback: same date + class + very similar homework/title/source text.
+    // 2) Same date + same class + edited title/name still containing a homework line.
     hit=subs.find(r=>{
-      const rDate=String(r.date||r.assignedDate||r.createdDate||'').slice(0,10);
-      if(rDate && rDate!==row.date)return false;
+      const parts=sourceParts(r);
+      const date=String(r.issueDate||parts.date||'').slice(0,10);
+      if(date!==row.date)return false;
 
-      const rClass=String(r.className||'').trim().toUpperCase();
-      if(rClass && row.className && rClass!==String(row.className).trim().toUpperCase())return false;
+      const className=String(r.className||'').trim().toUpperCase();
+      if(className && className!=='班別' && rowClass && className!==rowClass)return false;
 
-      const candidates=[
-        r.name,r.title,r.homework,r.sourceHomework,r.sourceText,r.sourceSubject
-      ].filter(Boolean);
-
-      return candidates.some(v=>similarityScore(v,row.text)>=0.72 || norm(v)===norm(row.text));
+      const candidates=[parts.homework,r.name,r.sourceSubject].filter(Boolean);
+      return candidates.some(v=>{
+        if(similarityScore(v,row.text)>=0.68)return true;
+        const A=splitHomeworkItems(v),B=splitHomeworkItems(row.text);
+        return A.some(a=>B.some(b=>normalizeHomeworkText(a)===normalizeHomeworkText(b)));
+      });
     });
-    if(hit)return hit;
 
-    // Last fallback: sourceKey may contain extra separators/newlines.
-    return subs.find(r=>{
-      const sk=String(r.sourceKey||'');
-      return sk.includes(row.date) && similarityScore(sk,row.text)>=0.55;
-    })||null;
+    return hit||null;
   }
 
   function submissionStatusForHomework(row){
@@ -1849,8 +1907,9 @@
     if(from)rows=rows.filter(x=>x.date>=from);
     if(to)rows=rows.filter(x=>x.date<=to);
 
+    const periodLabel={all:'全部',week:'本週',month:'本月',term:'本學期',custom:'自訂'}[period]||'全部';
     m.querySelector('#pe-homework-summary').innerHTML=
-      `已對應 <b>${rows.length}</b> 份功課${cls?`・${esc(cls)}`:''}`
+      `篩選：<b>${periodLabel}</b>・已對應 <b>${rows.length}</b> 份功課${cls?`・${esc(cls)}`:''}`
       +(from&&to?`・${fmt(from)}–${fmt(to)}`:'')
       +(unresolved.length?`　<small>另有 ${unresolved.length} 筆舊資料無法對應課堂</small>`:'');
 
@@ -1864,12 +1923,13 @@
             <b>${esc(x.className)}｜${fmt(x.date)}</b>
             <small>第${x.period}節${x.subject?`・${esc(x.subject)}`:''}</small>
           </div>
-          <div>
-            <span class="pe-homework-status ${status.type}">${status.label}</span>
-            ${status.record?`<button class="pe-homework-link" data-submission-id="${esc(status.record.id||'')}">查看</button>`:''}
-          </div>
         </div>
         <p>${esc(x.text)}</p>
+        <div class="pe-homework-status-row">
+          <span class="label">追收：</span>
+          <span class="pe-homework-status ${status.type}">${status.label}</span>
+          ${status.record?`<button class="pe-homework-link" data-submission-id="${esc(status.record.id||'')}">查看追收</button>`:''}
+        </div>
         ${dups.length?`<div class="pe-homework-dup">⚠ 發現 ${dups.length} 項近 21 日相似功課：<br>${dups.map(d=>`• ${esc(d.current)} → ${fmt(d.row.date)} 第${d.row.period}節：${esc(d.previous)}`).join('<br>')}</div>`:''}
       </div>`}).join(''):'<div class="pe-note">暫時未有符合條件的功課紀錄。</div>';
 
