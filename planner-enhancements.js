@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.0.5';
+  const VERSION = '2.0.6';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -3352,6 +3352,7 @@
       </div>
       <div class="pe-more-group"><b>班級</b>
         <button id="pe-more-class-center">🏫 班級中心</button>
+        <button id="pe-more-workflow">🧭 課堂工作流</button>
         <button id="pe-more-homework">📚 功課管理</button>
         <button id="pe-more-submission">📋 作業／回條</button>
       </div>
@@ -3373,6 +3374,7 @@
     });
     sheet.querySelector('#pe-more-inbox').addEventListener('click',()=>{closeMobileMore();openInbox()});
     sheet.querySelector('#pe-more-class-center').addEventListener('click',()=>{closeMobileMore();openClassCenter()});
+    sheet.querySelector('#pe-more-workflow').addEventListener('click',()=>{closeMobileMore();openWorkflow()});
     sheet.querySelector('#pe-more-homework').addEventListener('click',()=>{closeMobileMore();openHomeworkHistory()});
     sheet.querySelector('#pe-more-submission').addEventListener('click',()=>{
       closeMobileMore();
