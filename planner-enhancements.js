@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.2.0';
+  const VERSION = '2.2.1';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -982,6 +982,67 @@
     return el;
   }
 
+
+  function ensureTodayActivityModal(){
+    let m=document.getElementById('pe-today-activity-modal');
+    if(m)return m;
+
+    m=document.createElement('div');
+    m.id='pe-today-activity-modal';
+    m.className='pe-modal';
+    m.innerHTML=`<div class="pe-dialog">
+      <h3>📅 今日活動</h3>
+      <p class="pe-note" id="pe-today-activity-date"></p>
+      <div id="pe-today-activity-list"></div>
+      <div class="pe-actions">
+        <button class="pe-btn primary" id="pe-today-activity-add">＋ 新增今日活動</button>
+        <button class="pe-btn" id="pe-today-activity-close">關閉</button>
+      </div>
+    </div>`;
+
+    document.body.appendChild(m);
+    m.addEventListener('click',e=>{if(e.target===m)closeModal(m)});
+    m.querySelector('#pe-today-activity-close').addEventListener('click',()=>closeModal(m));
+    m.querySelector('#pe-today-activity-add').addEventListener('click',()=>{
+      const date=m.dataset.date||hkToday();
+      closeModal(m);
+      openActivityModal(date);
+    });
+
+    return m;
+  }
+
+  function renderTodayActivityModal(date=hkToday()){
+    const m=ensureTodayActivityModal();
+    m.dataset.date=date;
+
+    const rows=todayActivities().filter(x=>!x.date||x.date===date);
+
+    m.querySelector('#pe-today-activity-date').textContent=fmt(date);
+
+    const list=m.querySelector('#pe-today-activity-list');
+    list.innerHTML=rows.length
+      ? rows.map(a=>`
+          <button type="button" class="pe-workflow-card" data-today-activity-id="${esc(a.id||'')}">
+            <h4>${esc(a.category||'活動')}</h4>
+            <div>${esc(a.title||'')}</div>
+            ${a.note?`<div class="pe-note">${esc(a.note)}</div>`:''}
+          </button>
+        `).join('')
+      : '<div class="pe-note">今日未有活動紀錄。</div>';
+
+    list.querySelectorAll('[data-today-activity-id]').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const id=btn.dataset.todayActivityId;
+        if(!id)return;
+        closeModal(m);
+        openActivityEdit(id);
+      });
+    });
+
+    m.classList.add('open');
+  }
+
   function renderDashboard(){
     const board=document.querySelector('.today-board');
     const el=ensureDashboard();
@@ -1039,7 +1100,7 @@
         <button type="button" class="pe-dash-card pe-dash-direct" id="pe-dash-activity">
           <b>${acts.length}</b>
           <span>📅 活動</span>
-          <small>${acts.length?'查看今日活動':'今日未有活動'}</small>
+          <small>${acts.length?'查看今日活動清單':'今日未有活動'}</small>
         </button>
       </div>`;
 
@@ -1072,7 +1133,12 @@
 
     el.querySelector('#pe-dash-activity')?.addEventListener('click',()=>{
       el.classList.remove('open');
-      openActivityModal(today);
+      safeRenderModule('Today Activity',()=>renderTodayActivityModal(today),err=>{
+        const m=ensureTodayActivityModal();
+        const out=m.querySelector('#pe-today-activity-list');
+        if(out)out.innerHTML=moduleErrorHtml('今日活動顯示錯誤',err);
+        m.classList.add('open');
+      });
     });
 
     if(wasOpen)el.classList.add('open');
