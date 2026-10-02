@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.1.2';
+  const VERSION = '2.1.3';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -2629,34 +2629,61 @@
     const progress=String(notes[`${date}-${periodIndex}-p`]||'').trim();
     const homework=String(notes[`${date}-${periodIndex}-h`]||'').trim();
 
-    const prev=[];
-    for(const [key,val] of Object.entries(notes)){
-      const m=key.match(/^(\d{4}-\d{2}-\d{2})-(\d+)-p$/);
-      if(!m||!val||m[1]>=date)continue;
+    const sameLesson=(candidateLesson)=>{
+      if(!candidateLesson)return false;
+      const candidateClass=classFromTimetableLesson(candidateLesson)||'未分類';
+      const candidateSubject=subjectFromLessonText(candidateLesson,candidateClass);
+      return normalizeClassId(candidateClass)===normalizeClassId(className)
+        && String(candidateSubject).trim().toLowerCase()===String(subjectName).trim().toLowerCase();
+    };
 
-      const pi=Number(m[2]);
-      const previousLesson=timetableLessonForHomework(m[1],pi);
-      const previousClass=classFromTimetableLesson(previousLesson)||'未分類';
-      const previousSubject=subjectFromLessonText(previousLesson,previousClass);
+    // 真正「上一堂」：
+    // 先按課表時間倒查上一個同班＋同科的 scheduled lesson，
+    // 再去該日期／節數讀 progress + homework。
+    // 不再由「已有進度紀錄」反推，避免上一堂未填進度時跳錯更舊一堂。
+    let previous=null;
 
-      // 「上次」必須係同一班 + 同一科目。
-      // 例如 4C 視藝只會搵上一個 4C 視藝課堂，
-      // 不會誤用前一日 4C 中文／常識等其他課堂。
-      if(normalizeClassId(previousClass)!==normalizeClassId(className))continue;
-      if(String(previousSubject).trim().toLowerCase()!==String(subjectName).trim().toLowerCase())continue;
-
-      prev.push({
-        date:m[1],
-        period:pi+1,
-        periodIndex:pi,
-        lesson:previousLesson,
-        subject:previousSubject,
-        text:String(val),
-        homework:String(notes[`${m[1]}-${pi}-h`]||'').trim()
-      });
+    // 先檢查同一日較早節數（例如雙連堂）。
+    for(let pi=periodIndex-1;pi>=0&&!previous;pi--){
+      const candidate=timetableLessonForHomework(date,pi);
+      if(sameLesson(candidate)){
+        previous={
+          date,
+          period:pi+1,
+          periodIndex:pi,
+          lesson:candidate,
+          subject:subjectName,
+          text:String(notes[`${date}-${pi}-p`]||'').trim(),
+          homework:String(notes[`${date}-${pi}-h`]||'').trim()
+        };
+      }
     }
 
-    prev.sort((a,b)=>b.date.localeCompare(a.date)||b.period-a.period);
+    // 再逐日向前追，最多 120 日。
+    if(!previous){
+      const cursor=new Date(`${date}T12:00:00`);
+      for(let dayBack=1;dayBack<=120&&!previous;dayBack++){
+        cursor.setDate(cursor.getDate()-1);
+        const d=dateKeyLocal(cursor);
+
+        // 同一日由較後節數向前找，確保取得該日最後一個 matching lesson。
+        for(let pi=8;pi>=0;pi--){
+          const candidate=timetableLessonForHomework(d,pi);
+          if(!sameLesson(candidate))continue;
+
+          previous={
+            date:d,
+            period:pi+1,
+            periodIndex:pi,
+            lesson:candidate,
+            subject:subjectName,
+            text:String(notes[`${d}-${pi}-p`]||'').trim(),
+            homework:String(notes[`${d}-${pi}-h`]||'').trim()
+          };
+          break;
+        }
+      }
+    }
 
     const classId=classIdForName(className);
     const lessonId=`${date}-p${periodIndex+1}-${normalizeClassId(className)||'unknown'}`;
@@ -2672,6 +2699,7 @@
       homeworkId,
       classId
     };
+
     const tracking=homework
       ? submissionStatusForHomework(hwRow)
       : {type:'none',label:'沒有功課',record:null};
@@ -2688,7 +2716,7 @@
       homeworkId,
       progress,
       homework,
-      previous:prev[0]||null,
+      previous,
       tracking
     };
   }
@@ -2746,9 +2774,14 @@
     const content=m.querySelector('#pe-workflow-content');
     if(!content)return;
 
-    const prevProgress=d.previous?.text||'未有上次進度';
+    const prevProgress=d.previous
+      ? (d.previous.text||'該堂尚未填寫進度')
+      : '未找到上一堂同班同科課堂';
     const prevDate=d.previous?.date?fmt(d.previous.date):'';
-    const prevHomework=d.previous?.homework||'未有紀錄';
+    const prevPeriod=d.previous?.period?`・第${d.previous.period}節`:'';
+    const prevHomework=d.previous
+      ? (d.previous.homework||'該堂沒有填寫功課')
+      : '未找到上一堂同班同科課堂';
 
     const trackingRecord=d.tracking?.record||null;
     let trackingText=d.tracking?.label||'未追收';
@@ -2759,8 +2792,8 @@
 
     content.innerHTML=`
       <div class="pe-workflow-stack">
-        <div class="pe-workflow-card"><h4>↩ 上次同科進度 ${prevDate?`・${prevDate}`:''}</h4><div>${esc(prevProgress)}</div></div>
-        <div class="pe-workflow-card"><h4>📚 上次同科功課</h4><div>${esc(prevHomework)}</div></div>
+        <div class="pe-workflow-card"><h4>↩ 上一堂同科進度 ${prevDate?`・${prevDate}${prevPeriod}`:''}</h4><div>${esc(prevProgress)}</div></div>
+        <div class="pe-workflow-card"><h4>📚 上一堂同科功課</h4><div>${esc(prevHomework)}</div></div>
         <div class="pe-workflow-card"><h4>📘 今堂科目</h4><div>${esc(subjectFromLessonText(d.lesson,d.className))}</div></div>
         <div class="pe-workflow-card pe-workflow-primary"><h4>📝 今堂進度</h4><div>${esc(d.progress||'尚未填寫')}</div></div>
         <div class="pe-workflow-card pe-workflow-primary"><h4>📖 今堂功課</h4><div>${esc(d.homework||'尚未填寫')}</div></div>
