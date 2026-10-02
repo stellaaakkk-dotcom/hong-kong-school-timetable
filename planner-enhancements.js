@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.1.6';
+  const VERSION = '2.1.7';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -2626,35 +2626,96 @@
 
 
 
+
+  function journalClassKey(lesson=''){
+    const raw=String(lesson||'').trim();
+    if(!raw)return '';
+
+    const candidates=new Set();
+
+    // Formal class profiles first.
+    (state.classCore||[]).forEach(c=>{
+      const name=String(c?.name||'').trim();
+      if(name)candidates.add(name);
+    });
+
+    // Then existing known class list used elsewhere in the app.
+    knownClassNames().forEach(name=>name&&candidates.add(String(name).trim()));
+
+    const upper=raw.toUpperCase();
+    const exact=[...candidates]
+      .filter(Boolean)
+      .sort((a,b)=>String(b).length-String(a).length)
+      .find(name=>upper.includes(String(name).toUpperCase()));
+
+    if(exact)return normalizeClassId(exact);
+
+    // Legacy fallback only, for old data with no class profile yet.
+    const m=upper.match(/(?:^|[^0-9A-Z])([1-6])\s*([A-E])(?:[^A-Z]|$)/)
+      || upper.match(/^([1-6])\s*([A-E])/);
+    return m?normalizeClassId(`${m[1]}${m[2]}`):'';
+  }
+
+  function journalDaySlots(date=''){
+    try{
+      const rows=window.__HK_GET_JOURNAL_DAY?.(date);
+      if(Array.isArray(rows))return rows.filter(x=>x&&x.lesson);
+    }catch(e){
+      console.warn('[planner-enhancements] journal day lookup failed',date,e);
+    }
+
+    // Compatibility fallback: still call the journal's exact lesson resolver slot-by-slot.
+    const rows=[];
+    for(let periodIndex=0;periodIndex<9;periodIndex++){
+      const lesson=timetableLessonForHomework(date,periodIndex);
+      if(lesson)rows.push({date,periodIndex,period:periodIndex+1,lesson});
+    }
+    return rows;
+  }
+
   function lessonWorkflowData(date,periodIndex){
     const p=plannerState(),notes=p.lessonNotes||{};
-    const lesson=timetableLessonForHomework(date,periodIndex);
+
+    // Current lesson comes from the journal's own resolved slot.
+    const todaySlots=journalDaySlots(date);
+    const currentSlot=todaySlots.find(x=>Number(x.periodIndex)===Number(periodIndex))||null;
+    const lesson=currentSlot?.lesson||timetableLessonForHomework(date,periodIndex)||'';
+
     const className=classFromTimetableLesson(lesson)||'未分類';
-    const subjectName=subjectFromLessonText(lesson,className);
+    const currentClassKey=journalClassKey(lesson)||normalizeClassId(className);
+
     const progress=String(notes[`${date}-${periodIndex}-p`]||'').trim();
     const homework=String(notes[`${date}-${periodIndex}-h`]||'').trim();
 
-    // 上一堂只按「同班」追蹤。
-    // 先檢查同一日較早節數，再逐日向前找最近一次同班課堂。
-    // 不再限制科目、Day、cycle 或節數。
     let previous=null;
 
-    for(let pi=periodIndex-1;pi>=0&&!previous;pi--){
-      const candidate=timetableLessonForHomework(date,pi);
-      const candidateClass=classFromTimetableLesson(candidate)||'';
-      if(normalizeClassId(candidateClass)!==normalizeClassId(className))continue;
+    const acceptSlot=(slot)=>{
+      if(!slot?.lesson)return false;
+      const slotClassKey=journalClassKey(slot.lesson);
+      return !!currentClassKey && !!slotClassKey && slotClassKey===currentClassKey;
+    };
 
+    // A. Same day: scan earlier journal slots backwards.
+    const earlier=todaySlots
+      .filter(x=>Number(x.periodIndex)<Number(periodIndex))
+      .sort((a,b)=>Number(b.periodIndex)-Number(a.periodIndex));
+
+    for(const slot of earlier){
+      if(!acceptSlot(slot))continue;
       previous={
         date,
-        period:pi+1,
-        periodIndex:pi,
-        lesson:candidate,
-        subject:subjectFromLessonText(candidate,candidateClass),
-        text:String(notes[`${date}-${pi}-p`]||'').trim(),
-        homework:String(notes[`${date}-${pi}-h`]||'').trim()
+        periodIndex:Number(slot.periodIndex),
+        period:Number(slot.periodIndex)+1,
+        lesson:slot.lesson,
+        subject:subjectFromLessonText(slot.lesson,classFromTimetableLesson(slot.lesson)||''),
+        text:String(notes[`${date}-${slot.periodIndex}-p`]||'').trim(),
+        homework:String(notes[`${date}-${slot.periodIndex}-h`]||'').trim()
       };
+      break;
     }
 
+    // B. Previous dates: read the journal's own actual slots, newest date first,
+    // and within a date take the latest matching class slot.
     if(!previous){
       const cursor=new Date(`${date}T12:00:00`);
 
@@ -2662,30 +2723,31 @@
         cursor.setDate(cursor.getDate()-1);
         const d=dateKeyLocal(cursor);
 
-        // 由後至前，取得該日最後一個同班課堂，
-        // 即時間上真正最接近今堂的上一堂。
-        for(let pi=8;pi>=0;pi--){
-          const candidate=timetableLessonForHomework(d,pi);
-          const candidateClass=classFromTimetableLesson(candidate)||'';
-          if(normalizeClassId(candidateClass)!==normalizeClassId(className))continue;
+        const slots=journalDaySlots(d)
+          .slice()
+          .sort((a,b)=>Number(b.periodIndex)-Number(a.periodIndex));
 
+        for(const slot of slots){
+          if(!acceptSlot(slot))continue;
           previous={
             date:d,
-            period:pi+1,
-            periodIndex:pi,
-            lesson:candidate,
-            subject:subjectFromLessonText(candidate,candidateClass),
-            text:String(notes[`${d}-${pi}-p`]||'').trim(),
-            homework:String(notes[`${d}-${pi}-h`]||'').trim()
+            periodIndex:Number(slot.periodIndex),
+            period:Number(slot.periodIndex)+1,
+            lesson:slot.lesson,
+            subject:subjectFromLessonText(slot.lesson,classFromTimetableLesson(slot.lesson)||''),
+            text:String(notes[`${d}-${slot.periodIndex}-p`]||'').trim(),
+            homework:String(notes[`${d}-${slot.periodIndex}-h`]||'').trim()
           };
           break;
         }
       }
     }
 
+    const subjectName=subjectFromLessonText(lesson,className);
     const classId=classIdForName(className);
-    const lessonId=`${date}-p${periodIndex+1}-${normalizeClassId(className)||'unknown'}`;
+    const lessonId=`${date}-p${periodIndex+1}-${currentClassKey||'unknown'}`;
     const homeworkId=homework?`${lessonId}-hw`:'';
+
     const hwRow={
       date,period:periodIndex+1,periodIndex,className,subject:lesson,
       text:homework,lessonId,homeworkId,classId
@@ -2756,12 +2818,12 @@
 
     const prevProgress=d.previous
       ? (d.previous.text||'該堂尚未填寫進度')
-      : '未找到上一堂同班課堂';
+      : '未找到日誌上一堂同班課堂';
     const prevDate=d.previous?.date?fmt(d.previous.date):'';
     const prevPeriod=d.previous?.period?`・第${d.previous.period}節`:'';
     const prevHomework=d.previous
       ? (d.previous.homework||'該堂沒有填寫功課')
-      : '未找到上一堂同班課堂';
+      : '未找到日誌上一堂同班課堂';
     const prevSubject=d.previous?.subject?`・${d.previous.subject}`:'';
 
     const trackingRecord=d.tracking?.record||null;
@@ -2773,8 +2835,8 @@
 
     content.innerHTML=`
       <div class="pe-workflow-stack">
-        <div class="pe-workflow-card"><h4>↩ 上一堂進度 ${prevDate?`・${prevDate}${prevPeriod}${prevSubject}`:''}</h4><div>${esc(prevProgress)}</div></div>
-        <div class="pe-workflow-card"><h4>📚 上一堂功課</h4><div>${esc(prevHomework)}</div></div>
+        <div class="pe-workflow-card"><h4>↩ 日誌上一堂 ${prevDate?`・${prevDate}${prevPeriod}${prevSubject}`:''}</h4><div>${esc(prevProgress)}</div></div>
+        <div class="pe-workflow-card"><h4>📚 日誌上一堂功課</h4><div>${esc(prevHomework)}</div></div>
         <div class="pe-workflow-card"><h4>📘 今堂科目</h4><div>${esc(subjectFromLessonText(d.lesson,d.className))}</div></div>
         <div class="pe-workflow-card pe-workflow-primary"><h4>📝 今堂進度</h4><div>${esc(d.progress||'尚未填寫')}</div></div>
         <div class="pe-workflow-card pe-workflow-primary"><h4>📖 今堂功課</h4><div>${esc(d.homework||'尚未填寫')}</div></div>
