@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.9.0';
+  const VERSION = '1.9.1';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -1627,6 +1627,13 @@
       : ['2027-01-31','2027-07-14'];
   }
 
+  function splitHomeworkItems(text=''){
+    return String(text||'')
+      .split(/\r?\n+/)
+      .map(x=>x.trim())
+      .filter(Boolean);
+  }
+
   function normalizeHomeworkText(text=''){
     return String(text)
       .toLowerCase()
@@ -1649,22 +1656,69 @@
     return (2*inter)/(A.length+B.length);
   }
 
-  function findRecentDuplicate(row,allRows){
-    const sameClass=allRows.filter(x=>x!==row&&x.className===row.className&&x.date<row.date);
-    for(const x of sameClass){
-      const days=Math.round((new Date(`${row.date}T12:00:00`)-new Date(`${x.date}T12:00:00`))/86400000);
-      if(days<0||days>21)continue;
-      const score=similarityScore(row.text,x.text);
-      if(score>=0.82)return {row:x,score};
+  function findRecentDuplicates(row,allRows){
+    const currentItems=splitHomeworkItems(row.text);
+    if(!currentItems.length)return [];
+
+    const sameClass=allRows
+      .filter(x=>x!==row&&x.className===row.className&&x.date<row.date)
+      .sort((a,b)=>b.date.localeCompare(a.date));
+
+    const results=[];
+    const seen=new Set();
+
+    for(const item of currentItems){
+      let best=null;
+      for(const x of sameClass){
+        const days=Math.round((new Date(`${row.date}T12:00:00`)-new Date(`${x.date}T12:00:00`))/86400000);
+        if(days<0||days>21)continue;
+
+        for(const prevItem of splitHomeworkItems(x.text)){
+          const score=similarityScore(item,prevItem);
+          if(score>=0.82 && (!best || score>best.score)){
+            best={current:item,previous:prevItem,row:x,score};
+          }
+        }
+      }
+      if(best){
+        const key=`${best.current}|${best.row.date}|${best.previous}`;
+        if(!seen.has(key)){seen.add(key);results.push(best)}
+      }
     }
-    return null;
+    return results;
   }
 
   function matchingSubmission(row){
     const subs=window.__submissionTrackerAPI?.getRecords?.()||state.submissions||[];
-    return subs.find(r=>{
+    const norm=s=>normalizeHomeworkText(String(s||''));
+
+    // Strongest match: exact sourceKey fields.
+    let hit=subs.find(r=>{
       const bits=String(r.sourceKey||'').split('|');
-      return bits[0]===row.date && bits[3]===row.text;
+      return bits[0]===row.date && norm(bits[3])===norm(row.text);
+    });
+    if(hit)return hit;
+
+    // Fallback: same date + class + very similar homework/title/source text.
+    hit=subs.find(r=>{
+      const rDate=String(r.date||r.assignedDate||r.createdDate||'').slice(0,10);
+      if(rDate && rDate!==row.date)return false;
+
+      const rClass=String(r.className||'').trim().toUpperCase();
+      if(rClass && row.className && rClass!==String(row.className).trim().toUpperCase())return false;
+
+      const candidates=[
+        r.name,r.title,r.homework,r.sourceHomework,r.sourceText,r.sourceSubject
+      ].filter(Boolean);
+
+      return candidates.some(v=>similarityScore(v,row.text)>=0.72 || norm(v)===norm(row.text));
+    });
+    if(hit)return hit;
+
+    // Last fallback: sourceKey may contain extra separators/newlines.
+    return subs.find(r=>{
+      const sk=String(r.sourceKey||'');
+      return sk.includes(row.date) && similarityScore(sk,row.text)>=0.55;
     })||null;
   }
 
@@ -1753,11 +1807,12 @@
     m.querySelector('#pe-homework-close').addEventListener('click',()=>closeModal(m));
     m.querySelector('#pe-homework-class').addEventListener('change',renderHomeworkHistory);
     m.querySelector('#pe-homework-search').addEventListener('input',renderHomeworkHistory);
-    m.dataset.period='all';
+    if(!m.dataset.period)m.dataset.period='all';
     m.querySelectorAll('[data-period]').forEach(btn=>btn.addEventListener('click',()=>{
-      m.dataset.period=btn.dataset.period;
-      m.querySelectorAll('[data-period]').forEach(x=>x.classList.toggle('active',x===btn));
-      m.querySelector('#pe-homework-custom-range').style.display=btn.dataset.period==='custom'?'grid':'none';
+      const next=btn.dataset.period||'all';
+      m.dataset.period=next;
+      m.querySelectorAll('[data-period]').forEach(x=>x.classList.toggle('active',x.dataset.period===next));
+      m.querySelector('#pe-homework-custom-range').style.display=next==='custom'?'grid':'none';
       renderHomeworkHistory();
     }));
     m.querySelector('#pe-homework-from').addEventListener('change',renderHomeworkHistory);
@@ -1780,6 +1835,8 @@
     const cls=select.value;
     const q=(m.querySelector('#pe-homework-search').value||'').trim().toLowerCase();
     const period=m.dataset.period||'all';
+    m.querySelectorAll('[data-period]').forEach(x=>x.classList.toggle('active',x.dataset.period===period));
+    m.querySelector('#pe-homework-custom-range').style.display=period==='custom'?'grid':'none';
     const today=hkToday();
 
     let from='',to='';
@@ -1799,7 +1856,7 @@
 
     const normalHtml=rows.length?rows.map(x=>{
       const status=submissionStatusForHomework(x);
-      const dup=findRecentDuplicate(x,normal);
+      const dups=findRecentDuplicates(x,normal);
       return `
       <div class="pe-homework-item">
         <div class="top">
@@ -1813,7 +1870,7 @@
           </div>
         </div>
         <p>${esc(x.text)}</p>
-        ${dup?`<div class="pe-homework-dup">⚠ 近 21 日曾有相似功課：${fmt(dup.row.date)}・第${dup.row.period}節<br>${esc(dup.row.text)}</div>`:''}
+        ${dups.length?`<div class="pe-homework-dup">⚠ 發現 ${dups.length} 項近 21 日相似功課：<br>${dups.map(d=>`• ${esc(d.current)} → ${fmt(d.row.date)} 第${d.row.period}節：${esc(d.previous)}`).join('<br>')}</div>`:''}
       </div>`}).join(''):'<div class="pe-note">暫時未有符合條件的功課紀錄。</div>';
 
     const unresolvedHtml=unresolved.length?`
