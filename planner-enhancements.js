@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.1.7';
+  const VERSION = '2.1.8';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -2673,209 +2673,332 @@
     return rows;
   }
 
-  function lessonWorkflowData(date,periodIndex){
-    const p=plannerState(),notes=p.lessonNotes||{};
 
-    // Current lesson comes from the journal's own resolved slot.
-    const todaySlots=journalDaySlots(date);
-    const currentSlot=todaySlots.find(x=>Number(x.periodIndex)===Number(periodIndex))||null;
-    const lesson=currentSlot?.lesson||timetableLessonForHomework(date,periodIndex)||'';
+  function normalizeJournalSubjectKey(subject=''){
+    return String(subject||'')
+      .replace(/[（(]\s*[AB]\s*[)）]/gi,'')
+      .replace(/\s+/g,'')
+      .replace(/[\-–—:：／/]+/g,'')
+      .trim()
+      .toLowerCase();
+  }
 
-    const className=classFromTimetableLesson(lesson)||'未分類';
-    const currentClassKey=journalClassKey(lesson)||normalizeClassId(className);
+  function journalSubjectGroups(date=''){
+    const groups=new Map();
 
-    const progress=String(notes[`${date}-${periodIndex}-p`]||'').trim();
-    const homework=String(notes[`${date}-${periodIndex}-h`]||'').trim();
+    for(const slot of journalDaySlots(date)){
+      const lesson=String(slot.lesson||'').trim();
+      if(!lesson)continue;
 
-    let previous=null;
+      const className=classFromTimetableLesson(lesson)||'未分類';
+      const classKey=journalClassKey(lesson)||normalizeClassId(className);
+      const subjectName=subjectFromLessonText(lesson,className);
+      const subjectKey=normalizeJournalSubjectKey(subjectName);
+      const key=`${classKey}__${subjectKey}`;
 
-    const acceptSlot=(slot)=>{
-      if(!slot?.lesson)return false;
-      const slotClassKey=journalClassKey(slot.lesson);
-      return !!currentClassKey && !!slotClassKey && slotClassKey===currentClassKey;
-    };
-
-    // A. Same day: scan earlier journal slots backwards.
-    const earlier=todaySlots
-      .filter(x=>Number(x.periodIndex)<Number(periodIndex))
-      .sort((a,b)=>Number(b.periodIndex)-Number(a.periodIndex));
-
-    for(const slot of earlier){
-      if(!acceptSlot(slot))continue;
-      previous={
-        date,
-        periodIndex:Number(slot.periodIndex),
-        period:Number(slot.periodIndex)+1,
-        lesson:slot.lesson,
-        subject:subjectFromLessonText(slot.lesson,classFromTimetableLesson(slot.lesson)||''),
-        text:String(notes[`${date}-${slot.periodIndex}-p`]||'').trim(),
-        homework:String(notes[`${date}-${slot.periodIndex}-h`]||'').trim()
-      };
-      break;
-    }
-
-    // B. Previous dates: read the journal's own actual slots, newest date first,
-    // and within a date take the latest matching class slot.
-    if(!previous){
-      const cursor=new Date(`${date}T12:00:00`);
-
-      for(let dayBack=1;dayBack<=180&&!previous;dayBack++){
-        cursor.setDate(cursor.getDate()-1);
-        const d=dateKeyLocal(cursor);
-
-        const slots=journalDaySlots(d)
-          .slice()
-          .sort((a,b)=>Number(b.periodIndex)-Number(a.periodIndex));
-
-        for(const slot of slots){
-          if(!acceptSlot(slot))continue;
-          previous={
-            date:d,
-            periodIndex:Number(slot.periodIndex),
-            period:Number(slot.periodIndex)+1,
-            lesson:slot.lesson,
-            subject:subjectFromLessonText(slot.lesson,classFromTimetableLesson(slot.lesson)||''),
-            text:String(notes[`${d}-${slot.periodIndex}-p`]||'').trim(),
-            homework:String(notes[`${d}-${slot.periodIndex}-h`]||'').trim()
-          };
-          break;
-        }
+      if(!groups.has(key)){
+        groups.set(key,{
+          key,date,className,classKey,subjectName,subjectKey,lesson,slots:[]
+        });
       }
+
+      groups.get(key).slots.push({...slot,className,subjectName});
     }
 
-    const subjectName=subjectFromLessonText(lesson,className);
-    const classId=classIdForName(className);
-    const lessonId=`${date}-p${periodIndex+1}-${currentClassKey||'unknown'}`;
-    const homeworkId=homework?`${lessonId}-hw`:'';
+    return [...groups.values()]
+      .map(g=>({...g,slots:g.slots.sort((a,b)=>a.periodIndex-b.periodIndex)}))
+      .sort((a,b)=>(a.slots[0]?.periodIndex??99)-(b.slots[0]?.periodIndex??99));
+  }
 
-    const hwRow={
-      date,period:periodIndex+1,periodIndex,className,subject:lesson,
-      text:homework,lessonId,homeworkId,classId
-    };
+  function previousJournalSubjectGroup(date='',group=null){
+    if(!group)return null;
 
-    const tracking=homework
-      ? submissionStatusForHomework(hwRow)
-      : {type:'none',label:'沒有功課',record:null};
+    const cursor=new Date(`${date}T12:00:00`);
+
+    // 只從之前日期開始；同一日 double lesson 永遠不會當作上一堂。
+    for(let dayBack=1;dayBack<=180;dayBack++){
+      cursor.setDate(cursor.getDate()-1);
+      const d=dateKeyLocal(cursor);
+
+      const hit=journalSubjectGroups(d).find(g=>
+        g.classKey===group.classKey &&
+        g.subjectKey===group.subjectKey
+      );
+
+      if(hit)return hit;
+    }
+
+    return null;
+  }
+
+  function workflowGroupData(date='',groupKey=''){
+    const p=plannerState(),notes=p.lessonNotes||{};
+    const groups=journalSubjectGroups(date);
+    const group=groups.find(g=>g.key===groupKey)||groups[0]||null;
+
+    if(!group){
+      return {date,groups,group:null,previous:null,tracking:[]};
+    }
+
+    const currentSlots=group.slots.map(slot=>({
+      ...slot,
+      progress:String(notes[`${date}-${slot.periodIndex}-p`]||'').trim(),
+      homework:String(notes[`${date}-${slot.periodIndex}-h`]||'').trim()
+    }));
+
+    const previousGroup=previousJournalSubjectGroup(date,group);
+    const previous=previousGroup?{
+      ...previousGroup,
+      slots:previousGroup.slots.map(slot=>({
+        ...slot,
+        progress:String(notes[`${previousGroup.date}-${slot.periodIndex}-p`]||'').trim(),
+        homework:String(notes[`${previousGroup.date}-${slot.periodIndex}-h`]||'').trim()
+      }))
+    }:null;
+
+    const classId=classIdForName(group.className);
+
+    const tracking=currentSlots.map(slot=>{
+      const lessonId=`${date}-p${slot.periodIndex+1}-${group.classKey||'unknown'}`;
+      const homeworkId=slot.homework?`${lessonId}-hw`:'';
+      const row={
+        date,
+        period:slot.periodIndex+1,
+        periodIndex:slot.periodIndex,
+        className:group.className,
+        subject:slot.lesson,
+        text:slot.homework,
+        lessonId,
+        homeworkId,
+        classId
+      };
+      return {
+        periodIndex:slot.periodIndex,
+        lessonId,
+        homeworkId,
+        status:slot.homework
+          ? submissionStatusForHomework(row)
+          : {type:'none',label:'沒有功課',record:null}
+      };
+    });
 
     return {
-      date,periodIndex,period:periodIndex+1,lesson,subjectName,className,
-      classId,lessonId,homeworkId,progress,homework,previous,tracking
+      date,
+      groups,
+      group:{...group,slots:currentSlots},
+      previous,
+      classId,
+      tracking
     };
+  }
+
+  function lessonWorkflowData(date,periodIndex){
+    const slot=journalDaySlots(date).find(x=>Number(x.periodIndex)===Number(periodIndex));
+    const lesson=slot?.lesson||timetableLessonForHomework(date,periodIndex)||'';
+    const className=classFromTimetableLesson(lesson)||'未分類';
+    const classKey=journalClassKey(lesson)||normalizeClassId(className);
+    const subjectName=subjectFromLessonText(lesson,className);
+    const subjectKey=normalizeJournalSubjectKey(subjectName);
+    const groupKey=`${classKey}__${subjectKey}`;
+    return workflowGroupData(date,groupKey);
   }
 
   function ensureWorkflowModal(){
     let m=document.getElementById('pe-workflow-modal');
     if(m)return m;
+
     m=document.createElement('div');
     m.id='pe-workflow-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
       <h3>🧭 課堂工作流</h3>
-      <p class="pe-note">以「一堂課」為中心，集中睇上次進度、今堂紀錄、功課及追收。</p>
+      <p class="pe-note">按「當日實際出現的班別＋科目」整理；double lesson 會合併為同一個工作流，但每節進度／功課仍分開顯示。</p>
+
       <div class="pe-workflow-head">
-        <div class="pe-field"><label>日期</label><input id="pe-workflow-date" type="date"></div>
-        <div class="pe-field"><label>班別</label><input id="pe-workflow-class" disabled></div>
+        <div class="pe-field">
+          <label>日期</label>
+          <input id="pe-workflow-date" type="date">
+        </div>
+        <div class="pe-field">
+          <label>目前班別</label>
+          <input id="pe-workflow-class" disabled>
+        </div>
       </div>
-      <div id="pe-workflow-periods" class="pe-workflow-periods"></div>
+
+      <div id="pe-workflow-subjects" class="pe-workflow-periods"></div>
       <div id="pe-workflow-content"></div>
-      <div class="pe-actions"><button class="pe-btn" id="pe-workflow-close">關閉</button></div>
+
+      <div class="pe-actions">
+        <button class="pe-btn" id="pe-workflow-close">關閉</button>
+      </div>
     </div>`;
+
     document.body.appendChild(m);
-    m.dataset.periodIndex='0';
+
+    m.dataset.groupKey='';
     m.addEventListener('click',e=>{if(e.target===m)closeModal(m)});
     m.querySelector('#pe-workflow-close').addEventListener('click',()=>closeModal(m));
-    m.querySelector('#pe-workflow-date').addEventListener('change',renderWorkflow);
+    m.querySelector('#pe-workflow-date').addEventListener('change',()=>{
+      m.dataset.groupKey='';
+      renderWorkflow();
+    });
+
     return m;
   }
 
   function renderWorkflow(){
     const m=ensureWorkflowModal();
     const date=m.querySelector('#pe-workflow-date')?.value||hkToday();
-    let currentPeriod=Number(m.dataset.periodIndex||0);
-    if(!Number.isFinite(currentPeriod)||currentPeriod<0||currentPeriod>8)currentPeriod=0;
 
-    const d=lessonWorkflowData(date,currentPeriod);
-    if(m.querySelector('#pe-workflow-class'))m.querySelector('#pe-workflow-class').value=d.className;
-    if(d.className&&d.className!=='未分類')setActiveClass(d.className);
-
-    const periodWrap=m.querySelector('#pe-workflow-periods');
-    if(periodWrap){
-      const periods=[];
-      for(let i=0;i<9;i++){
-        const lesson=timetableLessonForHomework(date,i);
-        if(!lesson)continue;
-        periods.push(`<button type="button" class="${i===currentPeriod?'active':''}" data-workflow-period="${i}">第${i+1}節</button>`);
-      }
-      periodWrap.innerHTML=periods.length?periods.join(''):'<span class="pe-note">當日未有可顯示課堂。</span>';
-      periodWrap.querySelectorAll('[data-workflow-period]').forEach(btn=>btn.addEventListener('click',()=>{
-        m.dataset.periodIndex=btn.dataset.workflowPeriod;
-        renderWorkflow();
-      }));
+    const groups=journalSubjectGroups(date);
+    if(!groups.length){
+      m.querySelector('#pe-workflow-class').value='';
+      m.querySelector('#pe-workflow-subjects').innerHTML='<span class="pe-note">當日未有課堂。</span>';
+      m.querySelector('#pe-workflow-content').innerHTML='<div class="pe-note">請選擇另一個上課日。</div>';
+      return;
     }
+
+    let groupKey=m.dataset.groupKey;
+    if(!groups.some(g=>g.key===groupKey)){
+      groupKey=groups[0].key;
+      m.dataset.groupKey=groupKey;
+    }
+
+    const d=workflowGroupData(date,groupKey);
+    const g=d.group;
+    if(!g)return;
+
+    m.querySelector('#pe-workflow-class').value=g.className;
+    if(g.className&&g.className!=='未分類')setActiveClass(g.className);
+
+    const subjectWrap=m.querySelector('#pe-workflow-subjects');
+    subjectWrap.innerHTML=groups.map(x=>{
+      const periods=x.slots.map(s=>s.periodIndex+1).join('、');
+      return `<button type="button"
+        class="${x.key===groupKey?'active':''}"
+        data-workflow-group="${esc(x.key)}">
+        ${esc(x.className)} ${esc(x.subjectName)}
+        <small style="display:block;font-size:.72em;opacity:.72">第${esc(periods)}節</small>
+      </button>`;
+    }).join('');
+
+    subjectWrap.querySelectorAll('[data-workflow-group]').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        m.dataset.groupKey=btn.dataset.workflowGroup;
+        renderWorkflow();
+      });
+    });
+
+    const previous=d.previous;
+    const previousDate=previous?.date?fmt(previous.date):'';
+
+    const slotCard=(slot,prefix='')=>`
+      <div class="pe-workflow-card ${prefix==='今堂'?'pe-workflow-primary':''}">
+        <h4>${esc(prefix)}第${slot.periodIndex+1}節</h4>
+        <div><b>進度：</b>${esc(slot.progress||'尚未填寫')}</div>
+        <div style="margin-top:5px"><b>功課：</b>${esc(slot.homework||'沒有填寫功課')}</div>
+      </div>`;
+
+    const previousHtml=previous
+      ? `
+        <div class="pe-workflow-card">
+          <h4>↩ 上一次 ${esc(g.className)} ${esc(g.subjectName)}・${esc(previousDate)}</h4>
+          <div class="pe-note">當日相關節數：${previous.slots.map(s=>`第${s.periodIndex+1}節`).join('、')}</div>
+        </div>
+        ${previous.slots.map(slot=>slotCard(slot,'上次')).join('')}
+      `
+      : `<div class="pe-workflow-card"><h4>↩ 上一次同班同科</h4><div>未找到較早日期的同班同科課堂。</div></div>`;
+
+    const currentHtml=`
+      <div class="pe-workflow-card">
+        <h4>📘 今日科目</h4>
+        <div>${esc(g.className)}・${esc(g.subjectName)}</div>
+        ${g.slots.length>1?`<div class="pe-note">Double lesson／同日多節：${g.slots.map(s=>`第${s.periodIndex+1}節`).join('、')}</div>`:''}
+      </div>
+      ${g.slots.map(slot=>slotCard(slot,'今堂')).join('')}
+    `;
+
+    const trackingHtml=g.slots.map(slot=>{
+      const st=d.tracking.find(x=>x.periodIndex===slot.periodIndex)?.status;
+      const record=st?.record||null;
+      let label=st?.label||'沒有功課';
+      if(record){
+        const missing=Array.isArray(record.missing)?record.missing:[];
+        label=missing.length?`追收中・欠 ${missing.length} 人`:'已交齊';
+      }
+      return `<div><b>第${slot.periodIndex+1}節：</b>${esc(label)}</div>`;
+    }).join('');
 
     const content=m.querySelector('#pe-workflow-content');
-    if(!content)return;
-
-    const prevProgress=d.previous
-      ? (d.previous.text||'該堂尚未填寫進度')
-      : '未找到日誌上一堂同班課堂';
-    const prevDate=d.previous?.date?fmt(d.previous.date):'';
-    const prevPeriod=d.previous?.period?`・第${d.previous.period}節`:'';
-    const prevHomework=d.previous
-      ? (d.previous.homework||'該堂沒有填寫功課')
-      : '未找到日誌上一堂同班課堂';
-    const prevSubject=d.previous?.subject?`・${d.previous.subject}`:'';
-
-    const trackingRecord=d.tracking?.record||null;
-    let trackingText=d.tracking?.label||'未追收';
-    if(trackingRecord){
-      const missing=Array.isArray(trackingRecord.missing)?trackingRecord.missing:[];
-      trackingText=missing.length?`追收中・欠 ${missing.length} 人`:'已交齊';
-    }
-
     content.innerHTML=`
       <div class="pe-workflow-stack">
-        <div class="pe-workflow-card"><h4>↩ 日誌上一堂 ${prevDate?`・${prevDate}${prevPeriod}${prevSubject}`:''}</h4><div>${esc(prevProgress)}</div></div>
-        <div class="pe-workflow-card"><h4>📚 日誌上一堂功課</h4><div>${esc(prevHomework)}</div></div>
-        <div class="pe-workflow-card"><h4>📘 今堂科目</h4><div>${esc(subjectFromLessonText(d.lesson,d.className))}</div></div>
-        <div class="pe-workflow-card pe-workflow-primary"><h4>📝 今堂進度</h4><div>${esc(d.progress||'尚未填寫')}</div></div>
-        <div class="pe-workflow-card pe-workflow-primary"><h4>📖 今堂功課</h4><div>${esc(d.homework||'尚未填寫')}</div></div>
-        <div class="pe-workflow-card"><h4>📋 追收狀態</h4><div>${esc(trackingText)}</div></div>
+        ${previousHtml}
+        ${currentHtml}
+        <div class="pe-workflow-card">
+          <h4>📋 今日追收狀態</h4>
+          ${trackingHtml||'<div>沒有功課</div>'}
+        </div>
       </div>
+
       <div class="pe-workflow-actions">
         <button class="pe-btn primary" id="pe-workflow-go-journal">開日誌</button>
-        <button class="pe-btn" id="pe-workflow-go-tracking">追收</button>
         <button class="pe-btn" id="pe-workflow-add-todo">＋待辦</button>
       </div>`;
 
     content.querySelector('#pe-workflow-go-journal')?.addEventListener('click',()=>{
+      const first=g.slots[0];
       closeModal(m);
-      jumpToJournalSource({route:'journal',date,periodIndex:currentPeriod,noteType:'p'});
-    });
-
-    content.querySelector('#pe-workflow-go-tracking')?.addEventListener('click',()=>{
-      closeModal(m);
-      if(trackingRecord)window.__submissionTrackerAPI?.openRecord?.(trackingRecord.id);
-      else jumpToJournalSource({route:'journal',date,periodIndex:currentPeriod,noteType:'h'});
+      jumpToJournalSource({
+        route:'journal',
+        date,
+        periodIndex:first?.periodIndex??0,
+        noteType:'p'
+      });
     });
 
     content.querySelector('#pe-workflow-add-todo')?.addEventListener('click',()=>{
+      const periodText=g.slots.map(s=>`第${s.periodIndex+1}節`).join('、');
+      const homeworkText=g.slots
+        .map(s=>s.homework?`第${s.periodIndex+1}節：${s.homework}`:'')
+        .filter(Boolean)
+        .join('｜');
+
       closeModal(m);
+
       openPendingPrefill(
-        `跟進 ${d.className} 第${d.period}節`,
+        `跟進 ${g.className} ${g.subjectName}`,
         date,
-        `${d.lesson}${d.homework?`｜功課：${d.homework}`:''}`,
+        `${periodText}${homeworkText?`｜${homeworkText}`:''}`,
         {
-          scopeType:'class',scopeName:d.className,scopeId:d.classId,
-          classId:d.classId,className:d.className,
-          lessonId:d.lessonId,homeworkId:d.homeworkId,sourceType:'lessonWorkflow'
+          scopeType:'class',
+          scopeName:g.className,
+          scopeId:d.classId,
+          classId:d.classId,
+          className:g.className,
+          sourceType:'dailySubjectWorkflow',
+          subjectName:g.subjectName
         }
       );
     });
   }
 
   function openWorkflow(date=hkToday(),periodIndex=0){
-    safeOpenWorkflow(date,periodIndex);
+    const m=ensureWorkflowModal();
+    m.querySelector('#pe-workflow-date').value=date;
+
+    const slot=journalDaySlots(date).find(x=>Number(x.periodIndex)===Number(periodIndex));
+    if(slot){
+      const className=classFromTimetableLesson(slot.lesson)||'未分類';
+      const classKey=journalClassKey(slot.lesson)||normalizeClassId(className);
+      const subjectName=subjectFromLessonText(slot.lesson,className);
+      const subjectKey=normalizeJournalSubjectKey(subjectName);
+      m.dataset.groupKey=`${classKey}__${subjectKey}`;
+    }else{
+      m.dataset.groupKey='';
+    }
+
+    m.classList.add('open');
+    renderWorkflow();
   }
 
   function ensureHomeworkHistoryModal(){
@@ -3960,12 +4083,11 @@
   }
 
   function safeOpenWorkflow(date=hkToday(),periodIndex=0){
-    const m=ensureWorkflowModal();
-    const dateEl=m.querySelector('#pe-workflow-date');
-    if(dateEl)dateEl.value=date;
-    m.dataset.periodIndex=String(periodIndex);
-    m.classList.add('open');
-    try{renderWorkflow()}catch(err){showWorkflowRenderError(err)}
+    try{
+      openWorkflow(date,periodIndex);
+    }catch(err){
+      showWorkflowRenderError(err);
+    }
   }
 
   function safeOpenInbox(){
