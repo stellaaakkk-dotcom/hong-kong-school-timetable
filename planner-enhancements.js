@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.9.5';
+  const VERSION = '1.9.6';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -100,7 +100,16 @@
       .pe-class-card h4{margin:0 0 6px;color:#80542f;font-size:10px}
       .pe-class-overview-list{display:grid;gap:5px}
       .pe-class-overview-item{padding:6px;border-radius:8px;background:#fff9ef;border:1px solid #efe1ce;font-size:8.5px;line-height:1.4}
-      @media(max-width:700px){.pe-class-overview-grid{grid-template-columns:1fr}}
+      
+      .pe-status-stack{position:fixed;right:8px;top:84px;z-index:2147482000;display:grid;gap:4px;justify-items:end;pointer-events:none}
+      .pe-status-chip{display:flex;align-items:center;gap:5px;border:1px solid #dfd3c4;border-radius:999px;background:#fffdf8ee;box-shadow:0 2px 8px #0001;padding:4px 7px;font-size:7.5px;font-weight:850;color:#715945;backdrop-filter:blur(6px)}
+      .pe-status-chip.cloud.ok{background:#f1f8ef;border-color:#c9ddc3;color:#4f7350}
+      .pe-status-chip.cloud.wait{background:#fff8df;border-color:#e4cf91;color:#8a6a22}
+      .pe-status-chip.cloud.off{background:#fff2ef;border-color:#e6c3bc;color:#9a5549}
+      .pe-status-chip.cache{background:#f3f4f8;border-color:#d8dbe6;color:#596174}
+      .pe-status-chip small{font-size:7px;font-weight:700;opacity:.8}
+      @media(max-width:700px){.pe-status-stack{top:84px;right:8px}}
+@media(max-width:700px){.pe-class-overview-grid{grid-template-columns:1fr}}
 
       .pe-category-manager-list{display:grid;gap:6px;margin-top:8px}
       .pe-category-manager-row{display:grid;grid-template-columns:1fr auto;gap:7px;align-items:center;border:1px solid #eadfce;border-radius:9px;background:#fff;padding:8px}
@@ -308,15 +317,82 @@
     document.head.appendChild(style);
   }
 
+
+  const LAST_CLOUD_OK_KEY='hk-school-last-cloud-success-v1';
+
+  function fmtClock(iso){
+    if(!iso)return '';
+    const d=new Date(iso);
+    if(Number.isNaN(d.getTime()))return '';
+    return new Intl.DateTimeFormat('zh-HK',{
+      timeZone:'Asia/Hong_Kong',
+      month:'numeric',day:'numeric',
+      hour:'2-digit',minute:'2-digit',
+      hourCycle:'h23'
+    }).format(d);
+  }
+
+  function markCloudSuccess(){
+    try{
+      localStorage.setItem(LAST_CLOUD_OK_KEY,new Date().toISOString());
+    }catch{}
+  }
+
+  function ensureStatusStack(){
+    let el=document.getElementById('pe-status-stack');
+    if(el)return el;
+    el=document.createElement('div');
+    el.id='pe-status-stack';
+    el.className='pe-status-stack';
+    document.body.appendChild(el);
+    return el;
+  }
+
+  function cacheStatusText(){
+    if(!('serviceWorker' in navigator))return '網站：一般模式';
+    return navigator.serviceWorker.controller
+      ? '網站：已緩存，可離線使用'
+      : '網站：緩存準備中';
+  }
+
+  function cloudStatusMeta(){
+    const map={
+      connecting:['wait','雲端：連接中'],
+      syncing:['wait','雲端：同步中'],
+      ok:['ok','雲端：已連線'],
+      signedout:['off','雲端：未登入'],
+      error:['off','雲端：連線失敗'],
+      offline:['off','雲端：目前離線']
+    };
+    return map[state.sync]||map.connecting;
+  }
+
+  function renderStatusStack(){
+    const el=ensureStatusStack();
+    const [cls,label]=cloudStatusMeta();
+    let last='';
+    try{last=localStorage.getItem(LAST_CLOUD_OK_KEY)||''}catch{}
+    el.innerHTML=`
+      <div class="pe-status-chip cache">💾 ${cacheStatusText()}</div>
+      <div class="pe-status-chip cloud ${cls}">☁ ${label}${last?` <small>最後成功：${fmtClock(last)}</small>`:''}</div>`;
+  }
+
   function setSync(status) {
     state.sync = status;
     const pill = ensureSyncPill();
     const map = {
-      connecting:['wait','⟳ 連接中'], syncing:['wait','⟳ 同步中'], ok:['ok','☁ 已同步'], signedout:['off','☁ 未登入'], error:['off','⚠ 雲端載入失敗'], offline:['off','⚠ 離線暫存']
+      connecting:['wait','⟳ 連接中'],
+      syncing:['wait','⟳ 同步中'],
+      ok:['ok','☁ 已同步'],
+      signedout:['off','☁ 未登入'],
+      error:['off','⚠ 雲端載入失敗'],
+      offline:['off','⚠ 目前離線']
     };
     const [cls,text] = map[status] || map.connecting;
     pill.className = `pe-sync-pill ${cls}`;
     pill.textContent = text;
+    if(status==='ok')markCloudSuccess();
+    renderStatusStack();
   }
 
   function loadActivityPending(){try{const q=JSON.parse(localStorage.getItem(ACTIVITY_PENDING_KEY)||'[]');state.activityPending=Array.isArray(q)?q.length:0;return Array.isArray(q)?q:[]}catch{state.activityPending=0;return[]}}
@@ -2557,9 +2633,14 @@
   window.addEventListener('online',()=>{flushActivityPending();flushPendingQueue();window.__submissionTrackerAPI?.flushPending?.();if(!state.firebaseReady)connectData().catch(()=>{});setTimeout(updateSyncDisplay,300)});
   window.addEventListener('offline',()=>updateSyncDisplay());
 
+  window.addEventListener('online',()=>renderStatusStack());
+  window.addEventListener('offline',()=>setSync('offline'));
+
   async function start(){
     addCss();
     ensureSyncPill();
+    ensureStatusStack();
+    renderStatusStack();
     installNetworkStatus();
     ensureDashboard();
     ensureContextTools();
