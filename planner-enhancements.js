@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.0.2';
+  const VERSION = '2.0.3';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -1249,7 +1249,10 @@
     const names=new Set();
     state.classCore.forEach(c=>c.name&&names.add(normalizeClassId(c.name)));
     try{knownClassNames().forEach(c=>c&&names.add(normalizeClassId(c)))}catch{}
-    return [...names].filter(Boolean).sort().map(c=>`<option value="${esc(c)}" ${normalizeClassId(selected)===c?'selected':''}>${esc(c)}</option>`).join('');
+    const normalized=normalizeClassId(selected);
+    const options=[...names].filter(Boolean).sort().map(c=>`<option value="${esc(c)}" ${normalized===c?'selected':''}>${esc(c)}</option>`).join('');
+    const isCustom=!!selected && !names.has(normalized);
+    return options+`<option value="__custom__" ${isCustom?'selected':''}>其他班別／自行輸入</option>`;
   }
 
   function refreshScopeEditor(prefix,scope={}){
@@ -1257,19 +1260,40 @@
     if(!typeEl)return;
     const type=typeEl.value||scope.type||'personal';
     const classField=document.getElementById(`${prefix}-scope-class-field`);
+    const customClassField=document.getElementById(`${prefix}-scope-custom-class-field`);
     const gradeField=document.getElementById(`${prefix}-scope-grade-field`);
     const nameField=document.getElementById(`${prefix}-scope-name-field`);
     const classEl=document.getElementById(`${prefix}-scope-class`);
+    const customClassEl=document.getElementById(`${prefix}-scope-custom-class`);
     const gradeEl=document.getElementById(`${prefix}-scope-grade`);
     const nameEl=document.getElementById(`${prefix}-scope-name`);
+
     if(classField)classField.style.display=type==='class'?'':'none';
     if(gradeField)gradeField.style.display=type==='grade'?'':'none';
     if(nameField)nameField.style.display=(type==='subject'||type==='other')?'':'none';
+
     if(classEl){
-      const selected=scope.name||classEl.value||getActiveClass();
+      const selected=scope.name||((classEl.value&&classEl.value!=='__custom__')?classEl.value:'')||getActiveClass();
       classEl.innerHTML='<option value="">選擇班別</option>'+classScopeOptions(selected);
-      if(selected && [...classEl.options].some(o=>o.value===normalizeClassId(selected)))classEl.value=normalizeClassId(selected);
+
+      const normalized=normalizeClassId(selected);
+      const matched=[...classEl.options].some(o=>o.value===normalized);
+      if(matched){
+        classEl.value=normalized;
+      }else if(selected){
+        classEl.value='__custom__';
+      }
+
+      const isCustom=classEl.value==='__custom__';
+      if(customClassField)customClassField.style.display=(type==='class'&&isCustom)?'':'none';
+      if(customClassEl){
+        if(isCustom && scope.name && !matched)customClassEl.value=scope.name;
+        else if(!isCustom)customClassEl.value='';
+      }
+    }else if(customClassField){
+      customClassField.style.display='none';
     }
+
     if(gradeEl && scope.name && /^P\.[1-6]$/i.test(scope.name))gradeEl.value=scope.name.toUpperCase();
     if(nameEl && scope.name && (type==='subject'||type==='other'))nameEl.value=scope.name;
   }
@@ -1278,8 +1302,14 @@
     const type=document.getElementById(`${prefix}-scope-type`)?.value||'personal';
     let name='',id='';
     if(type==='class'){
-      name=normalizeClassId(document.getElementById(`${prefix}-scope-class`)?.value||'');
-      id=classIdForName(name);
+      const selected=document.getElementById(`${prefix}-scope-class`)?.value||'';
+      if(selected==='__custom__'){
+        name=(document.getElementById(`${prefix}-scope-custom-class`)?.value||'').trim().toUpperCase();
+        id='';
+      }else{
+        name=normalizeClassId(selected);
+        id=classIdForName(name);
+      }
     }else if(type==='grade'){
       name=document.getElementById(`${prefix}-scope-grade`)?.value||'';
     }else if(type==='subject'||type==='other'){
@@ -1392,7 +1422,7 @@
     const m=ensureInboxModal(),all=unifiedInboxRows();
     const scope=m.querySelector('#pe-inbox-scope').value;
     const sel=m.querySelector('#pe-inbox-class');
-    const classes=[...new Set(all.filter(x=>x.scopeType==='class').map(x=>normalizeClassId(x.className)).filter(Boolean))].sort();
+    const classes=[...new Set(all.filter(x=>x.scopeType==='class').map(x=>normalizeClassId(x.className||x.scopeName)).filter(Boolean))].sort();
 
     const previous=sel.dataset.lastClass||getActiveClass()||'';
     sel.innerHTML='<option value="">全部班別</option>'+classes.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
@@ -1463,6 +1493,7 @@
         <div class="pe-field"><label>Deadline</label><input id="pe-pending-date" type="date"></div>
         <div class="pe-field"><label>工作範圍</label><select id="pe-pending-scope-type"><option value="personal">個人</option><option value="class">班別</option><option value="grade">年級</option><option value="subject">科組</option><option value="school">全校</option><option value="other">其他</option></select></div>
         <div class="pe-field" id="pe-pending-scope-class-field" style="display:none"><label>班別</label><select id="pe-pending-scope-class"></select></div>
+        <div class="pe-field" id="pe-pending-scope-custom-class-field" style="display:none"><label>其他班別</label><input id="pe-pending-scope-custom-class" placeholder="例如：4E／5B補課組"></div>
         <div class="pe-field" id="pe-pending-scope-grade-field" style="display:none"><label>年級</label><select id="pe-pending-scope-grade"><option value="P.1">P.1</option><option value="P.2">P.2</option><option value="P.3">P.3</option><option value="P.4">P.4</option><option value="P.5">P.5</option><option value="P.6">P.6</option></select></div>
         <div class="pe-field" id="pe-pending-scope-name-field" style="display:none"><label>範圍名稱</label><input id="pe-pending-scope-name" placeholder="例如：中文科／校務處"></div>
         <div class="pe-field"><label>優先級</label><select id="pe-pending-priority"><option value="high">高</option><option value="medium" selected>中</option><option value="low">低</option></select></div>
@@ -1482,6 +1513,7 @@
     modal.addEventListener('click',e=>{if(e.target===modal)closeModal(modal)});
     modal.querySelector('#pe-pending-close').addEventListener('click',()=>closeModal(modal));
     modal.querySelector('#pe-pending-scope-type').addEventListener('change',()=>refreshScopeEditor('pe-pending'));
+    modal.querySelector('#pe-pending-scope-class').addEventListener('change',()=>refreshScopeEditor('pe-pending'));
     modal.querySelector('#pe-pending-add').addEventListener('click',addPendingItem);
     modal.querySelector('#pe-pending-filter').addEventListener('change',renderPendingList);
     modal.querySelector('#pe-pending-search').addEventListener('input',renderPendingList);
@@ -1643,6 +1675,7 @@
         <div class="pe-field"><label>Deadline</label><input id="pe-edit-pending-date" type="date"></div>
         <div class="pe-field"><label>工作範圍</label><select id="pe-edit-pending-scope-type"><option value="personal">個人</option><option value="class">班別</option><option value="grade">年級</option><option value="subject">科組</option><option value="school">全校</option><option value="other">其他</option></select></div>
         <div class="pe-field" id="pe-edit-pending-scope-class-field" style="display:none"><label>班別</label><select id="pe-edit-pending-scope-class"></select></div>
+        <div class="pe-field" id="pe-edit-pending-scope-custom-class-field" style="display:none"><label>其他班別</label><input id="pe-edit-pending-scope-custom-class" placeholder="例如：4E／5B補課組"></div>
         <div class="pe-field" id="pe-edit-pending-scope-grade-field" style="display:none"><label>年級</label><select id="pe-edit-pending-scope-grade"><option value="P.1">P.1</option><option value="P.2">P.2</option><option value="P.3">P.3</option><option value="P.4">P.4</option><option value="P.5">P.5</option><option value="P.6">P.6</option></select></div>
         <div class="pe-field" id="pe-edit-pending-scope-name-field" style="display:none"><label>範圍名稱</label><input id="pe-edit-pending-scope-name" placeholder="例如：中文科／校務處"></div>
         <div class="pe-field"><label>優先級</label><select id="pe-edit-pending-priority"><option value="high">高</option><option value="medium">中</option><option value="low">低</option></select></div>
@@ -1674,6 +1707,7 @@
       await deletePendingItem(id,true);
     });
     modal.querySelector('#pe-edit-pending-scope-type').addEventListener('change',()=>refreshScopeEditor('pe-edit-pending'));
+    modal.querySelector('#pe-edit-pending-scope-class').addEventListener('change',()=>refreshScopeEditor('pe-edit-pending'));
     modal.querySelector('#pe-edit-pending-save').addEventListener('click',savePendingEdit);
     modal.querySelector('#pe-edit-pending-complete').addEventListener('click',async()=>{
       const id=modal.dataset.editId;closeModal(modal);await togglePendingComplete(id);
