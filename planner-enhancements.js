@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.1.8';
+  const VERSION = '2.1.9';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -11,6 +11,7 @@
   const CLASS_CORE_LOCAL_KEY = 'hk-school-class-core-v2';
   const CLASS_CORE_QUEUE_KEY = 'hk-school-class-core-queue-v2';
   const ACTIVE_CLASS_KEY = 'hk-school-active-class-v2';
+  const INBOX_VIEW_STATE_KEY = 'hk-school-inbox-view-state-v1';
   const state = {
     user: null,
     submissions: [],
@@ -1483,6 +1484,76 @@
     });
   }
 
+
+  function moduleErrorHtml(title='模組顯示錯誤',err=null){
+    const msg=String(err?.message||err||'未知錯誤');
+    return `<div class="pe-note" style="border:1px solid currentColor;padding:10px;border-radius:10px">
+      <b>${esc(title)}</b><br>
+      <span>${esc(msg)}</span><br>
+      <small>其他功能仍可繼續使用；重新整理後可再試。</small>
+    </div>`;
+  }
+
+  function safeRenderModule(name,fn,onError){
+    try{
+      return fn();
+    }catch(err){
+      console.error(`[planner-enhancements] ${name} render failed`,err);
+      try{onError?.(err)}catch(inner){
+        console.error(`[planner-enhancements] ${name} error UI failed`,inner);
+      }
+      return null;
+    }
+  }
+
+
+  function loadInboxViewState(){
+    try{
+      const raw=JSON.parse(localStorage.getItem(INBOX_VIEW_STATE_KEY)||'{}');
+      return {
+        statusFilter:['all','today','overdue'].includes(raw.statusFilter)?raw.statusFilter:'all',
+        scope:['','personal','class','grade','subject','school','other'].includes(raw.scope)?raw.scope:'',
+        className:String(raw.className||''),
+        scopeName:String(raw.scopeName||''),
+        type:['','pending','submission'].includes(raw.type)?raw.type:''
+      };
+    }catch{
+      return {statusFilter:'all',scope:'',className:'',scopeName:'',type:''};
+    }
+  }
+
+  function saveInboxViewState(m){
+    try{
+      const scopeSel=m.querySelector('#pe-inbox-scope');
+      const classSel=m.querySelector('#pe-inbox-class');
+      const scopeNameSel=m.querySelector('#pe-inbox-scope-name');
+      const typeSel=m.querySelector('#pe-inbox-type');
+
+      localStorage.setItem(INBOX_VIEW_STATE_KEY,JSON.stringify({
+        statusFilter:m.dataset.statusFilter||'all',
+        scope:scopeSel?.value||'',
+        className:classSel?.value||classSel?.dataset.lastClass||'',
+        scopeName:scopeNameSel?.value||scopeNameSel?.dataset.lastValue||'',
+        type:typeSel?.value||''
+      }));
+    }catch{}
+  }
+
+  function restoreInboxViewState(m){
+    const s=loadInboxViewState();
+    m.dataset.statusFilter=s.statusFilter;
+
+    const scopeSel=m.querySelector('#pe-inbox-scope');
+    const classSel=m.querySelector('#pe-inbox-class');
+    const scopeNameSel=m.querySelector('#pe-inbox-scope-name');
+    const typeSel=m.querySelector('#pe-inbox-type');
+
+    if(scopeSel)scopeSel.value=s.scope;
+    if(classSel)classSel.dataset.lastClass=s.className;
+    if(scopeNameSel)scopeNameSel.dataset.lastValue=s.scopeName;
+    if(typeSel)typeSel.value=s.type;
+  }
+
   function ensureInboxModal(){
     let m=document.getElementById('pe-inbox-modal');
     if(m)return m;
@@ -1534,6 +1605,7 @@
     document.body.appendChild(m);
 
     m.dataset.statusFilter='all';
+    restoreInboxViewState(m);
 
     m.addEventListener('click',e=>{
       if(e.target===m){closeModal(m);return}
@@ -1553,6 +1625,7 @@
           m.dataset.statusFilter='all';
           scopeSel.value=key;
         }
+        saveInboxViewState(m);
         renderInbox();
         return;
       }
@@ -1580,16 +1653,21 @@
 
     m.querySelector('#pe-inbox-scope').addEventListener('change',()=>{
       m.dataset.statusFilter='all';
+      saveInboxViewState(m);
       renderInbox();
     });
 
-    m.querySelector('#pe-inbox-type').addEventListener('change',renderInbox);
+    m.querySelector('#pe-inbox-type').addEventListener('change',()=>{
+      saveInboxViewState(m);
+      renderInbox();
+    });
     m.querySelector('#pe-inbox-scope-name').addEventListener('change',renderInbox);
 
     m.querySelector('#pe-inbox-class').addEventListener('change',()=>{
       const v=m.querySelector('#pe-inbox-class').value;
       m.querySelector('#pe-inbox-class').dataset.lastClass=v;
       if(v)setActiveClass(v);
+      saveInboxViewState(m);
       renderInbox();
     });
 
@@ -1683,6 +1761,8 @@
         </div>
       </div>`).join(''):'<div class="pe-note">目前冇符合條件嘅未完成工作。</div>';
 
+    saveInboxViewState(m);
+
     m.querySelectorAll('[data-inbox-chip]').forEach(btn=>{
       const key=btn.dataset.inboxChip;
       let active=false;
@@ -1694,14 +1774,19 @@
 
     scopeNameSel.onchange=()=>{
       scopeNameSel.dataset.lastValue=scopeNameSel.value;
+      saveInboxViewState(m);
       renderInbox();
     };
   }
 
   function openInbox(){
     const m=ensureInboxModal();
+    restoreInboxViewState(m);
     m.classList.add('open');
-    try{renderInbox()}catch(err){showInboxRenderError(err)}
+    safeRenderModule('Inbox',renderInbox,err=>{
+      const out=m.querySelector('#pe-inbox-list');
+      if(out)out.innerHTML=moduleErrorHtml('工作 Inbox 顯示錯誤',err);
+    });
   }
 
   function ensurePendingModal(){
@@ -3183,7 +3268,10 @@
     m.querySelectorAll('[data-class-center-tab]').forEach(btn=>btn.addEventListener('click',()=>{
       m.dataset.tab=btn.dataset.classCenterTab;
       m.querySelectorAll('[data-class-center-tab]').forEach(x=>x.classList.toggle('active',x.dataset.classCenterTab===m.dataset.tab));
-      renderClassCenter();
+      safeRenderModule('Class Center',renderClassCenter,err=>{
+      const out=m.querySelector('#pe-class-center-content');
+      if(out)out.innerHTML=moduleErrorHtml('班級中心顯示錯誤',err);
+    });
     }));
     return m;
   }
@@ -4083,17 +4171,16 @@
   }
 
   function safeOpenWorkflow(date=hkToday(),periodIndex=0){
-    try{
-      openWorkflow(date,periodIndex);
-    }catch(err){
-      showWorkflowRenderError(err);
-    }
+    safeRenderModule('Workflow',()=>openWorkflow(date,periodIndex),err=>{
+      const m=ensureWorkflowModal();
+      m.classList.add('open');
+      const out=m.querySelector('#pe-workflow-content');
+      if(out)out.innerHTML=moduleErrorHtml('課堂工作流顯示錯誤',err);
+    });
   }
 
   function safeOpenInbox(){
-    const m=ensureInboxModal();
-    m.classList.add('open');
-    try{renderInbox()}catch(err){showInboxRenderError(err)}
+    openInbox();
   }
 
   async function start(){
