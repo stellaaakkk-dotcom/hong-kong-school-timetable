@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.0.4';
+  const VERSION = '2.0.5';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -1031,13 +1031,13 @@
         <button type="button" id="pe-open-homework">功課紀錄</button>
         <button type="button" class="primary" id="pe-add-today-act">＋今日活動</button>
       </div>
-      <button type="button" class="pe-today-done-btn" id="pe-today-done">✅ 今日完成檢查</button>`;
+      <button type="button" class="pe-today-done-btn" id="pe-today-inbox">📥 查看未完成</button>`;
 
     el.querySelector('#pe-close-dashboard')?.addEventListener('click',()=>el.classList.remove('open'));
     el.querySelector('#pe-open-sub')?.addEventListener('click',()=>document.querySelector('.submission-launcher')?.click());
     el.querySelector('#pe-open-homework')?.addEventListener('click',openHomeworkHistory);
     el.querySelector('#pe-add-today-act')?.addEventListener('click',()=>openActivityModal(hkToday()));
-    el.querySelector('#pe-today-done')?.addEventListener('click',openDoneCheck);
+    el.querySelector('#pe-today-inbox')?.addEventListener('click',()=>{el.classList.remove('open');openInbox()});
 
     el.querySelectorAll('[data-dash-card]').forEach(card=>card.addEventListener('click',()=>{
       const key=card.dataset.dashCard;
@@ -1431,6 +1431,9 @@
         <select id="pe-inbox-class"><option value="">全部班別</option></select>
         <select id="pe-inbox-type"><option value="">全部類型</option><option value="pending">待辦／Deadline</option><option value="submission">功課追收</option></select>
       </div>
+      <div class="pe-actions" style="margin:6px 0 8px">
+        <button class="pe-btn primary" id="pe-inbox-add">＋ 新增待辦</button>
+      </div>
       <div id="pe-inbox-summary" class="pe-note"></div>
       <div id="pe-inbox-list" class="pe-inbox-list"></div>
       <div class="pe-actions"><button class="pe-btn" id="pe-inbox-close">關閉</button></div>
@@ -1438,6 +1441,10 @@
     document.body.appendChild(m);
     m.addEventListener('click',e=>{if(e.target===m)closeModal(m)});
     m.querySelector('#pe-inbox-close').addEventListener('click',()=>closeModal(m));
+    m.querySelector('#pe-inbox-add').addEventListener('click',()=>{
+      closeModal(m);
+      openPendingModal();
+    });
     m.querySelector('#pe-inbox-scope').addEventListener('change',renderInbox);
     m.querySelector('#pe-inbox-type').addEventListener('change',renderInbox);
     return m;
@@ -2547,7 +2554,7 @@
     if(m)return m;
     m=document.createElement('div');m.id='pe-homework-history-modal';m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>📚 功課紀錄</h3>
+      <h3>📚 功課管理</h3>
       <p class="pe-note">列出教學日誌曾輸入過的「功課」。每一筆會直接呼叫主日誌本身同一個課堂解析器，以「日期＋原始節數索引」取得畫面真正顯示嘅課堂，再分類班別。無法對應嘅舊資料會獨立收起，唔再混入正常班別清單。</p>
       <div class="pe-homework-toolbar">
         <select id="pe-homework-class"><option value="">全部班別</option></select>
@@ -2667,6 +2674,109 @@
   }
 
 
+
+
+  function ensureClassCenterModal(){
+    let m=document.getElementById('pe-class-center-modal');
+    if(m)return m;
+    m=document.createElement('div');
+    m.id='pe-class-center-modal';
+    m.className='pe-modal';
+    m.innerHTML=`<div class="pe-dialog">
+      <h3>🏫 班級中心</h3>
+      <p class="pe-note">將班別總覽與學生名單集中。之後座位表／積分亦可以直接加入呢度。</p>
+      <div class="pe-v2-tabs">
+        <button type="button" data-class-center-tab="overview" class="active">總覽</button>
+        <button type="button" data-class-center-tab="students">學生</button>
+      </div>
+      <div id="pe-class-center-content"></div>
+      <div class="pe-actions"><button class="pe-btn" id="pe-class-center-close">關閉</button></div>
+    </div>`;
+    document.body.appendChild(m);
+    m.dataset.tab='overview';
+    m.addEventListener('click',e=>{if(e.target===m)closeModal(m)});
+    m.querySelector('#pe-class-center-close').addEventListener('click',()=>closeModal(m));
+    m.querySelectorAll('[data-class-center-tab]').forEach(btn=>btn.addEventListener('click',()=>{
+      m.dataset.tab=btn.dataset.classCenterTab;
+      m.querySelectorAll('[data-class-center-tab]').forEach(x=>x.classList.toggle('active',x.dataset.classCenterTab===m.dataset.tab));
+      renderClassCenter();
+    }));
+    return m;
+  }
+
+  function renderClassCenter(){
+    const m=ensureClassCenterModal();
+    const out=m.querySelector('#pe-class-center-content');
+
+    if(m.dataset.tab==='students'){
+      out.innerHTML=`<div class="pe-note">學生資料沿用現有穩定班別／學生管理。</div>
+        <div class="pe-actions"><button class="pe-btn primary" id="pe-class-center-students-open">管理班別／學生</button></div>`;
+      out.querySelector('#pe-class-center-students-open').addEventListener('click',()=>{
+        closeModal(m);openClassCore();
+      });
+      return;
+    }
+
+    const classes=classOverviewClasses();
+    const active=getActiveClass();
+    out.innerHTML=`<div class="pe-grid">
+      <div class="pe-field pe-full"><label>班別</label><select id="pe-class-center-class">
+        <option value="">選擇班別</option>
+        ${classes.map(c=>`<option value="${esc(c)}" ${normalizeClassId(active)===normalizeClassId(c)?'selected':''}>${esc(c)}</option>`).join('')}
+      </select></div>
+    </div>
+    <div id="pe-class-center-summary"></div>`;
+
+    const sel=out.querySelector('#pe-class-center-class');
+    if(!sel.value&&classes[0])sel.value=classes[0];
+
+    const renderSummary=()=>{
+      const cls=sel.value;
+      if(!cls){
+        out.querySelector('#pe-class-center-summary').innerHTML='<div class="pe-note">暫時未有班別資料。</div>';
+        return;
+      }
+      setActiveClass(cls);
+
+      const hw=homeworkHistoryRows().filter(x=>x.className===cls&&!x.unresolved).slice(0,5);
+      const subs=(window.__submissionTrackerAPI?.getRecords?.()||state.submissions||[])
+        .filter(r=>r.className===cls&&Array.isArray(r.missing)&&r.missing.length)
+        .slice(0,5);
+
+      const p=plannerState(),notes=p.lessonNotes||{},progress=[];
+      for(const [key,val] of Object.entries(notes)){
+        const mm=key.match(/^(\d{4}-\d{2}-\d{2})-(\d+)-p$/);
+        if(!mm||!val||typeof val!=='string')continue;
+        const date=mm[1],periodIndex=Number(mm[2]);
+        const lesson=timetableLessonForHomework(date,periodIndex);
+        if(classFromTimetableLesson(lesson)!==cls)continue;
+        progress.push({date,period:periodIndex+1,text:val});
+      }
+      progress.sort((a,b)=>b.date.localeCompare(a.date)||a.period-b.period);
+
+      const todos=(state.pendingItems||[]).filter(x=>{
+        if(x.completed)return false;
+        const s=normalizedPendingScope(x);
+        return s.type==='class'&&normalizeClassId(s.name)===normalizeClassId(cls);
+      }).slice(0,5);
+
+      out.querySelector('#pe-class-center-summary').innerHTML=`
+        <div class="pe-class-overview-grid">
+          <div class="pe-class-card"><h4>📚 最近功課</h4><div class="pe-class-overview-list">${hw.length?hw.map(x=>`<div class="pe-class-overview-item">${fmt(x.date)}・第${x.period}節<br>${esc(x.text)}</div>`).join(''):'<div class="pe-note">暫無紀錄</div>'}</div></div>
+          <div class="pe-class-card"><h4>📋 未完成追收</h4><div class="pe-class-overview-list">${subs.length?subs.map(r=>`<div class="pe-class-overview-item">${r.dueDate?fmt(r.dueDate):''}<br>${esc(r.name||r.type||'項目')}・欠 ${r.missing.length} 人</div>`).join(''):'<div class="pe-note">暫無未完成追收</div>'}</div></div>
+          <div class="pe-class-card"><h4>📝 最近教學進度</h4><div class="pe-class-overview-list">${progress.length?progress.slice(0,5).map(x=>`<div class="pe-class-overview-item">${fmt(x.date)}・第${x.period}節<br>${esc(x.text)}</div>`).join(''):'<div class="pe-note">暫無進度紀錄</div>'}</div></div>
+          <div class="pe-class-card"><h4>⏳ 班別待辦</h4><div class="pe-class-overview-list">${todos.length?todos.map(x=>`<div class="pe-class-overview-item">${x.dueDate?fmt(x.dueDate):'未設日期'}<br>${esc(x.title||'')}</div>`).join(''):'<div class="pe-note">暫無相關待辦</div>'}</div></div>
+        </div>`;
+    };
+    sel.addEventListener('change',renderSummary);
+    renderSummary();
+  }
+
+  function openClassCenter(){
+    const m=ensureClassCenterModal();
+    m.classList.add('open');
+    renderClassCenter();
+  }
 
   function ensureClassCoreModal(){
     let m=document.getElementById('pe-class-core-modal');
@@ -3191,24 +3301,24 @@
     m.id='pe-workspace-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>🧰 教師工作台 v2</h3>
+      <h3>🧰 教師工作台</h3>
       <p class="pe-note">由「班別／學生」做核心，將課堂、功課、追收同待辦串成同一個工作流。</p>
       <div class="pe-kpi-row" id="pe-v2-kpis"></div>
       <div class="pe-class-overview-grid">
-        <button class="pe-class-card" type="button" id="pe-v2-class"><h4>🏫 班別／學生中心</h4><div class="pe-note">管理共用班別及學生名單；座位表／積分會沿用。</div></button>
+        <button class="pe-class-card" type="button" id="pe-v2-class-center"><h4>🏫 班級中心</h4><div class="pe-note">總覽、學生、功課、追收集中。</div></button>
         <button class="pe-class-card" type="button" id="pe-v2-flow"><h4>🧭 課堂工作流</h4><div class="pe-note">一堂課集中睇上次進度、今堂功課及追收。</div></button>
-        <button class="pe-class-card" type="button" id="pe-v2-inbox"><h4>📥 統一 Inbox</h4><div class="pe-note">待辦、deadline、追收集中處理。</div></button>
-        <button class="pe-class-card" type="button" id="pe-v2-overview"><h4>📊 班別總覽</h4><div class="pe-note">沿用現有班別總覽，快速回顧功課及進度。</div></button>
+        <button class="pe-class-card" type="button" id="pe-v2-inbox"><h4>📥 工作 Inbox</h4><div class="pe-note">待辦、deadline、追收集中處理。</div></button>
+        <button class="pe-class-card" type="button" id="pe-v2-homework"><h4>📚 功課管理</h4><div class="pe-note">查看功課紀錄及追收狀態。</div></button>
       </div>
       <div class="pe-actions"><button class="pe-btn" id="pe-v2-close">關閉</button></div>
     </div>`;
     document.body.appendChild(m);
     m.addEventListener('click',e=>{if(e.target===m)closeModal(m)});
     m.querySelector('#pe-v2-close').addEventListener('click',()=>closeModal(m));
-    m.querySelector('#pe-v2-class').addEventListener('click',()=>{closeModal(m);openClassCore()});
+    m.querySelector('#pe-v2-class-center').addEventListener('click',()=>{closeModal(m);openClassCenter()});
     m.querySelector('#pe-v2-flow').addEventListener('click',()=>{closeModal(m);openWorkflow()});
     m.querySelector('#pe-v2-inbox').addEventListener('click',()=>{closeModal(m);openInbox()});
-    m.querySelector('#pe-v2-overview').addEventListener('click',()=>{closeModal(m);openClassOverview()});
+    m.querySelector('#pe-v2-homework').addEventListener('click',()=>{closeModal(m);openHomeworkHistory()});
     return m;
   }
 
@@ -3236,54 +3346,46 @@
     if(sheet)return sheet;
     sheet=document.createElement('div');sheet.id='pe-mobile-more';sheet.className='pe-mobile-more';
     sheet.innerHTML=`
-      <div class="pe-more-group"><b>工作台</b>
-        <button id="pe-more-workspace">🧰 教師工作台 v2</button>
-        <button id="pe-more-workflow">🧭 課堂流程</button>
-        <button id="pe-more-inbox">📥 統一 Inbox</button>
+      <div class="pe-more-group"><b>今日</b>
         <button id="pe-more-dashboard">☀ 今日工作台</button>
-        <button id="pe-more-done">✅ 今日完成</button>
-        <button id="pe-more-pending">⏳ 待處理事項</button>
+        <button id="pe-more-inbox">📥 工作 Inbox</button>
       </div>
-      <div class="pe-more-group"><b>記錄</b>
-        <button id="pe-more-homework">📚 功課紀錄</button>
-        <button id="pe-more-class-core">👥 班別／學生</button>
-        <button id="pe-more-class-overview">🏫 班別總覽</button>
+      <div class="pe-more-group"><b>班級</b>
+        <button id="pe-more-class-center">🏫 班級中心</button>
+        <button id="pe-more-homework">📚 功課管理</button>
         <button id="pe-more-submission">📋 作業／回條</button>
+      </div>
+      <div class="pe-more-group"><b>管理</b>
+        <button id="pe-more-workspace">🧰 教師工作台</button>
         <button id="pe-more-activity">＋ 活動紀錄</button>
         <button id="pe-more-stats">📊 活動統計</button>
-      </div>
-      <div class="pe-more-group"><b>工具</b>
         <button id="pe-more-search">🔎 全站搜尋</button>
         <button id="pe-more-tags">🏷 月曆標籤</button>
         <button id="pe-more-categories">🏷 類型管理</button>
       </div>`;
     document.body.appendChild(sheet);
-    sheet.querySelector('#pe-more-workspace').addEventListener('click',()=>{closeMobileMore();openWorkspace()});
-    sheet.querySelector('#pe-more-workflow').addEventListener('click',()=>{closeMobileMore();openWorkflow()});
-    sheet.querySelector('#pe-more-inbox').addEventListener('click',()=>{closeMobileMore();openInbox()});
-    sheet.querySelector('#pe-more-class-core').addEventListener('click',()=>{closeMobileMore();openClassCore()});
+
     sheet.querySelector('#pe-more-dashboard').addEventListener('click',()=>{
       closeMobileMore();
       const panel=ensureDashboard();
       panel.classList.add('open');
       renderDashboard();
     });
-    sheet.querySelector('#pe-more-done').addEventListener('click',()=>{closeMobileMore();openDoneCheck()});
-    sheet.querySelector('#pe-more-pending').addEventListener('click',()=>{closeMobileMore();openPendingModal()});
+    sheet.querySelector('#pe-more-inbox').addEventListener('click',()=>{closeMobileMore();openInbox()});
+    sheet.querySelector('#pe-more-class-center').addEventListener('click',()=>{closeMobileMore();openClassCenter()});
     sheet.querySelector('#pe-more-homework').addEventListener('click',()=>{closeMobileMore();openHomeworkHistory()});
-    sheet.querySelector('#pe-more-class-overview').addEventListener('click',()=>{closeMobileMore();openClassOverview()});
-    sheet.querySelector('#pe-more-categories').addEventListener('click',()=>{closeMobileMore();openCategoryManager()});
-    sheet.querySelector('#pe-more-tags').addEventListener('click',()=>{closeMobileMore();openTagVisibilityModal()});
-    sheet.querySelector('#pe-more-search').addEventListener('click',()=>{closeMobileMore();openJournalSearch()});
-    sheet.querySelector('#pe-more-stats').addEventListener('click',()=>{closeMobileMore();openStatsModal()});
-    sheet.querySelector('#pe-more-activity').addEventListener('click',()=>{closeMobileMore();openActivityModal(hkToday())});
     sheet.querySelector('#pe-more-submission').addEventListener('click',()=>{
       closeMobileMore();
       document.querySelector('.submission-launcher')?.click();
     });
+    sheet.querySelector('#pe-more-workspace').addEventListener('click',()=>{closeMobileMore();openWorkspace()});
+    sheet.querySelector('#pe-more-activity').addEventListener('click',()=>{closeMobileMore();openActivityModal(hkToday())});
+    sheet.querySelector('#pe-more-stats').addEventListener('click',()=>{closeMobileMore();openStatsModal()});
+    sheet.querySelector('#pe-more-search').addEventListener('click',()=>{closeMobileMore();openJournalSearch()});
+    sheet.querySelector('#pe-more-tags').addEventListener('click',()=>{closeMobileMore();openTagVisibilityModal()});
+    sheet.querySelector('#pe-more-categories').addEventListener('click',()=>{closeMobileMore();openCategoryManager()});
     return sheet;
   }
-
 
   function ensureIpadRail(){
     let rail=document.getElementById('pe-ipad-rail');if(rail)return rail;
@@ -3474,6 +3576,7 @@
     ensureHomeworkHistoryModal();
     ensureClassOverviewModal();
     ensureCategoryManager();
+    ensureClassCenterModal();
     ensureClassCoreModal();
     ensureInboxModal();
     ensureWorkflowModal();
