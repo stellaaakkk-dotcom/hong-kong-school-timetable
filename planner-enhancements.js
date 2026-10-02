@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.0.3';
+  const VERSION = '2.0.4';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -1273,22 +1273,47 @@
     if(nameField)nameField.style.display=(type==='subject'||type==='other')?'':'none';
 
     if(classEl){
-      const selected=scope.name||((classEl.value&&classEl.value!=='__custom__')?classEl.value:'')||getActiveClass();
+      const previousValue=classEl.value;
+      const previousCustom=previousValue==='__custom__';
+      const existingCustomText=(customClassEl?.value||'').trim();
+
+      let selected='';
+      if(scope.name){
+        selected=scope.name;
+      }else if(previousCustom){
+        selected=existingCustomText;
+      }else if(previousValue){
+        selected=previousValue;
+      }else{
+        selected=getActiveClass();
+      }
+
       classEl.innerHTML='<option value="">選擇班別</option>'+classScopeOptions(selected);
 
       const normalized=normalizeClassId(selected);
-      const matched=[...classEl.options].some(o=>o.value===normalized);
-      if(matched){
+      const formalValues=[...classEl.options].map(o=>o.value).filter(v=>v && v!=='__custom__');
+      const matched=formalValues.includes(normalized);
+
+      if(previousCustom && !scope.name){
+        classEl.value='__custom__';
+      }else if(matched){
         classEl.value=normalized;
       }else if(selected){
         classEl.value='__custom__';
+      }else{
+        classEl.value='';
       }
 
       const isCustom=classEl.value==='__custom__';
       if(customClassField)customClassField.style.display=(type==='class'&&isCustom)?'':'none';
+
       if(customClassEl){
-        if(isCustom && scope.name && !matched)customClassEl.value=scope.name;
-        else if(!isCustom)customClassEl.value='';
+        if(isCustom){
+          if(scope.name && !matched)customClassEl.value=scope.name;
+          else if(existingCustomText)customClassEl.value=existingCustomText;
+        }else{
+          customClassEl.value='';
+        }
       }
     }else if(customClassField){
       customClassField.style.display='none';
