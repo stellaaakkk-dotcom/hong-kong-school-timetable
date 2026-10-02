@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.5.0';
+  const VERSION = '2.2.2';
   const LOCAL_KEY = 'hk-school-submission-records-v1';
   const PENDING_KEY = 'hk-school-submission-pending-v1';
   const CLASS_PREF_KEY = 'hk-school-class-student-counts-v1';
@@ -323,6 +323,69 @@
     } else queuePending({op:'delete',id:recordId});
   }
 
+
+  function localDateKey(d){
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function isSchoolDay(dateStr){
+    try{
+      if(typeof window.__HK_IS_SCHOOL_DAY==='function'){
+        return !!window.__HK_IS_SCHOOL_DAY(dateStr);
+      }
+      if(typeof window.__HK_GET_JOURNAL_DAY==='function'){
+        const rows=window.__HK_GET_JOURNAL_DAY(dateStr);
+        return Array.isArray(rows)&&rows.length>0;
+      }
+    }catch(e){
+      console.warn('[Submission module] school-day lookup failed',dateStr,e);
+    }
+
+    // Compatibility fallback only if the journal resolver is unavailable.
+    const d=new Date(`${dateStr}T12:00:00`);
+    const day=d.getDay();
+    return day>=1&&day<=5;
+  }
+
+  function nextSchoolDate(issueDate){
+    if(!issueDate)return '';
+    const d=new Date(`${issueDate}T12:00:00`);
+
+    for(let i=0;i<45;i++){
+      d.setDate(d.getDate()+1);
+      const key=localDateKey(d);
+      if(isSchoolDay(key))return key;
+    }
+
+    // Very defensive fallback: next weekday.
+    const fallback=new Date(`${issueDate}T12:00:00`);
+    do{fallback.setDate(fallback.getDate()+1)}while([0,6].includes(fallback.getDay()));
+    return localDateKey(fallback);
+  }
+
+  function wireDueDateAuto(issueId,dueId){
+    const issue=document.getElementById(issueId);
+    const due=document.getElementById(dueId);
+    if(!issue||!due)return;
+
+    const refresh=()=>{
+      if(due.dataset.userEdited==='1')return;
+      due.value=nextSchoolDate(issue.value);
+    };
+
+    // Set initial default.
+    refresh();
+
+    issue.addEventListener('change',()=>{
+      due.dataset.userEdited='';
+      refresh();
+    });
+
+    due.addEventListener('input',()=>{
+      due.dataset.userEdited='1';
+    });
+  }
+
   function toast(message, kind='ok') {
     let el = document.getElementById('submission-toast');
     if (!el) {
@@ -584,6 +647,7 @@
   function wireEvents() {
     document.getElementById('submission-close')?.addEventListener('click', hidePage);
     attachClassAutoFill('sub-class','sub-count');
+    wireDueDateAuto('sub-issue','sub-due');
     document.getElementById('sub-create')?.addEventListener('click', async () => {
       const name = document.getElementById('sub-name').value.trim();
       if (!name) return toast('請輸入名稱', 'error');
@@ -741,6 +805,7 @@
     });
     modal.querySelector('#jf-cancel')?.addEventListener('click', closeJournalModal);
     modal.querySelector('#jf-save')?.addEventListener('click', saveJournalFollowup);
+    wireDueDateAuto('jf-issue','jf-due');
     return modal;
   }
 
@@ -775,7 +840,9 @@
     document.getElementById('jf-count').value = '30';
     attachClassAutoFill('jf-class','jf-count');
     document.getElementById('jf-issue').value = src.issueDate;
-    document.getElementById('jf-due').value = src.issueDate;
+    document.getElementById('jf-due').dataset.userEdited = '';
+    document.getElementById('jf-due').dataset.userEdited = '';
+    document.getElementById('jf-due').value = nextSchoolDate(src.issueDate);
     document.getElementById('jf-deadline').value = '';
     modal.classList.add('open');
   }
