@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.0.7';
+  const VERSION = '2.0.8';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -1442,8 +1442,12 @@
         <button class="pe-filter-chip active" data-inbox-chip="all">全部</button>
         <button class="pe-filter-chip" data-inbox-chip="today">今日</button>
         <button class="pe-filter-chip" data-inbox-chip="overdue">逾期</button>
+        <button class="pe-filter-chip" data-inbox-chip="personal">個人</button>
         <button class="pe-filter-chip" data-inbox-chip="class">班別</button>
+        <button class="pe-filter-chip" data-inbox-chip="grade">年級</button>
+        <button class="pe-filter-chip" data-inbox-chip="subject">科組</button>
         <button class="pe-filter-chip" data-inbox-chip="school">全校</button>
+        <button class="pe-filter-chip" data-inbox-chip="other">其他</button>
       </div>
       <div class="pe-inbox-toolbar">
         <select id="pe-inbox-scope"><option value="">全部範圍</option><option value="personal">個人</option><option value="class">班別</option><option value="grade">年級</option><option value="subject">科組</option><option value="school">全校</option><option value="other">其他</option></select>
@@ -1470,7 +1474,11 @@
       closeModal(m);
       openPendingModal();
     });
-    m.querySelector('#pe-inbox-scope').addEventListener('change',renderInbox);
+    m.querySelector('#pe-inbox-scope').addEventListener('change',()=>{
+      m.dataset.quickFilter='all';
+      m.querySelectorAll('[data-inbox-chip]').forEach(x=>x.classList.toggle('active',x.dataset.inboxChip==='all'));
+      renderInbox();
+    });
     m.querySelector('#pe-inbox-type').addEventListener('change',renderInbox);
     return m;
   }
@@ -1480,33 +1488,42 @@
     const quick=m.dataset.quickFilter||'all';
     const scopeSel=m.querySelector('#pe-inbox-scope');
     const typeSel=m.querySelector('#pe-inbox-type');
-    const sel=m.querySelector('#pe-inbox-class');
+    const classSel=m.querySelector('#pe-inbox-class');
 
-    const prevScope=scopeSel.value;
-    const prevType=typeSel.value;
-    const prevClass=sel.value||sel.dataset.lastClass||getActiveClass()||'';
+    const previousType=typeSel.value;
+    const previousClass=classSel.value||classSel.dataset.lastClass||getActiveClass()||'';
 
-    const classes=[...new Set(all.filter(x=>x.scopeType==='class').map(x=>normalizeClassId(x.className||x.scopeName)).filter(Boolean))].sort();
-    sel.innerHTML='<option value="">全部班別</option>'+classes.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    const scopeQuickTypes=new Set(['personal','class','grade','subject','school','other']);
+    let scope=scopeSel.value||'';
+    if(scopeQuickTypes.has(quick)){
+      scope=quick;
+      scopeSel.value=scope;
+    }
 
-    let scope=prevScope;
-    if(quick==='class')scope='class';
-    else if(quick==='school')scope='school';
+    const classes=[...new Set(
+      all.filter(x=>x.scopeType==='class')
+         .map(x=>normalizeClassId(x.className||x.scopeName))
+         .filter(Boolean)
+    )].sort();
 
-    scopeSel.value=scope;
-    sel.disabled=scope!=='class';
+    classSel.innerHTML='<option value="">全部班別</option>'+
+      classes.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    classSel.disabled=scope!=='class';
+
     if(scope==='class'){
-      const desired=normalizeClassId(prevClass);
-      if(classes.includes(desired))sel.value=desired;
-    }else sel.value='';
+      const desired=normalizeClassId(previousClass);
+      if(classes.includes(desired))classSel.value=desired;
+    }else{
+      classSel.value='';
+    }
 
-    const cls=sel.value,type=prevType;
+    const cls=classSel.value;
     const rows=all.filter(x=>{
       if(quick==='today'&&x.status!=='today')return false;
       if(quick==='overdue'&&x.status!=='overdue')return false;
       if(scope&&x.scopeType!==scope)return false;
-      if(scope==='class'&&cls&&normalizeClassId(x.className)!==cls)return false;
-      if(type&&x.type!==type)return false;
+      if(scope==='class'&&cls&&normalizeClassId(x.className||x.scopeName)!==cls)return false;
+      if(previousType&&x.type!==previousType)return false;
       return true;
     });
 
@@ -1524,19 +1541,22 @@
         </div>
       </div>`).join(''):'<div class="pe-note">目前冇符合條件嘅未完成工作。</div>';
 
-    sel.onchange=()=>{
-      sel.dataset.lastClass=sel.value;
-      if(sel.value)setActiveClass(sel.value);
+    classSel.onchange=()=>{
+      classSel.dataset.lastClass=classSel.value;
+      if(classSel.value)setActiveClass(classSel.value);
       renderInbox();
     };
+
     m.querySelectorAll('[data-inbox-open]').forEach(btn=>btn.addEventListener('click',()=>{
       const type=btn.dataset.inboxOpen,id=btn.dataset.inboxId;
       closeModal(m);
       if(type==='submission')window.__submissionTrackerAPI?.openRecord?.(id);
       else if(type==='pending')openPendingEdit(id);
     }));
+
     m.querySelectorAll('[data-inbox-done]').forEach(btn=>btn.addEventListener('click',async()=>{
-      await togglePendingComplete(btn.dataset.inboxDone);renderInbox();
+      await togglePendingComplete(btn.dataset.inboxDone);
+      renderInbox();
     }));
   }
 
@@ -2447,19 +2467,26 @@
 
 
   function lessonWorkflowData(date,periodIndex){
-    const p=plannerState(),lesson=timetableLessonForHomework(date,periodIndex);
+    const p=plannerState(),notes=p.lessonNotes||{};
+    const lesson=timetableLessonForHomework(date,periodIndex);
     const className=classFromTimetableLesson(lesson)||'未分類';
-    const progress=String(p.lessonNotes?.[`${date}-${periodIndex}-p`]||'').trim();
-    const homework=String(p.lessonNotes?.[`${date}-${periodIndex}-h`]||'').trim();
+    const progress=String(notes[`${date}-${periodIndex}-p`]||'').trim();
+    const homework=String(notes[`${date}-${periodIndex}-h`]||'').trim();
 
     const prev=[];
-    for(const [key,val] of Object.entries(p.lessonNotes||{})){
+    for(const [key,val] of Object.entries(notes)){
       const m=key.match(/^(\d{4}-\d{2}-\d{2})-(\d+)-p$/);
       if(!m||!val||m[1]>=date)continue;
       const pi=Number(m[2]);
       const l=timetableLessonForHomework(m[1],pi);
       if(classFromTimetableLesson(l)!==className)continue;
-      prev.push({date:m[1],period:pi+1,text:String(val)});
+      prev.push({
+        date:m[1],
+        period:pi+1,
+        periodIndex:pi,
+        text:String(val),
+        homework:String(notes[`${m[1]}-${pi}-h`]||'').trim()
+      });
     }
     prev.sort((a,b)=>b.date.localeCompare(a.date)||b.period-a.period);
 
@@ -2467,9 +2494,12 @@
     const lessonId=`${date}-p${periodIndex+1}-${normalizeClassId(className)||'unknown'}`;
     const homeworkId=homework?`${lessonId}-hw`:'';
     const hwRow={date,period:periodIndex+1,periodIndex,className,subject:lesson,text:homework,lessonId,homeworkId,classId};
-    const tracking=homework?submissionStatusForHomework(hwRow):{type:'none',label:'未追收',record:null};
+    const tracking=homework?submissionStatusForHomework(hwRow):{type:'none',label:'沒有功課',record:null};
 
-    return {date,periodIndex,period:periodIndex+1,lesson,className,classId,lessonId,homeworkId,progress,homework,previous:prev[0]?{...prev[0],homework:previousHomework}:null,tracking};
+    return {
+      date,periodIndex,period:periodIndex+1,lesson,className,classId,lessonId,homeworkId,
+      progress,homework,previous:prev[0]||null,tracking
+    };
   }
 
   function ensureWorkflowModal(){
@@ -2490,7 +2520,7 @@
       <div class="pe-actions"><button class="pe-btn" id="pe-workflow-close">關閉</button></div>
     </div>`;
     document.body.appendChild(m);
-    m.dataset.period='0';
+    m.dataset.periodIndex='0';
     m.addEventListener('click',e=>{if(e.target===m)closeModal(m)});
     m.querySelector('#pe-workflow-close').addEventListener('click',()=>closeModal(m));
     m.querySelector('#pe-workflow-date').addEventListener('change',renderWorkflow);
@@ -2500,9 +2530,10 @@
   function renderWorkflow(){
     const m=ensureWorkflowModal();
     const date=m.querySelector('#pe-workflow-date')?.value||hkToday();
-    const currentPeriod=Number(m.dataset.periodIndex||0);
-    const d=lessonWorkflowData(date,currentPeriod);
+    let currentPeriod=Number(m.dataset.periodIndex||0);
+    if(!Number.isFinite(currentPeriod)||currentPeriod<0||currentPeriod>8)currentPeriod=0;
 
+    const d=lessonWorkflowData(date,currentPeriod);
     if(m.querySelector('#pe-workflow-class'))m.querySelector('#pe-workflow-class').value=d.className;
     if(d.className&&d.className!=='未分類')setActiveClass(d.className);
 
@@ -2514,20 +2545,26 @@
         if(!lesson)continue;
         periods.push(`<button type="button" class="${i===currentPeriod?'active':''}" data-workflow-period="${i}">第${i+1}節</button>`);
       }
-      periodWrap.innerHTML=periods.join('');
+      periodWrap.innerHTML=periods.length?periods.join(''):'<span class="pe-note">當日未有可顯示課堂。</span>';
       periodWrap.querySelectorAll('[data-workflow-period]').forEach(btn=>btn.addEventListener('click',()=>{
-        m.dataset.periodIndex=btn.dataset.workflowPeriod;renderWorkflow();
+        m.dataset.periodIndex=btn.dataset.workflowPeriod;
+        renderWorkflow();
       }));
     }
 
     const content=m.querySelector('#pe-workflow-content');
     if(!content)return;
+
     const prevProgress=d.previous?.text||'未有上次進度';
     const prevDate=d.previous?.date?fmt(d.previous.date):'';
     const prevHomework=d.previous?.homework||'未有紀錄';
-    const trackingText=d.tracking
-      ? (Array.isArray(d.tracking.missing)&&d.tracking.missing.length?`追收中・欠 ${d.tracking.missing.length} 人`:'已交齊')
-      : (d.homework?'未建立追收':'沒有功課');
+
+    const trackingRecord=d.tracking?.record||null;
+    let trackingText=d.tracking?.label||'未追收';
+    if(trackingRecord){
+      const missing=Array.isArray(trackingRecord.missing)?trackingRecord.missing:[];
+      trackingText=missing.length?`追收中・欠 ${missing.length} 人`:'已交齊';
+    }
 
     content.innerHTML=`
       <div class="pe-workflow-stack">
@@ -2544,25 +2581,35 @@
       </div>`;
 
     content.querySelector('#pe-workflow-go-journal')?.addEventListener('click',()=>{
-      closeModal(m);jumpToJournalSource({route:'journal',date,periodIndex:currentPeriod,noteType:'p'});
+      closeModal(m);
+      jumpToJournalSource({route:'journal',date,periodIndex:currentPeriod,noteType:'p'});
     });
+
     content.querySelector('#pe-workflow-go-tracking')?.addEventListener('click',()=>{
       closeModal(m);
-      if(d.tracking)window.__submissionTrackerAPI?.openRecord?.(d.tracking.id);
+      if(trackingRecord)window.__submissionTrackerAPI?.openRecord?.(trackingRecord.id);
       else jumpToJournalSource({route:'journal',date,periodIndex:currentPeriod,noteType:'h'});
     });
+
     content.querySelector('#pe-workflow-add-todo')?.addEventListener('click',()=>{
       closeModal(m);
-      openPendingPrefill(`跟進 ${d.className} 第${d.period}節`,date,
+      openPendingPrefill(
+        `跟進 ${d.className} 第${d.period}節`,
+        date,
         `${d.lesson}${d.homework?`｜功課：${d.homework}`:''}`,
-        {scopeType:'class',scopeName:d.className,scopeId:d.classId,classId:d.classId,className:d.className,lessonId:d.lessonId,homeworkId:d.homeworkId,sourceType:'lessonWorkflow'});
+        {
+          scopeType:'class',scopeName:d.className,scopeId:d.classId,
+          classId:d.classId,className:d.className,
+          lessonId:d.lessonId,homeworkId:d.homeworkId,sourceType:'lessonWorkflow'
+        }
+      );
     });
   }
 
   function openWorkflow(date=hkToday(),periodIndex=0){
     const m=ensureWorkflowModal();
     m.querySelector('#pe-workflow-date').value=date;
-    m.dataset.period=String(periodIndex);
+    m.dataset.periodIndex=String(periodIndex);
     m.classList.add('open');
     renderWorkflow();
   }
