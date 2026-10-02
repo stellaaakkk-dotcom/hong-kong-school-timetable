@@ -1,18 +1,20 @@
-香港教師教學日誌 v2.1.0
+香港教師教學日誌 v2.1.1
 
-課堂工作流
-- 新增「📘 今堂課堂／科目」
-- 直接顯示 timetable resolver 的課堂名稱，例如中文、常識、數學等
-- 保留上次進度、上次功課、今堂進度、今堂功課、追收狀態
+工作流：
+- 「今堂課堂／科目」改為「今堂科目」
+- 自動由 4C視藝 / 3A中文 / P.5B-Math 拆出純科目
+- 班別仍獨立顯示於上方
 
-工作 Inbox
-- 完全移除舊 quickFilter
-- 改成單一狀態模型：
-  1. statusFilter：全部／今日／逾期
-  2. scope：個人／班別／年級／科組／全校／其他
-  3. type：待辦／追收
-- chips 與下拉選單控制同一份狀態，不再互相覆蓋
-- 班別 scope 才會啟用具體班別下拉
-- 年級／科組／其他等均可獨立篩選
+Inbox：
+- 修正舊待辦 scope normalize
+- 支援舊欄位 scope / targetType / grade / subject / department / groupName
+- 中文 scope 名稱亦可轉換：班別／年級／科組／全校／其他／個人
+- 年級／科組／其他新增第二層實際名稱篩選
+  例如：
+  年級 → P.3 / P.4
+  科組 → 中文科 / STEM
+  其他 → 自訂組別
+- 班別仍保留具體班別篩選
+- 全校／個人無第二層篩選
 
-Service Worker cache：v210
+Service Worker cache：v211

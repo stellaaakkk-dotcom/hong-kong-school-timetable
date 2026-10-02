@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.1.0';
+  const VERSION = '2.1.1';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -1230,21 +1230,74 @@
   const SCOPE_LABELS={personal:'個人',class:'班別',grade:'年級',subject:'科組',school:'全校',other:'其他'};
 
   function normalizedPendingScope(item={}){
-    let type=String(item.scopeType||'').trim();
-    let name=String(item.scopeName||'').trim();
-    let id=String(item.scopeId||'').trim();
-    if(!type){
-      if(item.classId||item.className||item.lessonId||item.sourceType==='lessonWorkflow'){
-        type='class'; name=String(item.className||'').trim(); id=String(item.classId||'').trim();
+    const rawType=String(item.scopeType||item.scope||item.targetType||'').trim().toLowerCase();
+    let type=rawType;
+    let name=String(
+      item.scopeName ??
+      item.scopeValue ??
+      item.targetName ??
+      item.groupName ??
+      item.className ??
+      ''
+    ).trim();
+    let id=String(item.scopeId||item.classId||'').trim();
+
+    const valid=new Set(['personal','class','grade','subject','school','other']);
+
+    // Accept legacy / localized labels.
+    const aliases={
+      '個人':'personal','私人':'personal',
+      '班別':'class','班級':'class','class':'class',
+      '年級':'grade','級別':'grade','grade':'grade',
+      '科組':'subject','科目':'subject','subject':'subject',
+      '全校':'school','學校':'school','school':'school',
+      '其他':'other','other':'other',
+      'personal':'personal'
+    };
+    if(!valid.has(type) && aliases[item.scopeType])type=aliases[item.scopeType];
+    if(!valid.has(type) && aliases[item.scope])type=aliases[item.scope];
+
+    // Infer older records from dedicated legacy fields.
+    if(!valid.has(type)){
+      if(item.grade || item.gradeName){
+        type='grade';
+        name=String(item.grade||item.gradeName||name).trim();
+      }else if(item.subject || item.subjectName || item.department){
+        type='subject';
+        name=String(item.subject||item.subjectName||item.department||name).trim();
+      }else if(item.schoolWide===true || name==='全校'){
+        type='school';
+        name='全校';
+      }else if(item.classId||item.className||item.lessonId||item.sourceType==='lessonWorkflow'){
+        type='class';
       }else{
-        type='personal'; name='個人';
+        type='personal';
       }
     }
+
     if(type==='class'){
-      name=name||String(item.className||'').trim();
-      id=id||String(item.classId||'').trim()||classIdForName(name);
-    }else if(type==='school') name=name||'全校';
-    else if(type==='personal') name=name||'個人';
+      name=normalizeClassId(name||item.className||'');
+      id=id||classIdForName(name)||'';
+    }else if(type==='grade'){
+      name=String(name||item.grade||item.gradeName||'').trim();
+      const m=name.match(/(?:P\.?\s*)?([1-6])/i);
+      if(m)name=`P.${m[1]}`;
+      id='';
+    }else if(type==='subject'){
+      name=String(name||item.subject||item.subjectName||item.department||'').trim();
+      id='';
+    }else if(type==='school'){
+      name='全校';
+      id='';
+    }else if(type==='other'){
+      name=String(name||item.groupName||'其他').trim()||'其他';
+      id='';
+    }else{
+      type='personal';
+      name='個人';
+      id='';
+    }
+
     return {type,name,id};
   }
 
@@ -1391,16 +1444,17 @@
 
     (state.pendingItems||[]).filter(x=>!x.completed).forEach(x=>{
       const st=pendingStatus(x);
+      const s=normalizedPendingScope(x);
       rows.push({
         kind:'待辦',
         type:'pending',
         id:x.id,
         date:x.dueDate||'',
-        className:normalizedPendingScope(x).type==='class'?(normalizedPendingScope(x).name||x.className||''):'',
-        scopeType:normalizedPendingScope(x).type,
-        scopeName:normalizedPendingScope(x).name,
+        className:s.type==='class'?(s.name||x.className||''):'',
+        scopeType:s.type,
+        scopeName:s.name,
         title:x.title||'待辦',
-        meta:[pendingScopeText(x),pendingReminderText(x),`優先：${pendingPriorityLabel(x.priority)}`].filter(Boolean).join('・'),
+        meta:[pendingReminderText(x),`優先：${pendingPriorityLabel(x.priority)}`].filter(Boolean).join('・'),
         status:st
       });
     });
@@ -1418,7 +1472,7 @@
         scopeType:'class',
         scopeName:r.className||'',
         title:r.name||r.type||'追收項目',
-        meta:`班別・${r.className||''}・欠 ${r.missing.length} 人`,
+        meta:`欠 ${r.missing.length} 人`,
         status:st
       });
     });
@@ -1462,6 +1516,7 @@
           <option value="other">其他</option>
         </select>
         <select id="pe-inbox-class"><option value="">全部班別</option></select>
+        <select id="pe-inbox-scope-name" style="display:none"><option value="">全部</option></select>
         <select id="pe-inbox-type">
           <option value="">全部類型</option>
           <option value="pending">待辦／Deadline</option>
@@ -1529,6 +1584,7 @@
     });
 
     m.querySelector('#pe-inbox-type').addEventListener('change',renderInbox);
+    m.querySelector('#pe-inbox-scope-name').addEventListener('change',renderInbox);
 
     m.querySelector('#pe-inbox-class').addEventListener('change',()=>{
       const v=m.querySelector('#pe-inbox-class').value;
@@ -1546,12 +1602,14 @@
 
     const scopeSel=m.querySelector('#pe-inbox-scope');
     const classSel=m.querySelector('#pe-inbox-class');
+    const scopeNameSel=m.querySelector('#pe-inbox-scope-name');
     const typeSel=m.querySelector('#pe-inbox-type');
 
     const statusFilter=m.dataset.statusFilter||'all';
     const scope=scopeSel.value||'';
     const type=typeSel.value||'';
     const rememberedClass=classSel.value||classSel.dataset.lastClass||getActiveClass()||'';
+    const rememberedScopeName=scopeNameSel.value||scopeNameSel.dataset.lastValue||'';
 
     const classes=[...new Set(
       all.filter(x=>x.scopeType==='class')
@@ -1562,6 +1620,7 @@
     classSel.innerHTML='<option value="">全部班別</option>'+
       classes.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
 
+    classSel.style.display=scope==='class'?'':'none';
     classSel.disabled=scope!=='class';
 
     if(scope==='class'){
@@ -1571,13 +1630,33 @@
       classSel.value='';
     }
 
+    const namedScopeTypes=new Set(['grade','subject','other']);
+    if(namedScopeTypes.has(scope)){
+      const names=[...new Set(
+        all.filter(x=>x.scopeType===scope)
+           .map(x=>String(x.scopeName||'').trim())
+           .filter(Boolean)
+      )].sort((a,b)=>a.localeCompare(b,'zh-Hant'));
+
+      const label=scope==='grade'?'全部年級':scope==='subject'?'全部科組':'全部其他';
+      scopeNameSel.style.display='';
+      scopeNameSel.innerHTML=`<option value="">${label}</option>`+
+        names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+      if(names.includes(rememberedScopeName))scopeNameSel.value=rememberedScopeName;
+    }else{
+      scopeNameSel.style.display='none';
+      scopeNameSel.value='';
+    }
+
     const cls=classSel.value;
+    const scopeName=scopeNameSel.value;
 
     const rows=all.filter(x=>{
       if(statusFilter==='today'&&x.status!=='today')return false;
       if(statusFilter==='overdue'&&x.status!=='overdue')return false;
       if(scope&&x.scopeType!==scope)return false;
       if(scope==='class'&&cls&&normalizeClassId(x.className||x.scopeName)!==cls)return false;
+      if(namedScopeTypes.has(scope)&&scopeName&&String(x.scopeName||'')!==scopeName)return false;
       if(type&&x.type!==type)return false;
       return true;
     });
@@ -1612,6 +1691,11 @@
       else active=(statusFilter==='all'&&scope===key);
       btn.classList.toggle('active',active);
     });
+
+    scopeNameSel.onchange=()=>{
+      scopeNameSel.dataset.lastValue=scopeNameSel.value;
+      renderInbox();
+    };
   }
 
   function openInbox(){
@@ -2520,6 +2604,23 @@
   }
 
 
+
+  function subjectFromLessonText(lesson='',className=''){
+    let s=String(lesson||'').trim();
+    const cls=String(className||'').trim();
+
+    // Prefer removing the exact resolved class name first.
+    if(cls){
+      const escCls=cls.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+      s=s.replace(new RegExp(`^${escCls}[\\s\\-–—:：]*`,'i'),'').trim();
+    }
+
+    // Fallback for timetable strings such as 4C視藝 / 3A 中文 / P.5B-Math.
+    s=s.replace(/^(?:P\.?\s*)?[1-6]\s*[A-E]\s*[\-–—:：]?\s*/i,'').trim();
+
+    return s||String(lesson||'').trim()||'未能辨認課堂';
+  }
+
   function lessonWorkflowData(date,periodIndex){
     const p=plannerState(),notes=p.lessonNotes||{};
     const lesson=timetableLessonForHomework(date,periodIndex);
@@ -2624,7 +2725,7 @@
       <div class="pe-workflow-stack">
         <div class="pe-workflow-card"><h4>↩ 上次進度 ${prevDate?`・${prevDate}`:''}</h4><div>${esc(prevProgress)}</div></div>
         <div class="pe-workflow-card"><h4>📚 上次功課</h4><div>${esc(prevHomework)}</div></div>
-        <div class="pe-workflow-card"><h4>📘 今堂課堂／科目</h4><div>${esc(d.lesson||'未能辨認課堂')}</div></div>
+        <div class="pe-workflow-card"><h4>📘 今堂科目</h4><div>${esc(subjectFromLessonText(d.lesson,d.className))}</div></div>
         <div class="pe-workflow-card pe-workflow-primary"><h4>📝 今堂進度</h4><div>${esc(d.progress||'尚未填寫')}</div></div>
         <div class="pe-workflow-card pe-workflow-primary"><h4>📖 今堂功課</h4><div>${esc(d.homework||'尚未填寫')}</div></div>
         <div class="pe-workflow-card"><h4>📋 追收狀態</h4><div>${esc(trackingText)}</div></div>
