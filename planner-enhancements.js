@@ -1,11 +1,12 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.6.1';
+  const VERSION = '1.7.0';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
   const PENDING_QUEUE_KEY = 'hk-school-pending-items-queue-v1';
+  const CAL_TAG_VIS_KEY = 'hk-school-calendar-tag-visibility-v1';
   const PLANNER_LOCAL_KEY = 'hk-school-planner-v3';
   const state = {
     user: null,
@@ -111,6 +112,15 @@
       .pe-pending-actions{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
       .pe-pending-actions button{border:1px solid #dccab4;border-radius:7px;background:#fff;color:#76533b;padding:4px 6px;font-size:8px;font-weight:800}
       .pe-pending-actions button.primary{background:#a86f3d;color:#fff;border-color:#a86f3d}
+      .pe-quick-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}
+      .pe-quick-grid button{min-height:62px;border:1px solid #decdb9;border-radius:11px;background:#fff9e8;color:#76533b;font-size:10px;font-weight:900;padding:8px 5px}
+      .pe-quick-grid button span{display:block;font-size:18px;margin-bottom:3px}
+      .pe-tag-toggle-list{display:grid;gap:8px;margin-top:10px}
+      .pe-tag-toggle-list label{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #eadfce;border-radius:10px;background:#fff;padding:9px 10px;font-size:10px;font-weight:800;color:#684b38}
+      .pe-tag-toggle-list input{width:18px;height:18px}
+      .pe-reminder-soon{color:#936b1f;font-weight:800}
+      @media(max-width:700px){.pe-quick-grid{grid-template-columns:1fr}}
+
 
       .submission-launcher{display:none!important}
       .pe-context-tools{display:none!important}
@@ -519,7 +529,7 @@
       </div>
       <div class="pe-dash-section"><div class="pe-dash-title">而家</div>${activeText?`<div class="pe-dash-row">${esc(activeText)}</div>`:'<div class="pe-dash-empty">目前未偵測到進行中的課節。</div>'}</div>
       <div class="pe-dash-section"><div class="pe-dash-title">📋 今日追收${follow.length?`・${total} 人次`:''}</div>${follow.length?follow.slice(0,5).map(r=>`<div class="pe-dash-row">${esc(r.className||'')}｜${esc(r.name||r.type||'項目')}：${esc((r.missing||[]).map(n=>String(n).padStart(2,'0')).join('、'))}</div>`).join(''):'<div class="pe-dash-empty">今日沒有需要追收。</div>'}</div>
-      <div class="pe-dash-section"><div class="pe-dash-title">📅 今日活動</div>${acts.length?acts.slice(0,8).map(a=>`<div class="pe-dash-row">${esc(a.category||'活動')}｜${esc(a.title||'')}</div>`).join(''):'<div class="pe-dash-empty">今日月曆沒有已顯示的活動／記事。</div>'}</div><div class="pe-dash-section"><div class="pe-dash-title">⏳ Deadline 提醒</div>${urgentPendingItems().length?urgentPendingItems().slice(0,5).map(x=>`<div class="pe-dash-row">${pendingStatus(x)==='overdue'?'⚠ 逾期':'今日到期'}｜${esc(x.title||'')}</div>`).join(''):'<div class="pe-dash-empty">今日沒有到期／逾期事項。</div>'}</div>
+      <div class="pe-dash-section"><div class="pe-dash-title">📅 今日活動</div>${acts.length?acts.slice(0,8).map(a=>`<div class="pe-dash-row">${esc(a.category||'活動')}｜${esc(a.title||'')}</div>`).join(''):'<div class="pe-dash-empty">今日月曆沒有已顯示的活動／記事。</div>'}</div><div class="pe-dash-section"><div class="pe-dash-title">⏳ Deadline 提醒</div>${urgentPendingItems().length?urgentPendingItems().slice(0,5).map(x=>`<div class="pe-dash-row">${pendingReminderText(x)}｜${esc(x.title||'')}</div>`).join(''):'<div class="pe-dash-empty">今日沒有到期／逾期事項。</div>'}</div>
       <div class="pe-dash-actions"><button type="button" id="pe-open-sub">查看追收</button><button type="button" class="primary" id="pe-add-today-act">＋今日活動</button></div>
       <button type="button" class="pe-today-done-btn" id="pe-today-done">✅ 今日完成檢查</button>`;
 
@@ -590,12 +600,132 @@
 
 
 
+
+  function loadCalendarTagVisibility(){
+    try{
+      const x=JSON.parse(localStorage.getItem(CAL_TAG_VIS_KEY)||'{}');
+      return {activities:x.activities!==false,pending:x.pending!==false};
+    }catch{return{activities:true,pending:true}}
+  }
+  function saveCalendarTagVisibility(v){
+    try{localStorage.setItem(CAL_TAG_VIS_KEY,JSON.stringify(v))}catch{}
+    try{window.dispatchEvent(new CustomEvent('calendarTagVisibilityChanged',{detail:v}))}catch{}
+  }
+
+  function ensureTagVisibilityModal(){
+    let modal=document.getElementById('pe-tag-visibility-modal');
+    if(modal)return modal;
+    modal=document.createElement('div');modal.id='pe-tag-visibility-modal';modal.className='pe-modal';
+    modal.innerHTML=`<div class="pe-dialog">
+      <h3>🏷 月曆標籤顯示</h3>
+      <p class="pe-note">只控制月曆上嘅 tag 顯示；資料唔會刪除。一般記事仍維持原本文字形式。</p>
+      <div class="pe-tag-toggle-list">
+        <label><span>活動紀錄 tag</span><input id="pe-show-activity-tags" type="checkbox"></label>
+        <label><span>待處理事項 tag</span><input id="pe-show-pending-tags" type="checkbox"></label>
+      </div>
+      <div class="pe-actions"><button class="pe-btn" id="pe-tag-close">關閉</button></div>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.querySelector('#pe-tag-close').addEventListener('click',()=>closeModal(modal));
+    modal.addEventListener('click',e=>{if(e.target===modal)closeModal(modal)});
+    for(const id of ['pe-show-activity-tags','pe-show-pending-tags']){
+      modal.querySelector('#'+id).addEventListener('change',()=>{
+        saveCalendarTagVisibility({
+          activities:document.getElementById('pe-show-activity-tags').checked,
+          pending:document.getElementById('pe-show-pending-tags').checked
+        });
+      });
+    }
+    return modal;
+  }
+
+  function openTagVisibilityModal(){
+    const m=ensureTagVisibilityModal(),v=loadCalendarTagVisibility();
+    document.getElementById('pe-show-activity-tags').checked=v.activities;
+    document.getElementById('pe-show-pending-tags').checked=v.pending;
+    m.classList.add('open');
+  }
+
+  function ensureDateQuickModal(){
+    let modal=document.getElementById('pe-date-quick-modal');
+    if(modal)return modal;
+    modal=document.createElement('div');modal.id='pe-date-quick-modal';modal.className='pe-modal';
+    modal.innerHTML=`<div class="pe-dialog">
+      <h3 id="pe-date-quick-title">📅 日期快捷新增</h3>
+      <p class="pe-note">一般記事會沿用原本月曆格嘅文字輸入，唔會變成 tag。</p>
+      <div class="pe-quick-grid">
+        <button id="pe-quick-note"><span>📝</span>一般記事</button>
+        <button id="pe-quick-activity"><span>＋</span>活動紀錄</button>
+        <button id="pe-quick-pending"><span>⏳</span>待處理事項</button>
+      </div>
+      <div class="pe-actions"><button class="pe-btn" id="pe-date-quick-close">取消</button></div>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click',e=>{if(e.target===modal)closeModal(modal)});
+    modal.querySelector('#pe-date-quick-close').addEventListener('click',()=>closeModal(modal));
+    modal.querySelector('#pe-quick-note').addEventListener('click',()=>{
+      const date=modal.dataset.date; closeModal(modal);
+      const cell=document.querySelector(`.cal-cell[data-date="${CSS.escape(date)}"]`);
+      const ta=cell?.querySelector('textarea');
+      if(ta){cell.scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>ta.focus(),250)}
+    });
+    modal.querySelector('#pe-quick-activity').addEventListener('click',()=>{
+      const date=modal.dataset.date;closeModal(modal);openActivityModal(date);
+    });
+    modal.querySelector('#pe-quick-pending').addEventListener('click',()=>{
+      const date=modal.dataset.date;closeModal(modal);openPendingModal(date);
+    });
+    return modal;
+  }
+
+  function openDateQuickModal(date){
+    if(!date)return;
+    const m=ensureDateQuickModal();m.dataset.date=date;
+    document.getElementById('pe-date-quick-title').textContent=`📅 ${fmt(date)} 快捷新增`;
+    m.classList.add('open');
+  }
+
+  function dateDiffDays(from,to){
+    const a=new Date(`${from}T12:00:00`),b=new Date(`${to}T12:00:00`);
+    return Math.round((b-a)/86400000);
+  }
+  function addDateDays(date,days){
+    const d=new Date(`${date}T12:00:00`);d.setDate(d.getDate()+days);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+  function nextRepeatDate(date,repeat){
+    if(repeat==='weekly')return addDateDays(date,7);
+    if(repeat==='biweekly')return addDateDays(date,14);
+    if(repeat==='monthly'){
+      const d=new Date(`${date}T12:00:00`),day=d.getDate();
+      d.setDate(1);d.setMonth(d.getMonth()+1);
+      const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+      d.setDate(Math.min(day,last));
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+    return date;
+  }
+  function repeatLabel(v){return v==='weekly'?'每週':v==='biweekly'?'隔週':v==='monthly'?'每月':'不重複'}
+
   function pendingStatus(item){
     if(item.completed)return 'done';
     const t=hkToday();
     if(item.dueDate<t)return 'overdue';
     if(item.dueDate===t)return 'today';
+    const days=dateDiffDays(t,item.dueDate);
+    const remind=Number(item.remindDays??0);
+    if(days>0&&days<=remind)return 'soon';
     return 'upcoming';
+  }
+  function pendingReminderText(item){
+    const st=pendingStatus(item);
+    if(st==='overdue')return '⚠ 逾期';
+    if(st==='today')return '今日到期';
+    if(st==='soon'){
+      const d=dateDiffDays(hkToday(),item.dueDate);
+      return d===1?'明日到期':`${d}日後到期`;
+    }
+    return '';
   }
   function pendingPriorityLabel(v){return v==='high'?'高':v==='low'?'低':'中'}
 
@@ -610,6 +740,8 @@
         <div class="pe-field pe-full"><label>事項</label><input id="pe-pending-title" placeholder="例如：回覆家長、交報告"></div>
         <div class="pe-field"><label>Deadline</label><input id="pe-pending-date" type="date"></div>
         <div class="pe-field"><label>優先級</label><select id="pe-pending-priority"><option value="high">高</option><option value="medium" selected>中</option><option value="low">低</option></select></div>
+        <div class="pe-field"><label>重複</label><select id="pe-pending-repeat"><option value="none">不重複</option><option value="weekly">每週</option><option value="biweekly">隔週</option><option value="monthly">每月</option></select></div>
+        <div class="pe-field"><label>提前提醒</label><select id="pe-pending-remind"><option value="0">到期日</option><option value="1" selected>1日前</option><option value="3">3日前</option><option value="7">7日前</option></select></div>
         <div class="pe-field pe-full"><label>備註（可留空）</label><textarea id="pe-pending-note"></textarea></div>
       </div>
       <div class="pe-actions"><button class="pe-btn primary" id="pe-pending-add">＋ 加入待辦</button></div>
@@ -629,11 +761,13 @@
     return modal;
   }
 
-  function openPendingModal(){
+  function openPendingModal(date=''){
     const m=ensurePendingModal();
-    document.getElementById('pe-pending-date').value=hkToday();
+    document.getElementById('pe-pending-date').value=date||hkToday();
     document.getElementById('pe-pending-title').value='';
     document.getElementById('pe-pending-note').value='';
+    document.getElementById('pe-pending-repeat').value='none';
+    document.getElementById('pe-pending-remind').value='1';
     m.classList.add('open');
     renderPendingList();
   }
@@ -642,9 +776,11 @@
     const title=document.getElementById('pe-pending-title').value.trim();
     const dueDate=document.getElementById('pe-pending-date').value;
     const priority=document.getElementById('pe-pending-priority').value;
+    const repeat=document.getElementById('pe-pending-repeat').value;
+    const remindDays=Number(document.getElementById('pe-pending-remind').value||0);
     const note=document.getElementById('pe-pending-note').value.trim();
     if(!title||!dueDate){alert('請填寫事項及 deadline。');return}
-    const rec={id:`todo_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,title,dueDate,priority,note,completed:false,completedAt:'',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+    const rec={id:`todo_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,title,dueDate,priority,repeat,remindDays,note,completed:false,completedAt:'',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
     state.pendingItems.unshift(rec);saveLocalPending();renderPendingList();renderDashboard();
 
     if(state.firebaseReady&&navigator.onLine){
@@ -654,15 +790,35 @@
     }else queuePendingOp({op:'set',id:rec.id,data:rec});
   }
 
-  async function togglePendingComplete(id){
-    const item=state.pendingItems.find(x=>x.id===id);if(!item)return;
-    item.completed=!item.completed;item.completedAt=item.completed?new Date().toISOString():'';item.updatedAt=new Date().toISOString();
-    saveLocalPending();renderPendingList();renderDashboard();
+  async function syncPendingSet(rec){
     if(state.firebaseReady&&navigator.onLine){
       setSync('syncing');
-      try{await pendingCollection().doc(id).set(item,{merge:true});savePendingQueue(loadPendingQueue().filter(x=>x.id!==id));updateSyncDisplay()}
-      catch{queuePendingOp({op:'set',id,data:item})}
-    }else queuePendingOp({op:'set',id,data:item});
+      try{
+        await pendingCollection().doc(rec.id).set(rec,{merge:true});
+        savePendingQueue(loadPendingQueue().filter(x=>x.id!==rec.id));
+        updateSyncDisplay();
+      }catch{queuePendingOp({op:'set',id:rec.id,data:rec})}
+    }else queuePendingOp({op:'set',id:rec.id,data:rec});
+  }
+
+  async function togglePendingComplete(id){
+    const item=state.pendingItems.find(x=>x.id===id);if(!item)return;
+    const now=new Date().toISOString();
+
+    if(!item.completed && item.repeat && item.repeat!=='none'){
+      const history={...item,id:`${item.id}_done_${Date.now()}`,completed:true,completedAt:now,updatedAt:now,occurrenceOf:item.id,repeat:'none'};
+      item.dueDate=nextRepeatDate(item.dueDate,item.repeat);
+      item.completed=false;item.completedAt='';item.updatedAt=now;
+      state.pendingItems.unshift(history);
+      saveLocalPending();renderPendingList();renderDashboard();
+      await syncPendingSet(history);
+      await syncPendingSet(item);
+      return;
+    }
+
+    item.completed=!item.completed;item.completedAt=item.completed?now:'';item.updatedAt=now;
+    saveLocalPending();renderPendingList();renderDashboard();
+    await syncPendingSet(item);
   }
 
   async function deletePendingItem(id){
@@ -689,13 +845,93 @@
     const today=open.filter(x=>pendingStatus(x)==='today').length;
     const overdue=open.filter(x=>pendingStatus(x)==='overdue').length;
     out.innerHTML=`<div class="pe-pending-summary"><span class="pe-pending-badge">未完成 ${open.length}</span><span class="pe-pending-badge today">今日到期 ${today}</span><span class="pe-pending-badge overdue">已逾期 ${overdue}</span></div>`+
-      (arr.length?arr.map(x=>{const st=pendingStatus(x);return `<div class="pe-pending-item ${st}"><div class="pe-pending-title">${x.completed?'✓ ':''}${esc(x.title)}</div><div class="pe-pending-meta">Deadline：${fmt(x.dueDate)}｜優先：${pendingPriorityLabel(x.priority)}${x.note?`<br>${esc(x.note)}`:''}</div><div class="pe-pending-actions"><button class="${x.completed?'':'primary'}" data-pending-toggle="${esc(x.id)}">${x.completed?'設為未完成':'✓ 完成'}</button><button data-pending-delete="${esc(x.id)}">刪除</button></div></div>`}).join(''):'<div class="pe-note">暫時未有符合條件的待處理事項。</div>');
+      (arr.length?arr.map(x=>{const st=pendingStatus(x);return `<div class="pe-pending-item ${st}"><div class="pe-pending-title">${x.completed?'✓ ':''}${esc(x.title)}</div><div class="pe-pending-meta">Deadline：${fmt(x.dueDate)}｜優先：${pendingPriorityLabel(x.priority)}｜${repeatLabel(x.repeat||'none')}｜提醒：${Number(x.remindDays??0)}日前${pendingReminderText(x)?`<br><span class="pe-reminder-soon">${pendingReminderText(x)}</span>`:''}${x.note?`<br>${esc(x.note)}`:''}</div><div class="pe-pending-actions"><button class="${x.completed?'':'primary'}" data-pending-toggle="${esc(x.id)}">${x.completed?'設為未完成':'✓ 完成'}</button><button data-pending-delete="${esc(x.id)}">刪除</button></div></div>`}).join(''):'<div class="pe-note">暫時未有符合條件的待處理事項。</div>');
     out.querySelectorAll('[data-pending-toggle]').forEach(b=>b.addEventListener('click',()=>togglePendingComplete(b.dataset.pendingToggle)));
     out.querySelectorAll('[data-pending-delete]').forEach(b=>b.addEventListener('click',()=>deletePendingItem(b.dataset.pendingDelete)));
   }
 
   function urgentPendingItems(){
-    return state.pendingItems.filter(x=>!x.completed&&(pendingStatus(x)==='today'||pendingStatus(x)==='overdue')).sort((a,b)=>(a.dueDate||'').localeCompare(b.dueDate||''));
+    return state.pendingItems.filter(x=>!x.completed&&['soon','today','overdue'].includes(pendingStatus(x))).sort((a,b)=>(a.dueDate||'').localeCompare(b.dueDate||''));
+  }
+
+
+  function ensurePendingEditModal(){
+    let modal=document.getElementById('pe-pending-edit-modal');
+    if(modal)return modal;
+    modal=document.createElement('div');modal.id='pe-pending-edit-modal';modal.className='pe-modal';
+    modal.innerHTML=`<div class="pe-dialog">
+      <h3>✏️ 修改待處理事項</h3>
+      <div class="pe-grid">
+        <div class="pe-field pe-full"><label>事項</label><input id="pe-edit-pending-title"></div>
+        <div class="pe-field"><label>Deadline</label><input id="pe-edit-pending-date" type="date"></div>
+        <div class="pe-field"><label>優先級</label><select id="pe-edit-pending-priority"><option value="high">高</option><option value="medium">中</option><option value="low">低</option></select></div>
+        <div class="pe-field"><label>重複</label><select id="pe-edit-pending-repeat"><option value="none">不重複</option><option value="weekly">每週</option><option value="biweekly">隔週</option><option value="monthly">每月</option></select></div>
+        <div class="pe-field"><label>提前提醒</label><select id="pe-edit-pending-remind"><option value="0">到期日</option><option value="1">1日前</option><option value="3">3日前</option><option value="7">7日前</option></select></div>
+        <div class="pe-field pe-full"><label>備註</label><textarea id="pe-edit-pending-note"></textarea></div>
+      </div>
+      <div class="pe-actions">
+        <button class="pe-btn" id="pe-pending-plus1">＋1日</button>
+        <button class="pe-btn" id="pe-pending-plus3">＋3日</button>
+        <button class="pe-btn" id="pe-pending-nextweek">下星期</button>
+      </div>
+      <div class="pe-actions">
+        <button class="pe-btn" id="pe-edit-pending-cancel">取消</button>
+        <button class="pe-btn" id="pe-edit-pending-complete">✓ 完成今次</button>
+        <button class="pe-btn primary" id="pe-edit-pending-save">儲存</button>
+      </div>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click',e=>{if(e.target===modal)closeModal(modal)});
+    modal.querySelector('#pe-edit-pending-cancel').addEventListener('click',()=>closeModal(modal));
+    modal.querySelector('#pe-edit-pending-save').addEventListener('click',savePendingEdit);
+    modal.querySelector('#pe-edit-pending-complete').addEventListener('click',async()=>{
+      const id=modal.dataset.editId;closeModal(modal);await togglePendingComplete(id);
+    });
+    modal.querySelector('#pe-pending-plus1').addEventListener('click',()=>delayPendingEdit(1));
+    modal.querySelector('#pe-pending-plus3').addEventListener('click',()=>delayPendingEdit(3));
+    modal.querySelector('#pe-pending-nextweek').addEventListener('click',()=>delayPendingEdit(7));
+    return modal;
+  }
+
+  function openPendingEdit(id){
+    const rec=state.pendingItems.find(x=>x.id===id);if(!rec)return;
+    const m=ensurePendingEditModal();m.dataset.editId=id;
+    document.getElementById('pe-edit-pending-title').value=rec.title||'';
+    document.getElementById('pe-edit-pending-date').value=rec.dueDate||'';
+    document.getElementById('pe-edit-pending-priority').value=rec.priority||'medium';
+    document.getElementById('pe-edit-pending-repeat').value=rec.repeat||'none';
+    document.getElementById('pe-edit-pending-remind').value=String(rec.remindDays??0);
+    document.getElementById('pe-edit-pending-note').value=rec.note||'';
+    m.classList.add('open');
+  }
+
+  async function savePendingEdit(){
+    const m=document.getElementById('pe-pending-edit-modal'),id=m?.dataset.editId;
+    const rec=state.pendingItems.find(x=>x.id===id);if(!rec)return;
+    const title=document.getElementById('pe-edit-pending-title').value.trim();
+    const dueDate=document.getElementById('pe-edit-pending-date').value;
+    if(!title||!dueDate){alert('請填寫事項及 deadline。');return}
+    Object.assign(rec,{
+      title,dueDate,
+      priority:document.getElementById('pe-edit-pending-priority').value,
+      repeat:document.getElementById('pe-edit-pending-repeat').value,
+      remindDays:Number(document.getElementById('pe-edit-pending-remind').value||0),
+      note:document.getElementById('pe-edit-pending-note').value.trim(),
+      updatedAt:new Date().toISOString()
+    });
+    saveLocalPending();renderPendingList();renderDashboard();closeModal(m);
+    await syncPendingSet(rec);
+  }
+
+  async function delayPendingEdit(days){
+    const m=document.getElementById('pe-pending-edit-modal'),id=m?.dataset.editId;
+    const rec=state.pendingItems.find(x=>x.id===id);if(!rec)return;
+    const base=document.getElementById('pe-edit-pending-date').value||rec.dueDate;
+    const next=addDateDays(base,days);
+    document.getElementById('pe-edit-pending-date').value=next;
+    rec.dueDate=next;rec.updatedAt=new Date().toISOString();
+    saveLocalPending();renderPendingList();renderDashboard();
+    await syncPendingSet(rec);
   }
 
   function ensureDoneModal(){
@@ -725,7 +961,7 @@
       html+=`<div class="pe-done-card"><b>📅 今日活動提示・${acts.length} 項</b>${acts.slice(0,12).map(a=>`<div>${esc(a.category||'活動')}｜${esc(a.title||'')}</div>`).join('')}</div>`;
     }
     const urgent=urgentPendingItems();
-    if(urgent.length)html+=`<div class="pe-done-card warn"><b>⏳ Deadline 提醒・${urgent.length} 項</b>${urgent.slice(0,12).map(x=>`<div>${pendingStatus(x)==='overdue'?'⚠ 逾期':'今日到期'}｜${esc(x.title||'')}</div>`).join('')}</div>`;
+    if(urgent.length)html+=`<div class="pe-done-card warn"><b>⏳ Deadline 提醒・${urgent.length} 項</b>${urgent.slice(0,12).map(x=>`<div>${pendingReminderText(x)}｜${esc(x.title||'')}</div>`).join('')}</div>`;
     out.innerHTML=`<div class="pe-done-summary">${html}</div>`;
     modal.classList.add('open');
   }
@@ -904,7 +1140,7 @@
     let sheet=document.getElementById('pe-mobile-more');
     if(sheet)return sheet;
     sheet=document.createElement('div');sheet.id='pe-mobile-more';sheet.className='pe-mobile-more';
-    sheet.innerHTML=`<button id="pe-more-dashboard">☀ 今日工作台</button><button id="pe-more-done">✅ 今日完成</button><button id="pe-more-pending">⏳ 待處理事項</button><button id="pe-more-search">🔎 全站搜尋</button><button id="pe-more-stats">📊 活動統計</button><button id="pe-more-activity">＋ 活動紀錄</button><button id="pe-more-submission">📋 作業／回條</button>`;
+    sheet.innerHTML=`<button id="pe-more-dashboard">☀ 今日工作台</button><button id="pe-more-done">✅ 今日完成</button><button id="pe-more-pending">⏳ 待處理事項</button><button id="pe-more-tags">🏷 月曆標籤</button><button id="pe-more-search">🔎 全站搜尋</button><button id="pe-more-stats">📊 活動統計</button><button id="pe-more-activity">＋ 活動紀錄</button><button id="pe-more-submission">📋 作業／回條</button>`;
     document.body.appendChild(sheet);
     sheet.querySelector('#pe-more-dashboard').addEventListener('click',()=>{
       closeMobileMore();
@@ -914,6 +1150,7 @@
     });
     sheet.querySelector('#pe-more-done').addEventListener('click',()=>{closeMobileMore();openDoneCheck()});
     sheet.querySelector('#pe-more-pending').addEventListener('click',()=>{closeMobileMore();openPendingModal()});
+    sheet.querySelector('#pe-more-tags').addEventListener('click',()=>{closeMobileMore();openTagVisibilityModal()});
     sheet.querySelector('#pe-more-search').addEventListener('click',()=>{closeMobileMore();openJournalSearch()});
     sheet.querySelector('#pe-more-stats').addEventListener('click',()=>{closeMobileMore();openStatsModal()});
     sheet.querySelector('#pe-more-activity').addEventListener('click',()=>{closeMobileMore();openActivityModal(hkToday())});
@@ -994,11 +1231,14 @@
   window.addEventListener('resize',()=>renderCalendarActivityOverlay(),{passive:true});
   window.addEventListener('scroll',()=>renderCalendarActivityOverlay(),{passive:true});
   window.addEventListener('submission-pending-changed',()=>updateSyncDisplay());
-  window.addEventListener('online',()=>{flushActivityPending();window.__submissionTrackerAPI?.flushPending?.();setTimeout(updateSyncDisplay,300)});
+  window.addEventListener('calendarDateQuickAdd',e=>openDateQuickModal(e.detail?.date));
+  window.addEventListener('calendarActivityEditRequested',e=>openActivityEdit(e.detail?.id));
+  window.addEventListener('calendarPendingEditRequested',e=>openPendingEdit(e.detail?.id));
+  window.addEventListener('online',()=>{flushActivityPending();flushPendingQueue();window.__submissionTrackerAPI?.flushPending?.();setTimeout(updateSyncDisplay,300)});
   window.addEventListener('offline',()=>updateSyncDisplay());
 
   async function start(){
-    addCss();ensureSyncPill();installNetworkStatus();ensureDashboard();ensureContextTools();ensureActivityModal();ensureActivityEditModal();ensureStatsModal();ensureSearchModal();ensureDoneModal();ensurePendingModal();ensureMobileNav();ensureIpadRail();ensureDesktopMoreToggle();ensureMobileMore();ensureCalendarActivityLayer();installPwaUpdatePrompt();await connectData();uiTick();
+    addCss();ensureSyncPill();installNetworkStatus();ensureDashboard();ensureContextTools();ensureActivityModal();ensureActivityEditModal();ensureStatsModal();ensureSearchModal();ensureDoneModal();ensurePendingModal();ensurePendingEditModal();ensureTagVisibilityModal();ensureDateQuickModal();ensureMobileNav();ensureIpadRail();ensureDesktopMoreToggle();ensureMobileMore();ensureCalendarActivityLayer();installPwaUpdatePrompt();await connectData();uiTick();
     setInterval(uiTick,1800);
     console.info(`[planner-enhancements] v${VERSION} ready`);
   }
