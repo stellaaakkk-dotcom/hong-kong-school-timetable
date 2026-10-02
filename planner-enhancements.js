@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.7.1';
+  const VERSION = '1.7.2';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -18,6 +18,9 @@
     sync: 'connecting',
     unsubSubmissions: null,
     unsubActivities: null,
+    unsubPending: null,
+    connectRetryTimer: null,
+    connecting: false,
     swControllerChanged: false
   };
 
@@ -178,6 +181,20 @@
 
       @media print{.pe-mobile-nav,.pe-mobile-more{display:none!important}}
 
+      /* v1.7.2 stability hotfix: later generic rules must not hide the navigation. */
+      @media(max-width:700px){
+        .pe-mobile-nav{display:grid!important}
+        .pe-ipad-rail,.pe-desktop-more-toggle{display:none!important}
+      }
+      @media(min-width:701px) and (max-width:1100px){
+        .pe-ipad-rail{display:grid!important}
+        .pe-mobile-nav,.pe-desktop-more-toggle{display:none!important}
+      }
+      @media(min-width:1101px){
+        .pe-desktop-more-toggle{display:block!important}
+        .pe-mobile-nav,.pe-ipad-rail{display:none!important}
+      }
+
     `;
     document.head.appendChild(style);
   }
@@ -292,29 +309,100 @@
     notifyPendingChange();
   }
 
+
+  function scheduleCloudReconnect(delay=2500){
+    if(state.firebaseReady || state.connectRetryTimer) return;
+    state.connectRetryTimer=setTimeout(()=>{
+      state.connectRetryTimer=null;
+      connectData().catch(err=>console.warn('[planner-enhancements] reconnect',err));
+    },delay);
+  }
+
   async function connectData() {
+    if(state.connecting) return;
+    state.connecting=true;
+
     loadLocalActivities();
     loadLocalPending();
     setSync(navigator.onLine?'connecting':'offline');
-    const user = await getUser();
-    if (!user) { state.firebaseReady=false; setSync(navigator.onLine?'connecting':'offline'); return; }
-    state.user=user; state.firebaseReady=true; loadActivityPending(); loadPendingQueue(); setSync('syncing'); await flushActivityPending(); await flushPendingQueue();
-    try{state.unsubSubmissions?.();}catch{} try{state.unsubActivities?.();}catch{}
-    state.unsubSubmissions = subCollection().onSnapshot(snap=>{
-      state.submissions=snap.docs.map(d=>({id:d.id,...d.data()})); setSync(navigator.onLine?'ok':'offline'); renderDashboard();
-    },()=>setSync(navigator.onLine?'connecting':'offline'));
-    state.unsubActivities = activityCollection().orderBy('date','desc').onSnapshot(snap=>{
-      state.activities=snap.docs.map(d=>({id:d.id,...d.data()})); saveLocalActivities(); setSync(navigator.onLine?'ok':'offline'); renderDashboard(); renderStatsIfOpen(); refreshCategoryList(); renderCalendarActivityOverlay();
-    },()=>setSync(navigator.onLine?'connecting':'offline'));
+
     try{
-      pendingCollection().onSnapshot(snap=>{
+      const user=await getUser();
+
+      if(!user){
+        state.firebaseReady=false;
+        updateSyncDisplay();
+        scheduleCloudReconnect(2500);
+        return;
+      }
+
+      state.user=user;
+      state.firebaseReady=true;
+
+      if(state.connectRetryTimer){
+        clearTimeout(state.connectRetryTimer);
+        state.connectRetryTimer=null;
+      }
+
+      loadActivityPending();
+      loadPendingQueue();
+      setSync('syncing');
+
+      await flushActivityPending();
+      await flushPendingQueue();
+
+      try{state.unsubSubmissions?.()}catch{}
+      try{state.unsubActivities?.()}catch{}
+      try{state.unsubPending?.()}catch{}
+
+      state.unsubSubmissions=subCollection().onSnapshot(snap=>{
+        state.submissions=snap.docs.map(d=>({id:d.id,...d.data()}));
+        updateSyncDisplay();
+        renderDashboard();
+      },err=>{
+        console.warn('[planner-enhancements] submissions snapshot',err);
+        state.firebaseReady=false;
+        updateSyncDisplay();
+        scheduleCloudReconnect(3000);
+      });
+
+      state.unsubActivities=activityCollection().orderBy('date','desc').onSnapshot(snap=>{
+        state.activities=snap.docs.map(d=>({id:d.id,...d.data()}));
+        saveLocalActivities();
+        updateSyncDisplay();
+        renderDashboard();
+        renderStatsIfOpen();
+        refreshCategoryList();
+        renderCalendarActivityOverlay();
+      },err=>{
+        console.warn('[planner-enhancements] activities snapshot',err);
+        state.firebaseReady=false;
+        updateSyncDisplay();
+        scheduleCloudReconnect(3000);
+      });
+
+      state.unsubPending=pendingCollection().onSnapshot(snap=>{
         state.pendingItems=snap.docs.map(d=>({id:d.id,...d.data()}));
         saveLocalPending();
         renderDashboard();
         renderPendingList();
         updateSyncDisplay();
-      },err=>console.warn('[planner-enhancements] pending snapshot',err));
-    }catch(e){console.warn('[planner-enhancements] pending listener',e)}
+      },err=>{
+        console.warn('[planner-enhancements] pending snapshot',err);
+        state.firebaseReady=false;
+        updateSyncDisplay();
+        scheduleCloudReconnect(3000);
+      });
+
+      updateSyncDisplay();
+    }catch(err){
+      console.warn('[planner-enhancements] connectData',err);
+      state.firebaseReady=false;
+      updateSyncDisplay();
+      scheduleCloudReconnect(3000);
+    }finally{
+      state.connecting=false;
+    }
   }
 
   function installPwaUpdatePrompt() {
@@ -1274,11 +1362,35 @@
   window.addEventListener('calendarDateQuickAdd',e=>openDateQuickModal(e.detail?.date));
   window.addEventListener('calendarActivityEditRequested',e=>openActivityEdit(e.detail?.id));
   window.addEventListener('calendarPendingEditRequested',e=>openPendingEdit(e.detail?.id));
-  window.addEventListener('online',()=>{flushActivityPending();flushPendingQueue();window.__submissionTrackerAPI?.flushPending?.();setTimeout(updateSyncDisplay,300)});
+  window.addEventListener('online',()=>{flushActivityPending();flushPendingQueue();window.__submissionTrackerAPI?.flushPending?.();if(!state.firebaseReady)connectData().catch(()=>{});setTimeout(updateSyncDisplay,300)});
   window.addEventListener('offline',()=>updateSyncDisplay());
 
   async function start(){
-    addCss();ensureSyncPill();installNetworkStatus();ensureDashboard();ensureContextTools();ensureActivityModal();ensureActivityEditModal();ensureStatsModal();ensureSearchModal();ensureDoneModal();ensurePendingModal();ensurePendingEditModal();ensureTagVisibilityModal();ensureDateQuickModal();ensureMobileNav();ensureIpadRail();ensureDesktopMoreToggle();ensureMobileMore();ensureCalendarActivityLayer();installPwaUpdatePrompt();await connectData();uiTick();
+    addCss();
+    ensureSyncPill();
+    installNetworkStatus();
+    ensureDashboard();
+    ensureContextTools();
+    ensureActivityModal();
+    ensureActivityEditModal();
+    ensureStatsModal();
+    ensureSearchModal();
+    ensureDoneModal();
+    ensurePendingModal();
+    ensurePendingEditModal();
+    ensureTagVisibilityModal();
+    ensureDateQuickModal();
+    ensureMobileNav();
+    ensureIpadRail();
+    ensureDesktopMoreToggle();
+    ensureMobileMore();
+    ensureCalendarActivityLayer();
+    installPwaUpdatePrompt();
+
+    /* UI must remain available even when Firebase/Auth is slow. */
+    uiTick();
+    connectData().catch(err=>console.warn('[planner-enhancements] initial cloud connect',err));
+
     setInterval(uiTick,1800);
     console.info(`[planner-enhancements] v${VERSION} ready`);
   }
