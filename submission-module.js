@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.2.0';
+  const VERSION = '1.2.1';
   const LOCAL_KEY = 'hk-school-submission-records-v1';
   const PENDING_KEY = 'hk-school-submission-pending-v1';
   const COLORS = {
@@ -115,8 +115,20 @@
   }
 
   async function waitForFirebase(timeout=15000) {
-    const start = Date.now();
-    while (Date.now() - start < timeout) {
+    if (window.firebase?.auth && window.firebase?.firestore) return true;
+
+    if (window.__firebaseReadyPromise) {
+      try {
+        await Promise.race([
+          window.__firebaseReadyPromise,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Firebase bootstrap timeout')), timeout))
+        ]);
+      } catch {}
+      return !!(window.firebase?.auth && window.firebase?.firestore);
+    }
+
+    const started = Date.now();
+    while (Date.now() - started < timeout) {
       if (window.firebase?.auth && window.firebase?.firestore) return true;
       await new Promise(r => setTimeout(r, 200));
     }
@@ -125,22 +137,26 @@
 
   async function getUser(timeout=12000) {
     if (!await waitForFirebase()) return null;
+
     const auth = window.firebase.auth();
     if (auth.currentUser) return auth.currentUser;
+    if (window.__firebaseAuthResolved) return window.__firebaseAuthUser || null;
+
     return new Promise(resolve => {
       let done = false;
       const timer = setTimeout(() => {
         if (done) return;
         done = true;
         try { unsub(); } catch {}
-        resolve(null);
+        resolve(auth.currentUser || null);
       }, timeout);
+
       const unsub = auth.onAuthStateChanged(user => {
-        if (done || !user) return;
+        if (done) return;
         done = true;
         clearTimeout(timer);
         try { unsub(); } catch {}
-        resolve(user);
+        resolve(user || null);
       });
     });
   }
@@ -798,6 +814,12 @@
     open:showPage
   };
   window.addEventListener('online',()=>flushPending());
+
+  window.addEventListener('firebase-auth-state', e => {
+    if (e.detail?.user) {
+      connectStorage().catch(err => console.warn('[Submission module] auth reconnect', err));
+    }
+  });
 
   async function start() {
     injectCss();

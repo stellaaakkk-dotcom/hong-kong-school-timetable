@@ -1,0 +1,18 @@
+v1.7.4 Firebase 啟動層修正版
+
+請將以下 5 個檔案全部放到 GitHub repo 根目錄：
+1. index.html
+2. firebase-bootstrap.js
+3. planner-enhancements.js
+4. submission-module.js
+5. sw.js
+
+automate-bridge.js 保持原有，不需修改。
+
+修正：
+- Firebase 一開頁就由 firebase-bootstrap.js 主動載入。
+- 不再依賴 React 雲端元件載入 Firebase 的時序。
+- 如果已登入，會自動接回 Firestore。
+- 如果未登入，狀態會顯示「☁ 未登入」，不再無限顯示「連接中」。
+- 登入後自動重新連接 Firestore。
+- Service Worker cache v74。

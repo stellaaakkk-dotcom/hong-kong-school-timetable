@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.7.2';
+  const VERSION = '1.7.4';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -203,7 +203,7 @@
     state.sync = status;
     const pill = ensureSyncPill();
     const map = {
-      connecting:['wait','⟳ 連接中'], syncing:['wait','⟳ 同步中'], ok:['ok','☁ 已同步'], offline:['off','⚠ 離線暫存']
+      connecting:['wait','⟳ 連接中'], syncing:['wait','⟳ 同步中'], ok:['ok','☁ 已同步'], signedout:['off','☁ 未登入'], error:['off','⚠ 雲端載入失敗'], offline:['off','⚠ 離線暫存']
     };
     const [cls,text] = map[status] || map.connecting;
     pill.className = `pe-sync-pill ${cls}`;
@@ -214,7 +214,19 @@
   function saveActivityPending(q){try{localStorage.setItem(ACTIVITY_PENDING_KEY,JSON.stringify(q));state.activityPending=q.length}catch{}updateSyncDisplay()}
   function queueActivityPending(item){const q=loadActivityPending().filter(x=>x.id!==item.id);q.push(item);saveActivityPending(q)}
   function totalPending(){const sub=window.__submissionTrackerAPI?.getPendingCount?.()||0;return state.activityPending+(state.pendingQueueCount||0)+sub}
-  function updateSyncDisplay(){const n=totalPending();if(n>0){const p=ensureSyncPill();p.className='pe-sync-pill off';p.textContent=`⚠ 待同步 ${n}`;return}setSync(navigator.onLine?(state.firebaseReady?'ok':'connecting'):'offline')}
+  function updateSyncDisplay(){
+    const n=totalPending();
+    if(n>0){
+      const p=ensureSyncPill();
+      p.className='pe-sync-pill off';
+      p.textContent=`⚠ 待同步 ${n}`;
+      return;
+    }
+    if(!navigator.onLine){setSync('offline');return}
+    if(window.__firebaseBootstrapError){setSync('error');return}
+    if(window.__firebaseAuthResolved && !window.__firebaseAuthUser){setSync('signedout');return}
+    setSync(state.firebaseReady?'ok':'connecting');
+  }
   async function flushActivityPending(){if(!navigator.onLine||!state.firebaseReady)return;let q=loadActivityPending(),remain=[];for(const item of q){try{if(item.op==='delete')await activityCollection().doc(item.id).delete();else await activityCollection().doc(item.id).set(item.data,{merge:true})}catch{remain.push(item)}}saveActivityPending(remain)}
 
   function loadPendingQueue(){
@@ -261,25 +273,49 @@
     refresh();
   }
 
-  async function waitForFirebase(timeout=12000) {
-    const start = Date.now();
-    while (Date.now()-start < timeout) {
-      if (window.firebase?.auth && window.firebase?.firestore) return true;
+  async function waitForFirebase(timeout=15000) {
+    if(window.firebase?.auth && window.firebase?.firestore) return true;
+
+    if(window.__firebaseReadyPromise){
+      try{
+        await Promise.race([
+          window.__firebaseReadyPromise,
+          new Promise((_,reject)=>setTimeout(()=>reject(new Error('Firebase bootstrap timeout')),timeout))
+        ]);
+      }catch{}
+      return !!(window.firebase?.auth && window.firebase?.firestore);
+    }
+
+    const started=Date.now();
+    while(Date.now()-started<timeout){
+      if(window.firebase?.auth && window.firebase?.firestore) return true;
       await new Promise(r=>setTimeout(r,180));
     }
     return false;
   }
 
   async function getUser() {
-    if (!await waitForFirebase()) return null;
-    const auth = window.firebase.auth();
-    if (auth.currentUser) return auth.currentUser;
-    return new Promise(resolve => {
-      let finished = false;
-      const timer = setTimeout(()=>{ if (!finished) { finished=true; resolve(null); } },8000);
-      const unsub = auth.onAuthStateChanged(u=>{
-        if (finished || !u) return;
-        finished=true; clearTimeout(timer); try{unsub();}catch{} resolve(u);
+    if(!await waitForFirebase()) return null;
+
+    const auth=window.firebase.auth();
+    if(auth.currentUser) return auth.currentUser;
+    if(window.__firebaseAuthResolved) return window.__firebaseAuthUser || null;
+
+    return new Promise(resolve=>{
+      let done=false;
+      const timer=setTimeout(()=>{
+        if(done)return;
+        done=true;
+        try{unsub()}catch{}
+        resolve(auth.currentUser || null);
+      },10000);
+
+      const unsub=auth.onAuthStateChanged(user=>{
+        if(done)return;
+        done=true;
+        clearTimeout(timer);
+        try{unsub()}catch{}
+        resolve(user || null);
       });
     });
   }
@@ -331,8 +367,8 @@
 
       if(!user){
         state.firebaseReady=false;
-        updateSyncDisplay();
-        scheduleCloudReconnect(2500);
+        if(window.__firebaseAuthResolved) setSync('signedout');
+        else updateSyncDisplay();
         return;
       }
 
@@ -1359,6 +1395,17 @@
   window.addEventListener('resize',()=>renderCalendarActivityOverlay(),{passive:true});
   window.addEventListener('scroll',()=>renderCalendarActivityOverlay(),{passive:true});
   window.addEventListener('submission-pending-changed',()=>updateSyncDisplay());
+  window.addEventListener('firebase-auth-state',e=>{
+    const user=e.detail?.user || null;
+    if(user){
+      state.firebaseReady=false;
+      connectData().catch(err=>console.warn('[planner-enhancements] auth reconnect',err));
+    }else{
+      state.firebaseReady=false;
+      updateSyncDisplay();
+    }
+  });
+  window.addEventListener('firebase-bootstrap-error',()=>updateSyncDisplay());
   window.addEventListener('calendarDateQuickAdd',e=>openDateQuickModal(e.detail?.date));
   window.addEventListener('calendarActivityEditRequested',e=>openActivityEdit(e.detail?.id));
   window.addEventListener('calendarPendingEditRequested',e=>openPendingEdit(e.detail?.id));

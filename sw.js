@@ -1,4 +1,4 @@
-const CACHE = "hk-teacher-journal-pwa-v73";
+const CACHE = "hk-teacher-journal-pwa-v74";
 const ROOT = new URL("./", self.registration.scope).href;
 const CORE = ["./", "./manifest.webmanifest", "./app-icon-192.png", "./app-icon-512.png", "./pdf.worker.min.mjs"];
 
@@ -26,6 +26,7 @@ self.addEventListener("fetch", event => {
 
   // Always prefer the newest version of the enhancement modules.
   const isLiveModule =
+    url.pathname.endsWith("/firebase-bootstrap.js") ||
     url.pathname.endsWith("/planner-enhancements.js") ||
     url.pathname.endsWith("/submission-module.js") ||
     url.pathname.endsWith("/automate-bridge.js");
