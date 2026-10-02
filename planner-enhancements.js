@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.0.8';
+  const VERSION = '2.0.9';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -1464,22 +1464,10 @@
     document.body.appendChild(m);
     m.addEventListener('click',e=>{if(e.target===m)closeModal(m)});
     m.querySelector('#pe-inbox-close').addEventListener('click',()=>closeModal(m));
-    m.dataset.quickFilter=m.dataset.quickFilter||'all';
-    m.querySelectorAll('[data-inbox-chip]').forEach(btn=>btn.addEventListener('click',()=>{
-      m.dataset.quickFilter=btn.dataset.inboxChip;
-      m.querySelectorAll('[data-inbox-chip]').forEach(x=>x.classList.toggle('active',x.dataset.inboxChip===m.dataset.quickFilter));
-      renderInbox();
-    }));
     m.querySelector('#pe-inbox-add').addEventListener('click',()=>{
       closeModal(m);
       openPendingModal();
     });
-    m.querySelector('#pe-inbox-scope').addEventListener('change',()=>{
-      m.dataset.quickFilter='all';
-      m.querySelectorAll('[data-inbox-chip]').forEach(x=>x.classList.toggle('active',x.dataset.inboxChip==='all'));
-      renderInbox();
-    });
-    m.querySelector('#pe-inbox-type').addEventListener('change',renderInbox);
     return m;
   }
 
@@ -1561,9 +1549,7 @@
   }
 
   function openInbox(){
-    const m=ensureInboxModal();
-    m.classList.add('open');
-    renderInbox();
+    safeOpenInbox();
   }
 
   function ensurePendingModal(){
@@ -2607,11 +2593,7 @@
   }
 
   function openWorkflow(date=hkToday(),periodIndex=0){
-    const m=ensureWorkflowModal();
-    m.querySelector('#pe-workflow-date').value=date;
-    m.dataset.periodIndex=String(periodIndex);
-    m.classList.add('open');
-    renderWorkflow();
+    safeOpenWorkflow(date,periodIndex);
   }
 
   function ensureHomeworkHistoryModal(){
@@ -3656,8 +3638,85 @@
   window.addEventListener('online',()=>renderStatusStack());
   window.addEventListener('offline',()=>setSync('offline'));
 
+
+  function installCriticalDelegates(){
+    if(document.documentElement.dataset.peCriticalDelegates==='1')return;
+    document.documentElement.dataset.peCriticalDelegates='1';
+
+    document.addEventListener('click',e=>{
+      const t=e.target.closest('button,[data-inbox-chip]');
+      if(!t)return;
+
+      if(t.id==='pe-more-workflow'||t.id==='pe-v2-flow'){
+        e.preventDefault();
+        closeMobileMore();
+        safeOpenWorkflow();
+        return;
+      }
+      if(t.id==='pe-more-inbox'||t.id==='pe-v2-inbox'||t.id==='pe-today-inbox'){
+        e.preventDefault();
+        closeMobileMore();
+        safeOpenInbox();
+        return;
+      }
+      if(t.matches('[data-inbox-chip]')){
+        const m=document.getElementById('pe-inbox-modal');
+        if(!m)return;
+        e.preventDefault();
+        m.dataset.quickFilter=t.dataset.inboxChip||'all';
+        m.querySelectorAll('[data-inbox-chip]').forEach(x=>x.classList.toggle('active',x===t));
+        try{renderInbox()}catch(err){showInboxRenderError(err)}
+      }
+    },true);
+
+    document.addEventListener('change',e=>{
+      const t=e.target;
+      if(!(t instanceof HTMLSelectElement))return;
+      if(t.id==='pe-inbox-scope'){
+        const m=document.getElementById('pe-inbox-modal');
+        if(!m)return;
+        m.dataset.quickFilter='all';
+        m.querySelectorAll('[data-inbox-chip]').forEach(x=>x.classList.toggle('active',x.dataset.inboxChip==='all'));
+        try{renderInbox()}catch(err){showInboxRenderError(err)}
+      }
+      if(t.id==='pe-inbox-type'||t.id==='pe-inbox-class'){
+        try{renderInbox()}catch(err){showInboxRenderError(err)}
+      }
+    },true);
+  }
+
+  function showInboxRenderError(err){
+    console.error('[planner-enhancements] Inbox render failed',err);
+    const m=ensureInboxModal();
+    const out=m.querySelector('#pe-inbox-list');
+    if(out)out.innerHTML='<div class="pe-note">Inbox 顯示發生錯誤，請重新整理頁面後再試。</div>';
+  }
+
+  function showWorkflowRenderError(err){
+    console.error('[planner-enhancements] Workflow render failed',err);
+    const m=ensureWorkflowModal();
+    const out=m.querySelector('#pe-workflow-content');
+    if(out)out.innerHTML='<div class="pe-note">課堂工作流顯示發生錯誤。日期及節數控制仍可使用；請重新整理頁面後再試。</div>';
+  }
+
+  function safeOpenWorkflow(date=hkToday(),periodIndex=0){
+    const m=ensureWorkflowModal();
+    const dateEl=m.querySelector('#pe-workflow-date');
+    if(dateEl)dateEl.value=date;
+    m.dataset.periodIndex=String(periodIndex);
+    m.classList.add('open');
+    try{renderWorkflow()}catch(err){showWorkflowRenderError(err)}
+  }
+
+  function safeOpenInbox(){
+    const m=ensureInboxModal();
+    m.classList.add('open');
+    try{renderInbox()}catch(err){showInboxRenderError(err)}
+  }
+
   async function start(){
     addCss();
+    installCriticalDelegates();
     ensureSyncPill();
     ensureStatusStack();
     renderStatusStack();
