@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.1.9';
+  const VERSION = '2.2.0';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -995,71 +995,87 @@
 
     toggle.classList.add('show');
 
+    const today=hkToday();
+    const lessonGroups=journalSubjectGroups(today);
+    const inbox=unifiedInboxRows();
     const follow=state.submissions.filter(needsFollowup);
     const acts=todayActivities();
-    const urgent=urgentPendingItems();
+
+    const overdue=inbox.filter(x=>x.status==='overdue').length;
+    const dueToday=inbox.filter(x=>x.status==='today').length;
+    const followPeople=follow.reduce((s,r)=>s+(r.missing?.length||0),0);
+
     const active=board.querySelector('.today-item.active-now');
     const activeText=active ? active.textContent.replace(/\s+/g,' ').trim() : '';
-    const followPeople=follow.reduce((s,r)=>s+(r.missing?.length||0),0);
-    const overdue=urgent.filter(x=>pendingStatus(x)==='overdue').length;
-    const dueToday=urgent.filter(x=>pendingStatus(x)==='today').length;
-    const soon=urgent.filter(x=>pendingStatus(x)==='soon').length;
-    const uncleared=follow.length + urgent.length;
-
     const wasOpen=el.classList.contains('open');
-    const openDetail=el.dataset.openDetail||'';
 
     el.innerHTML=`
       <div class="pe-dash-head">
         <b>☀ 今日工作台</b>
-        <div><small>${fmt(hkToday())}</small><button type="button" class="pe-dash-close" id="pe-close-dashboard">✕ 收起</button></div>
+        <div><small>${fmt(today)}</small><button type="button" class="pe-dash-close" id="pe-close-dashboard">✕ 收起</button></div>
       </div>
+
       ${activeText?`<div class="pe-dash-row" style="margin-bottom:7px"><b style="color:#80542f">而家：</b>${esc(activeText)}</div>`:''}
 
-      <div class="pe-dash-summary">
-        <div class="pe-dash-card ${follow.length?'warn':''}" data-dash-card="follow"><b>${follow.length}</b><span>📋 追收項目・${followPeople} 人次</span></div>
-        <div class="pe-dash-card ${overdue?'danger':(dueToday?'warn':'')}" data-dash-card="deadline"><b>${urgent.length}</b><span>⏳ Deadline・今日 ${dueToday}／逾期 ${overdue}${soon?`／將到 ${soon}`:''}</span></div>
-        <div class="pe-dash-card" data-dash-card="activity"><b>${acts.length}</b><span>📅 今日活動</span></div>
-        <div class="pe-dash-card ${uncleared?'warn':''}" data-dash-card="done"><b>${uncleared}</b><span>✅ 尚待處理</span></div>
-      </div>
+      <div class="pe-dash-summary pe-dash-summary-v220">
+        <button type="button" class="pe-dash-card pe-dash-direct" id="pe-dash-lessons">
+          <b>${lessonGroups.length}</b>
+          <span>🧭 今日課堂</span>
+          <small>按班別＋科目整理</small>
+        </button>
 
-      <div class="pe-dash-detail ${openDetail==='follow'?'open':''}" data-dash-detail="follow">
-        ${follow.length?follow.slice(0,8).map(r=>`<div class="pe-dash-row">${esc(r.className||'')}｜${esc(r.name||r.type||'項目')}：${esc((r.missing||[]).map(n=>String(n).padStart(2,'0')).join('、'))}</div>`).join(''):'<div class="pe-dash-empty">今日沒有需要追收。</div>'}
-      </div>
+        <button type="button" class="pe-dash-card pe-dash-direct ${overdue?'danger':(dueToday?'warn':'')}" id="pe-dash-inbox">
+          <b>${inbox.length}</b>
+          <span>📥 未完成</span>
+          <small>${overdue?`逾期 ${overdue}`:dueToday?`今日 ${dueToday}`:'查看 Inbox'}</small>
+        </button>
 
-      <div class="pe-dash-detail ${openDetail==='deadline'?'open':''}" data-dash-detail="deadline">
-        ${urgent.length?urgent.slice(0,8).map(x=>`<div class="pe-dash-row">${pendingReminderText(x)}｜${esc(x.title||'')}</div>`).join(''):'<div class="pe-dash-empty">今日沒有 deadline 提醒。</div>'}
-      </div>
+        <button type="button" class="pe-dash-card pe-dash-direct ${follow.length?'warn':''}" id="pe-dash-follow">
+          <b>${follow.length}</b>
+          <span>📋 追收</span>
+          <small>${followPeople?`欠 ${followPeople} 人次`:'暫無追收'}</small>
+        </button>
 
-      <div class="pe-dash-detail ${openDetail==='activity'?'open':''}" data-dash-detail="activity">
-        ${acts.length?acts.slice(0,10).map(a=>`<div class="pe-dash-row">${esc(a.category||'活動')}｜${esc(a.title||'')}</div>`).join(''):'<div class="pe-dash-empty">今日沒有活動／記事。</div>'}
-      </div>
-
-      <div class="pe-dash-detail ${openDetail==='done'?'open':''}" data-dash-detail="done">
-        ${uncleared?`<div class="pe-dash-row">追收 ${follow.length} 項；Deadline 提醒 ${urgent.length} 項。</div>`:'<div class="pe-dash-empty">🎉 今日暫時已清。</div>'}
-      </div>
-
-      <div class="pe-dash-actions">
-        <button type="button" id="pe-open-sub">查看追收</button>
-        <button type="button" id="pe-open-homework">功課紀錄</button>
-        <button type="button" class="primary" id="pe-add-today-act">＋今日活動</button>
-      </div>
-      <button type="button" class="pe-today-done-btn" id="pe-today-inbox">📥 查看未完成</button>`;
+        <button type="button" class="pe-dash-card pe-dash-direct" id="pe-dash-activity">
+          <b>${acts.length}</b>
+          <span>📅 活動</span>
+          <small>${acts.length?'查看今日活動':'今日未有活動'}</small>
+        </button>
+      </div>`;
 
     el.querySelector('#pe-close-dashboard')?.addEventListener('click',()=>el.classList.remove('open'));
-    el.querySelector('#pe-open-sub')?.addEventListener('click',()=>document.querySelector('.submission-launcher')?.click());
-    el.querySelector('#pe-open-homework')?.addEventListener('click',openHomeworkHistory);
-    el.querySelector('#pe-add-today-act')?.addEventListener('click',()=>openActivityModal(hkToday()));
-    el.querySelector('#pe-today-inbox')?.addEventListener('click',()=>{el.classList.remove('open');openInbox()});
 
-    el.querySelectorAll('[data-dash-card]').forEach(card=>card.addEventListener('click',()=>{
-      const key=card.dataset.dashCard;
-      el.dataset.openDetail=el.dataset.openDetail===key?'':key;
-      renderDashboard();
-      el.classList.add('open');
-    }));
+    el.querySelector('#pe-dash-lessons')?.addEventListener('click',()=>{
+      el.classList.remove('open');
+      safeOpenWorkflow(today,0);
+    });
 
-    if(wasOpen) el.classList.add('open');
+    el.querySelector('#pe-dash-inbox')?.addEventListener('click',()=>{
+      el.classList.remove('open');
+      safeOpenInbox();
+    });
+
+    el.querySelector('#pe-dash-follow')?.addEventListener('click',()=>{
+      el.classList.remove('open');
+      openClassCenter();
+      setTimeout(()=>{
+        const m=document.getElementById('pe-class-center-modal');
+        if(m){
+          m.dataset.tab='submission';
+          safeRenderModule('Class Center',renderClassCenter,err=>{
+            const out=m.querySelector('#pe-class-center-content');
+            if(out)out.innerHTML=moduleErrorHtml('班級中心顯示錯誤',err);
+          });
+        }
+      },0);
+    });
+
+    el.querySelector('#pe-dash-activity')?.addEventListener('click',()=>{
+      el.classList.remove('open');
+      openActivityModal(today);
+    });
+
+    if(wasOpen)el.classList.add('open');
   }
 
   function visibleCalendarGrid(){
@@ -1492,6 +1508,38 @@
       <span>${esc(msg)}</span><br>
       <small>其他功能仍可繼續使用；重新整理後可再試。</small>
     </div>`;
+  }
+
+  function ensureV220CompactStyles(){
+    if(document.getElementById('pe-v220-compact-styles'))return;
+    const s=document.createElement('style');
+    s.id='pe-v220-compact-styles';
+    s.textContent=`
+      .pe-dash-summary-v220{
+        display:grid!important;
+        grid-template-columns:repeat(2,minmax(0,1fr))!important;
+        gap:7px!important;
+      }
+      .pe-dash-direct{
+        appearance:none!important;
+        text-align:left!important;
+        min-height:82px!important;
+        cursor:pointer!important;
+        display:flex!important;
+        flex-direction:column!important;
+        align-items:flex-start!important;
+        justify-content:center!important;
+        gap:2px!important;
+      }
+      .pe-dash-direct b{font-size:18px!important;line-height:1!important}
+      .pe-dash-direct span{font-size:10px!important;font-weight:900!important}
+      .pe-dash-direct small{font-size:8px!important;opacity:.72!important}
+      @media(max-width:700px){
+        .pe-dash-summary-v220{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+        .pe-dash-direct{min-height:76px!important;padding:8px!important}
+      }
+    `;
+    document.head.appendChild(s);
   }
 
   function safeRenderModule(name,fn,onError){
@@ -3937,12 +3985,9 @@
       <div class="pe-more-group"><b>班級</b>
         <button id="pe-more-class-center">🏫 班級中心</button>
         <button id="pe-more-workflow">🧭 課堂工作流</button>
-        <button id="pe-more-homework">📚 功課管理</button>
-        <button id="pe-more-submission">📋 作業／回條</button>
       </div>
       <div class="pe-more-group"><b>管理</b>
         <button id="pe-more-workspace">🧰 教師工作台</button>
-        <button id="pe-more-activity">＋ 活動紀錄</button>
         <button id="pe-more-search">🔎 全站搜尋</button>
         <button id="pe-more-settings">⚙ 設定與管理</button>
       </div>`;
@@ -3953,10 +3998,7 @@
     sheet.querySelector('#pe-more-inbox').addEventListener('click',()=>{closeMobileMore();openInbox()});
     sheet.querySelector('#pe-more-class-center').addEventListener('click',()=>{closeMobileMore();openClassCenter()});
     sheet.querySelector('#pe-more-workflow').addEventListener('click',()=>{closeMobileMore();openWorkflow()});
-    sheet.querySelector('#pe-more-homework').addEventListener('click',()=>{closeMobileMore();openHomeworkHistory()});
-    sheet.querySelector('#pe-more-submission').addEventListener('click',()=>{closeMobileMore();document.querySelector('.submission-launcher')?.click()});
     sheet.querySelector('#pe-more-workspace').addEventListener('click',()=>{closeMobileMore();openWorkspace()});
-    sheet.querySelector('#pe-more-activity').addEventListener('click',()=>{closeMobileMore();openActivityModal(hkToday())});
     sheet.querySelector('#pe-more-search').addEventListener('click',()=>{closeMobileMore();openJournalSearch()});
     sheet.querySelector('#pe-more-settings').addEventListener('click',()=>{closeMobileMore();openSettingsManager()});
     return sheet;
@@ -4131,6 +4173,8 @@
   window.addEventListener('online',()=>renderStatusStack());
   window.addEventListener('offline',()=>setSync('offline'));
 
+
+  ensureV220CompactStyles();
 
   function installCriticalDelegates(){
     if(document.documentElement.dataset.peCriticalDelegates==='1')return;
