@@ -1,21 +1,25 @@
-香港教師教學日誌 v1.9.4
+香港教師教學日誌 v1.9.5
 
-修正「全站搜尋按鈕冇反應」。
+本版精簡各個 Tab 左側設定版面。
 
-真正原因：
-- openJournalSearch() 會呼叫 ensureSearchModal()
-- 但 planner-enhancements.js 入面其實冇 ensureSearchModal() 定義
-- 所以一按搜尋就 ReferenceError，表面上完全冇反應
+總課表：
+- 教師及班級資料：保留
+- 上課時間模式：保留
+- 版面風格：保留
+- 完整資料備份：保留
+- 資料自動保存提示：保留
 
-v1.9.4：
-- 新增完整 ensureSearchModal()
-- 搜尋視窗包括：
-  - 搜尋輸入
-  - 清除
-  - 關閉
-  - 點背景關閉
-  - Esc 關閉
-- 輸入關鍵字即時 renderGlobalSearch()
-- 保留 v1.9.3「前往來源」功能
+校務月曆／循環週教學日誌／今日課表：
+- 教師及班級資料：隱藏
+- 上課時間模式：保留
+- 版面風格：隱藏
+- 完整資料備份：隱藏
+- 資料自動保存提示：隱藏
+- 各頁本身專屬設定照常顯示
 
-Service Worker cache：v94
+技術做法：
+- 只改顯示層，不刪除任何資料或 React 控制項。
+- 切換 Tab 後即時重新套用顯示規則。
+- 原有 Firebase、搜尋、功課紀錄、備份功能不變。
+
+Service Worker cache：v95

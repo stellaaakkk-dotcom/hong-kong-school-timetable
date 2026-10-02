@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.9.4';
+  const VERSION = '1.9.5';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -2455,6 +2455,48 @@
   }
 
 
+
+  function activeMainTabKey(){
+    const active=[...document.querySelectorAll('.main-tabs button')].find(b=>b.classList.contains('active'));
+    const text=(active?.textContent||'').trim();
+    if(text.startsWith('1.')||text.includes('總課表'))return 'master';
+    if(text.startsWith('2.')||text.includes('月曆'))return 'calendar';
+    if(text.startsWith('3.')||text.includes('教學日誌')||text.includes('日誌'))return 'journal';
+    if(text.startsWith('4.')||text.includes('今日課表'))return 'today';
+    return '';
+  }
+
+  function applyCompactTabPanel(){
+    const panel=document.querySelector('.workspace aside.panel');
+    if(!panel)return;
+
+    const tab=activeMainTabKey();
+    if(!tab)return;
+
+    const masterOnlyTitles=new Set([
+      '教師及班級資料',
+      '版面風格',
+      '完整資料備份'
+    ]);
+
+    panel.querySelectorAll(':scope > section').forEach(section=>{
+      const title=(section.querySelector('.section-title h2')?.textContent||'').trim();
+      if(!masterOnlyTitles.has(title))return;
+      section.style.setProperty('display',tab==='master'?'':'none','important');
+      if(tab==='master')section.style.removeProperty('display');
+    });
+
+    // 「資料自動保存」屬於完整備份區域的附帶提示；其他頁一併收起。
+    panel.querySelectorAll(':scope > .structure').forEach(el=>{
+      const heading=(el.querySelector('b')?.textContent||'').trim();
+      if(heading!=='資料自動保存')return;
+      if(tab==='master')el.style.removeProperty('display');
+      else el.style.setProperty('display','none','important');
+    });
+
+    panel.dataset.compactTab=tab;
+  }
+
   function forceNavVisibility(){
     const w=Math.max(document.documentElement.clientWidth||0,window.innerWidth||0);
     const mobile=ensureMobileNav();
@@ -2485,9 +2527,15 @@
     });
   }
 
-  function uiTick(){if(document.visibilityState!=='visible')return;forceNavVisibility();renderDashboard();renderContextTools();renderCalendarActivityOverlay();updateMobileNavActive();updateIpadRailActive();updateSyncDisplay()}
+  function uiTick(){if(document.visibilityState!=='visible')return;forceNavVisibility();applyCompactTabPanel();renderDashboard();renderContextTools();renderCalendarActivityOverlay();updateMobileNavActive();updateIpadRailActive();updateSyncDisplay()}
 
 
+  document.addEventListener('click',e=>{
+    if(e.target.closest('.main-tabs button')){
+      setTimeout(applyCompactTabPanel,0);
+      setTimeout(applyCompactTabPanel,80);
+    }
+  },true);
   window.addEventListener('resize',()=>{renderCalendarActivityOverlay();forceNavVisibility()},{passive:true});
   window.addEventListener('orientationchange',()=>setTimeout(forceNavVisibility,120),{passive:true});
   window.addEventListener('scroll',()=>renderCalendarActivityOverlay(),{passive:true});
@@ -2531,6 +2579,7 @@
     ensureIpadRail();
     ensureDesktopMoreToggle();
     forceNavVisibility();
+    applyCompactTabPanel();
     ensureMobileMore();
     ensureCalendarActivityLayer();
     installPwaUpdatePrompt();
