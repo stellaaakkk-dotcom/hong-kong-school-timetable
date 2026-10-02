@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.7.4';
+  const VERSION = '1.7.5';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -1389,10 +1389,42 @@
     }
   }
 
-  function uiTick(){if(document.visibilityState!=='visible')return;renderDashboard();renderContextTools();renderCalendarActivityOverlay();updateMobileNavActive();updateIpadRailActive();updateSyncDisplay()}
+
+  function forceNavVisibility(){
+    const w=Math.max(document.documentElement.clientWidth||0,window.innerWidth||0);
+    const mobile=ensureMobileNav();
+    const ipad=ensureIpadRail();
+    const desktop=ensureDesktopMoreToggle();
+
+    // Inline !important intentionally overrides all historical CSS collisions.
+    if(w<=700){
+      mobile.style.setProperty('display','grid','important');
+      ipad.style.setProperty('display','none','important');
+      desktop.style.setProperty('display','none','important');
+      document.body.style.setProperty('padding-bottom','70px','important');
+    }else if(w<=1100){
+      mobile.style.setProperty('display','none','important');
+      ipad.style.setProperty('display','grid','important');
+      desktop.style.setProperty('display','none','important');
+      document.body.style.removeProperty('padding-bottom');
+    }else{
+      mobile.style.setProperty('display','none','important');
+      ipad.style.setProperty('display','none','important');
+      desktop.style.setProperty('display','block','important');
+      document.body.style.removeProperty('padding-bottom');
+    }
+
+    // Safety: keep the active nav above the app even if another stylesheet changes stacking.
+    [mobile,ipad,desktop].forEach(el=>{
+      el.style.setProperty('z-index','2147483000','important');
+    });
+  }
+
+  function uiTick(){if(document.visibilityState!=='visible')return;forceNavVisibility();renderDashboard();renderContextTools();renderCalendarActivityOverlay();updateMobileNavActive();updateIpadRailActive();updateSyncDisplay()}
 
 
-  window.addEventListener('resize',()=>renderCalendarActivityOverlay(),{passive:true});
+  window.addEventListener('resize',()=>{renderCalendarActivityOverlay();forceNavVisibility()},{passive:true});
+  window.addEventListener('orientationchange',()=>setTimeout(forceNavVisibility,120),{passive:true});
   window.addEventListener('scroll',()=>renderCalendarActivityOverlay(),{passive:true});
   window.addEventListener('submission-pending-changed',()=>updateSyncDisplay());
   window.addEventListener('firebase-auth-state',e=>{
@@ -1430,6 +1462,7 @@
     ensureMobileNav();
     ensureIpadRail();
     ensureDesktopMoreToggle();
+    forceNavVisibility();
     ensureMobileMore();
     ensureCalendarActivityLayer();
     installPwaUpdatePrompt();
@@ -1438,6 +1471,8 @@
     uiTick();
     connectData().catch(err=>console.warn('[planner-enhancements] initial cloud connect',err));
 
+    setTimeout(forceNavVisibility,250);
+    setTimeout(forceNavVisibility,1200);
     setInterval(uiTick,1800);
     console.info(`[planner-enhancements] v${VERSION} ready`);
   }
