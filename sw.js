@@ -1,4 +1,4 @@
-const CACHE = "hk-teacher-journal-pwa-v224";
+const CACHE = "hk-teacher-journal-pwa-v226";
 const ROOT = new URL("./", self.registration.scope).href;
 const CORE = ["./", "./manifest.webmanifest", "./app-icon-192.png", "./app-icon-512.png", "./pdf.worker.min.mjs"];
 
@@ -30,6 +30,8 @@ self.addEventListener("fetch", event => {
     url.pathname.endsWith("/planner-enhancements.js") ||
     url.pathname.endsWith("/submission-module.js") ||
     url.pathname.endsWith("/submission-module-v224.js") ||
+    url.pathname.endsWith("/submission-module-v225.js") ||
+    url.pathname.endsWith("/submission-module-v226.js") ||
     url.pathname.endsWith("/automate-bridge.js");
 
   if (isLiveModule) {
