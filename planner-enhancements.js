@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.1.4';
+  const VERSION = '2.1.6';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -2622,91 +2622,64 @@
   }
 
 
-  function canonicalWorkflowSubject(lesson='',className=''){
-    return subjectFromLessonText(lesson,className)
-      .replace(/[（(]\s*[AB]\s*[)）]/gi,'')
-      .replace(/\b[AB]\b/gi,'')
-      .replace(/[\s\-–—:：／/]+/g,'')
-      .trim()
-      .toLowerCase();
-  }
+
+
+
 
   function lessonWorkflowData(date,periodIndex){
     const p=plannerState(),notes=p.lessonNotes||{};
     const lesson=timetableLessonForHomework(date,periodIndex);
     const className=classFromTimetableLesson(lesson)||'未分類';
     const subjectName=subjectFromLessonText(lesson,className);
-    const subjectKey=canonicalWorkflowSubject(lesson,className);
     const progress=String(notes[`${date}-${periodIndex}-p`]||'').trim();
     const homework=String(notes[`${date}-${periodIndex}-h`]||'').trim();
 
-    const currentMeta=window.__HK_GET_JOURNAL_META?.(date)||null;
+    // 上一堂只按「同班」追蹤。
+    // 先檢查同一日較早節數，再逐日向前找最近一次同班課堂。
+    // 不再限制科目、Day、cycle 或節數。
     let previous=null;
 
-    if(periodIndex>=0 && periodIndex<=7 && currentMeta?.day){
+    for(let pi=periodIndex-1;pi>=0&&!previous;pi--){
+      const candidate=timetableLessonForHomework(date,pi);
+      const candidateClass=classFromTimetableLesson(candidate)||'';
+      if(normalizeClassId(candidateClass)!==normalizeClassId(className))continue;
+
+      previous={
+        date,
+        period:pi+1,
+        periodIndex:pi,
+        lesson:candidate,
+        subject:subjectFromLessonText(candidate,candidateClass),
+        text:String(notes[`${date}-${pi}-p`]||'').trim(),
+        homework:String(notes[`${date}-${pi}-h`]||'').trim()
+      };
+    }
+
+    if(!previous){
       const cursor=new Date(`${date}T12:00:00`);
 
       for(let dayBack=1;dayBack<=180&&!previous;dayBack++){
         cursor.setDate(cursor.getDate()-1);
         const d=dateKeyLocal(cursor);
-        const meta=window.__HK_GET_JOURNAL_META?.(d)||null;
 
-        // 必須先係同一個 Day1–Day6 cycle day。
-        if(!meta || meta.day!==currentMeta.day)continue;
+        // 由後至前，取得該日最後一個同班課堂，
+        // 即時間上真正最接近今堂的上一堂。
+        for(let pi=8;pi>=0;pi--){
+          const candidate=timetableLessonForHomework(d,pi);
+          const candidateClass=classFromTimetableLesson(candidate)||'';
+          if(normalizeClassId(candidateClass)!==normalizeClassId(className))continue;
 
-        // 再固定同一節數。
-        const candidate=timetableLessonForHomework(d,periodIndex);
-        if(!candidate)continue;
-
-        const candidateClass=classFromTimetableLesson(candidate)||'未分類';
-        const candidateKey=canonicalWorkflowSubject(candidate,candidateClass);
-
-        // 最後確認同班 + 同科；A/B 標記會被 canonicalize 掉。
-        if(normalizeClassId(candidateClass)!==normalizeClassId(className))continue;
-        if(candidateKey!==subjectKey)continue;
-
-        previous={
-          date:d,
-          period:periodIndex+1,
-          periodIndex,
-          lesson:candidate,
-          subject:subjectFromLessonText(candidate,candidateClass),
-          cycleDay:meta.day,
-          text:String(notes[`${d}-${periodIndex}-p`]||'').trim(),
-          homework:String(notes[`${d}-${periodIndex}-h`]||'').trim()
-        };
-      }
-    }
-
-    // 第9節係按星期，而唔係 Day1–Day6。
-    if(periodIndex===8 && !previous){
-      const current=new Date(`${date}T12:00:00`);
-      const weekday=current.getDay();
-      const cursor=new Date(current);
-
-      for(let dayBack=1;dayBack<=90&&!previous;dayBack++){
-        cursor.setDate(cursor.getDate()-1);
-        if(cursor.getDay()!==weekday)continue;
-
-        const d=dateKeyLocal(cursor);
-        const candidate=timetableLessonForHomework(d,8);
-        if(!candidate)continue;
-
-        const candidateClass=classFromTimetableLesson(candidate)||'未分類';
-        const candidateKey=canonicalWorkflowSubject(candidate,candidateClass);
-        if(normalizeClassId(candidateClass)!==normalizeClassId(className))continue;
-        if(candidateKey!==subjectKey)continue;
-
-        previous={
-          date:d,
-          period:9,
-          periodIndex:8,
-          lesson:candidate,
-          subject:subjectFromLessonText(candidate,candidateClass),
-          cycleDay:null,
-          text:String(notes[`${d}-8-p`]||'').trim(),
-          homework:String(notes[`${d}-8-h`]||'').trim()
-        };
+          previous={
+            date:d,
+            period:pi+1,
+            periodIndex:pi,
+            lesson:candidate,
+            subject:subjectFromLessonText(candidate,candidateClass),
+            text:String(notes[`${d}-${pi}-p`]||'').trim(),
+            homework:String(notes[`${d}-${pi}-h`]||'').trim()
+          };
+          break;
+        }
       }
     }
 
@@ -2724,8 +2697,7 @@
 
     return {
       date,periodIndex,period:periodIndex+1,lesson,subjectName,className,
-      classId,lessonId,homeworkId,progress,homework,previous,tracking,
-      cycleDay:currentMeta?.day||null
+      classId,lessonId,homeworkId,progress,homework,previous,tracking
     };
   }
 
@@ -2784,13 +2756,13 @@
 
     const prevProgress=d.previous
       ? (d.previous.text||'該堂尚未填寫進度')
-      : '未找到上一堂同班同科課堂';
+      : '未找到上一堂同班課堂';
     const prevDate=d.previous?.date?fmt(d.previous.date):'';
     const prevPeriod=d.previous?.period?`・第${d.previous.period}節`:'';
-    const prevCycle=d.previous?.cycleDay?`・Day ${d.previous.cycleDay}`:'';
     const prevHomework=d.previous
       ? (d.previous.homework||'該堂沒有填寫功課')
-      : '未找到上一堂同班同科課堂';
+      : '未找到上一堂同班課堂';
+    const prevSubject=d.previous?.subject?`・${d.previous.subject}`:'';
 
     const trackingRecord=d.tracking?.record||null;
     let trackingText=d.tracking?.label||'未追收';
@@ -2801,8 +2773,8 @@
 
     content.innerHTML=`
       <div class="pe-workflow-stack">
-        <div class="pe-workflow-card"><h4>↩ 上一堂同科進度 ${prevDate?`・${prevDate}${prevPeriod}${prevCycle}`:''}</h4><div>${esc(prevProgress)}</div></div>
-        <div class="pe-workflow-card"><h4>📚 上一堂同科功課</h4><div>${esc(prevHomework)}</div></div>
+        <div class="pe-workflow-card"><h4>↩ 上一堂進度 ${prevDate?`・${prevDate}${prevPeriod}${prevSubject}`:''}</h4><div>${esc(prevProgress)}</div></div>
+        <div class="pe-workflow-card"><h4>📚 上一堂功課</h4><div>${esc(prevHomework)}</div></div>
         <div class="pe-workflow-card"><h4>📘 今堂科目</h4><div>${esc(subjectFromLessonText(d.lesson,d.className))}</div></div>
         <div class="pe-workflow-card pe-workflow-primary"><h4>📝 今堂進度</h4><div>${esc(d.progress||'尚未填寫')}</div></div>
         <div class="pe-workflow-card pe-workflow-primary"><h4>📖 今堂功課</h4><div>${esc(d.homework||'尚未填寫')}</div></div>
