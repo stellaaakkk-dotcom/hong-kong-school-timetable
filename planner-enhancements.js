@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.7.5';
+  const VERSION = '1.8.0';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -68,6 +68,26 @@
       .pe-dashboard-toggle.show{display:block}
       .pe-dashboard{display:none;position:fixed;right:12px;bottom:104px;z-index:2147481300;width:min(390px,calc(100vw - 24px));max-height:68vh;overflow:auto;border:1px solid #e9d5ac;border-radius:15px;background:#fffaf0;color:#594537;padding:10px 11px;box-shadow:0 8px 26px #0003;font-family:"Noto Sans TC","PingFang HK","Microsoft JhengHei",sans-serif}
       .pe-dashboard.open{display:block}.pe-dash-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:7px}.pe-dash-head b{font-size:12px;color:#80542f}.pe-dash-head small{font-size:8px;color:#8c7767}.pe-dash-close{margin-left:5px;border:1px solid #d8c2a4;border-radius:999px;background:#fff;color:#80542f;padding:3px 6px;font-size:8px;font-weight:800}.pe-dash-section{border-top:1px dashed #e3d3bf;padding-top:6px;margin-top:6px}.pe-dash-title{font-size:9px;font-weight:900;color:#8a5c32;margin-bottom:4px}.pe-dash-row{font-size:9px;line-height:1.55;color:#6e5848;overflow-wrap:anywhere}.pe-dash-empty{font-size:9px;color:#998678}.pe-dash-actions{display:flex;gap:5px;margin-top:7px}.pe-dash-actions button{flex:1;border:1px solid #d8c2a4;border-radius:8px;background:#fff;color:#80542f;padding:5px 6px;font-size:8px;font-weight:800}.pe-dash-actions button.primary{background:#a86f3d;color:#fff;border-color:#a86f3d}
+      .pe-dash-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+      .pe-dash-card{border:1px solid #e4d3b9;border-radius:10px;background:#fff;padding:7px;cursor:pointer}
+      .pe-dash-card b{display:block;font-size:15px;color:#7b5332;line-height:1.1}
+      .pe-dash-card span{display:block;margin-top:2px;font-size:8px;color:#8c7767;font-weight:800}
+      .pe-dash-card.warn{background:#fff7ef;border-color:#e8c7ad}
+      .pe-dash-card.danger{background:#fff1ef;border-color:#e5bab4}
+      .pe-dash-detail{display:none;margin-top:7px;border-top:1px dashed #e3d3bf;padding-top:6px}
+      .pe-dash-detail.open{display:block}
+      .pe-homework-toolbar{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}
+      .pe-homework-toolbar select,.pe-homework-toolbar input{width:100%;border:1px solid #decdb9;border-radius:8px;background:#fff;padding:7px;font-size:10px}
+      .pe-homework-list{display:grid;gap:6px}
+      .pe-homework-item{border:1px solid #eadfce;border-radius:9px;background:#fff;padding:8px}
+      .pe-homework-item .top{display:flex;justify-content:space-between;gap:8px}
+      .pe-homework-item b{font-size:10px;color:#80542f}.pe-homework-item small{font-size:8px;color:#8d796a}
+      .pe-homework-item p{margin:4px 0 0;font-size:9px;line-height:1.45;color:#5f4b3d;white-space:pre-wrap}
+      .pe-category-manager-list{display:grid;gap:6px;margin-top:8px}
+      .pe-category-manager-row{display:grid;grid-template-columns:1fr auto;gap:7px;align-items:center;border:1px solid #eadfce;border-radius:9px;background:#fff;padding:8px}
+      .pe-category-manager-row b{font-size:10px;color:#80542f}.pe-category-manager-row small{display:block;font-size:8px;color:#8c7868;margin-top:2px}
+      @media(max-width:700px){.pe-dash-summary,.pe-homework-toolbar{grid-template-columns:1fr 1fr}.pe-category-manager-row{grid-template-columns:1fr}}
+
 
       .pe-context-tools{position:fixed;left:10px;bottom:12px;z-index:2147481400;display:none;gap:6px;flex-wrap:wrap;max-width:calc(100vw - 20px)}.pe-context-tools.show{display:flex}.pe-context-tools button{border:1px solid #d8c2a4;border-radius:999px;background:#fff8db;color:#80542f;padding:8px 10px;font-size:9px;font-weight:800;box-shadow:0 4px 13px #0002}
 
@@ -485,6 +505,7 @@
     try { return JSON.parse(localStorage.getItem(PLANNER_LOCAL_KEY) || '{}') || {}; }
     catch { return {}; }
   }
+  const readPlannerData = plannerState;
 
   function addDays(dateStr, delta){
     const d = new Date(`${dateStr}T12:00:00`);
@@ -641,30 +662,70 @@
 
     const follow=state.submissions.filter(needsFollowup);
     const acts=todayActivities();
+    const urgent=urgentPendingItems();
     const active=board.querySelector('.today-item.active-now');
     const activeText=active ? active.textContent.replace(/\s+/g,' ').trim() : '';
-    const total=follow.reduce((s,r)=>s+(r.missing?.length||0),0);
+    const followPeople=follow.reduce((s,r)=>s+(r.missing?.length||0),0);
+    const overdue=urgent.filter(x=>pendingStatus(x)==='overdue').length;
+    const dueToday=urgent.filter(x=>pendingStatus(x)==='today').length;
+    const soon=urgent.filter(x=>pendingStatus(x)==='soon').length;
+    const uncleared=follow.length + urgent.length;
 
     const wasOpen=el.classList.contains('open');
+    const openDetail=el.dataset.openDetail||'';
+
     el.innerHTML=`
       <div class="pe-dash-head">
         <b>☀ 今日工作台</b>
         <div><small>${fmt(hkToday())}</small><button type="button" class="pe-dash-close" id="pe-close-dashboard">✕ 收起</button></div>
       </div>
-      <div class="pe-dash-section"><div class="pe-dash-title">而家</div>${activeText?`<div class="pe-dash-row">${esc(activeText)}</div>`:'<div class="pe-dash-empty">目前未偵測到進行中的課節。</div>'}</div>
-      <div class="pe-dash-section"><div class="pe-dash-title">📋 今日追收${follow.length?`・${total} 人次`:''}</div>${follow.length?follow.slice(0,5).map(r=>`<div class="pe-dash-row">${esc(r.className||'')}｜${esc(r.name||r.type||'項目')}：${esc((r.missing||[]).map(n=>String(n).padStart(2,'0')).join('、'))}</div>`).join(''):'<div class="pe-dash-empty">今日沒有需要追收。</div>'}</div>
-      <div class="pe-dash-section"><div class="pe-dash-title">📅 今日活動</div>${acts.length?acts.slice(0,8).map(a=>`<div class="pe-dash-row">${esc(a.category||'活動')}｜${esc(a.title||'')}</div>`).join(''):'<div class="pe-dash-empty">今日月曆沒有已顯示的活動／記事。</div>'}</div><div class="pe-dash-section"><div class="pe-dash-title">⏳ Deadline 提醒</div>${urgentPendingItems().length?urgentPendingItems().slice(0,5).map(x=>`<div class="pe-dash-row">${pendingReminderText(x)}｜${esc(x.title||'')}</div>`).join(''):'<div class="pe-dash-empty">今日沒有到期／逾期事項。</div>'}</div>
-      <div class="pe-dash-actions"><button type="button" id="pe-open-sub">查看追收</button><button type="button" class="primary" id="pe-add-today-act">＋今日活動</button></div>
+      ${activeText?`<div class="pe-dash-row" style="margin-bottom:7px"><b style="color:#80542f">而家：</b>${esc(activeText)}</div>`:''}
+
+      <div class="pe-dash-summary">
+        <div class="pe-dash-card ${follow.length?'warn':''}" data-dash-card="follow"><b>${follow.length}</b><span>📋 追收項目・${followPeople} 人次</span></div>
+        <div class="pe-dash-card ${overdue?'danger':(dueToday?'warn':'')}" data-dash-card="deadline"><b>${urgent.length}</b><span>⏳ Deadline・今日 ${dueToday}／逾期 ${overdue}${soon?`／將到 ${soon}`:''}</span></div>
+        <div class="pe-dash-card" data-dash-card="activity"><b>${acts.length}</b><span>📅 今日活動</span></div>
+        <div class="pe-dash-card ${uncleared?'warn':''}" data-dash-card="done"><b>${uncleared}</b><span>✅ 尚待處理</span></div>
+      </div>
+
+      <div class="pe-dash-detail ${openDetail==='follow'?'open':''}" data-dash-detail="follow">
+        ${follow.length?follow.slice(0,8).map(r=>`<div class="pe-dash-row">${esc(r.className||'')}｜${esc(r.name||r.type||'項目')}：${esc((r.missing||[]).map(n=>String(n).padStart(2,'0')).join('、'))}</div>`).join(''):'<div class="pe-dash-empty">今日沒有需要追收。</div>'}
+      </div>
+
+      <div class="pe-dash-detail ${openDetail==='deadline'?'open':''}" data-dash-detail="deadline">
+        ${urgent.length?urgent.slice(0,8).map(x=>`<div class="pe-dash-row">${pendingReminderText(x)}｜${esc(x.title||'')}</div>`).join(''):'<div class="pe-dash-empty">今日沒有 deadline 提醒。</div>'}
+      </div>
+
+      <div class="pe-dash-detail ${openDetail==='activity'?'open':''}" data-dash-detail="activity">
+        ${acts.length?acts.slice(0,10).map(a=>`<div class="pe-dash-row">${esc(a.category||'活動')}｜${esc(a.title||'')}</div>`).join(''):'<div class="pe-dash-empty">今日沒有活動／記事。</div>'}
+      </div>
+
+      <div class="pe-dash-detail ${openDetail==='done'?'open':''}" data-dash-detail="done">
+        ${uncleared?`<div class="pe-dash-row">追收 ${follow.length} 項；Deadline 提醒 ${urgent.length} 項。</div>`:'<div class="pe-dash-empty">🎉 今日暫時已清。</div>'}
+      </div>
+
+      <div class="pe-dash-actions">
+        <button type="button" id="pe-open-sub">查看追收</button>
+        <button type="button" id="pe-open-homework">功課紀錄</button>
+        <button type="button" class="primary" id="pe-add-today-act">＋今日活動</button>
+      </div>
       <button type="button" class="pe-today-done-btn" id="pe-today-done">✅ 今日完成檢查</button>`;
 
     el.querySelector('#pe-close-dashboard')?.addEventListener('click',()=>el.classList.remove('open'));
     el.querySelector('#pe-open-sub')?.addEventListener('click',()=>document.querySelector('.submission-launcher')?.click());
+    el.querySelector('#pe-open-homework')?.addEventListener('click',openHomeworkHistory);
     el.querySelector('#pe-add-today-act')?.addEventListener('click',()=>openActivityModal(hkToday()));
     el.querySelector('#pe-today-done')?.addEventListener('click',openDoneCheck);
 
+    el.querySelectorAll('[data-dash-card]').forEach(card=>card.addEventListener('click',()=>{
+      const key=card.dataset.dashCard;
+      el.dataset.openDetail=el.dataset.openDetail===key?'':key;
+      renderDashboard();
+      el.classList.add('open');
+    }));
+
     if(wasOpen) el.classList.add('open');
   }
-
 
   function visibleCalendarGrid(){
     return [...document.querySelectorAll('.calendar-grid')].find(g=>isVisible(g)) || null;
@@ -1191,11 +1252,94 @@
     }else queueActivityPending({op:'set',id,data:payload});
   }
 
+
+  function activityCategoryCounts(){
+    const map={};
+    state.activities.forEach(a=>{
+      const c=(a.category||'未分類').trim()||'未分類';
+      map[c]=(map[c]||0)+1;
+    });
+    return map;
+  }
+
+  function ensureCategoryManager(){
+    let m=document.getElementById('pe-category-manager-modal');
+    if(m)return m;
+    m=document.createElement('div');m.id='pe-category-manager-modal';m.className='pe-modal';
+    m.innerHTML=`<div class="pe-dialog">
+      <h3>🏷 活動類型管理</h3>
+      <p class="pe-note">可以將舊類型改名，或者將兩個近似類型合併成同一個名稱。所有相關活動紀錄會一併更新。</p>
+      <div class="pe-grid">
+        <div class="pe-field"><label>原本類型</label><select id="pe-cat-from"></select></div>
+        <div class="pe-field"><label>新名稱／合併到</label><input id="pe-cat-to" placeholder="例如：家長聯絡"></div>
+      </div>
+      <div class="pe-actions"><button class="pe-btn primary" id="pe-cat-merge">改名／合併</button></div>
+      <div id="pe-category-manager-list" class="pe-category-manager-list"></div>
+      <div class="pe-actions"><button class="pe-btn" id="pe-cat-close">關閉</button></div>
+    </div>`;
+    document.body.appendChild(m);
+    m.addEventListener('click',e=>{if(e.target===m)closeModal(m)});
+    m.querySelector('#pe-cat-close').addEventListener('click',()=>closeModal(m));
+    m.querySelector('#pe-cat-merge').addEventListener('click',mergeActivityCategory);
+    m.querySelector('#pe-cat-from').addEventListener('change',()=>{
+      m.querySelector('#pe-cat-to').value=m.querySelector('#pe-cat-from').value;
+    });
+    return m;
+  }
+
+  function renderCategoryManager(){
+    const m=ensureCategoryManager(),counts=activityCategoryCounts();
+    const cats=Object.keys(counts).sort((a,b)=>a.localeCompare(b,'zh-HK'));
+    const select=m.querySelector('#pe-cat-from'),current=select.value;
+    select.innerHTML=cats.map(c=>`<option value="${esc(c)}">${esc(c)}（${counts[c]}）</option>`).join('');
+    if(cats.includes(current))select.value=current;
+    if(!m.querySelector('#pe-cat-to').value && select.value)m.querySelector('#pe-cat-to').value=select.value;
+    m.querySelector('#pe-category-manager-list').innerHTML=cats.length?cats.map(c=>`<div class="pe-category-manager-row"><div><b>${esc(c)}</b><small>${counts[c]} 項活動紀錄</small></div><button class="pe-btn" data-cat-use="${esc(c)}">管理</button></div>`).join(''):'<div class="pe-note">暫時未有活動類型。</div>';
+    m.querySelectorAll('[data-cat-use]').forEach(b=>b.addEventListener('click',()=>{
+      select.value=b.dataset.catUse;
+      m.querySelector('#pe-cat-to').value=b.dataset.catUse;
+      m.querySelector('#pe-cat-to').focus();
+    }));
+  }
+
+  function openCategoryManager(){
+    ensureCategoryManager().classList.add('open');
+    renderCategoryManager();
+  }
+
+  async function mergeActivityCategory(){
+    const m=ensureCategoryManager(),from=m.querySelector('#pe-cat-from').value.trim(),to=m.querySelector('#pe-cat-to').value.trim();
+    if(!from||!to)return alert('請選擇原本類型並輸入新名稱。');
+    if(from===to)return alert('新名稱與原本類型相同，毋須修改。');
+
+    const affected=state.activities.filter(a=>((a.category||'未分類').trim()||'未分類')===from);
+    if(!affected.length)return;
+    if(!confirm(`將「${from}」的 ${affected.length} 項紀錄全部改為「${to}」？`))return;
+
+    const now=new Date().toISOString();
+    affected.forEach(a=>{a.category=to;a.updatedAt=now});
+    saveLocalActivities();
+    refreshCategoryList();
+    refreshStatsCategoryOptions();
+    renderStatsIfOpen();
+    renderCategoryManager();
+    renderDashboard();
+
+    for(const a of affected){
+      const payload={category:to,updatedAt:now};
+      if(state.firebaseReady&&navigator.onLine){
+        try{await activityCollection().doc(a.id).set(payload,{merge:true})}
+        catch{queueActivityPending({op:'set',id:a.id,data:payload})}
+      }else queueActivityPending({op:'set',id:a.id,data:payload});
+    }
+    updateSyncDisplay();
+  }
+
   function ensureStatsModal(){
     let modal=document.getElementById('pe-stats-modal');if(modal)return modal;
     modal=document.createElement('div');modal.id='pe-stats-modal';modal.className='pe-modal';
-    modal.innerHTML=`<div class="pe-dialog"><h3>📊 活動紀錄統計</h3><p class="pe-note">按類別檢視出現次數、日期，亦可匯出 CSV 或列印／另存 PDF。</p><div class="pe-stat-toolbar"><select id="pe-stat-range"><option value="year">全學年</option><option value="term1">上學期</option><option value="term2">下學期</option><option value="month">本月</option></select><select id="pe-stat-category"><option value="">全部類型</option></select><input id="pe-stat-search" placeholder="搜尋類別／活動名稱"><div class="pe-stat-actions"><button id="pe-export-csv" title="匯出 CSV">CSV</button><button id="pe-print-stats" title="列印／儲存 PDF">PDF</button></div></div><div id="pe-stat-content"></div><div class="pe-actions"><button class="pe-btn" id="pe-stat-close">關閉</button></div></div>`;
-    document.body.appendChild(modal);modal.addEventListener('click',e=>{if(e.target===modal)closeModal(modal)});modal.querySelector('#pe-stat-close').addEventListener('click',()=>closeModal(modal));modal.querySelector('#pe-stat-range').addEventListener('change',()=>{refreshStatsCategoryOptions();renderStats()});modal.querySelector('#pe-stat-category').addEventListener('change',renderStats);modal.querySelector('#pe-stat-search').addEventListener('input',renderStats);modal.querySelector('#pe-export-csv').addEventListener('click',exportActivitiesCsv);modal.querySelector('#pe-print-stats').addEventListener('click',printActivityStats);return modal;
+    modal.innerHTML=`<div class="pe-dialog"><h3>📊 活動紀錄統計</h3><p class="pe-note">按類別檢視出現次數、日期，亦可匯出 CSV 或列印／另存 PDF。</p><div class="pe-stat-toolbar"><select id="pe-stat-range"><option value="year">全學年</option><option value="term1">上學期</option><option value="term2">下學期</option><option value="month">本月</option></select><select id="pe-stat-category"><option value="">全部類型</option></select><input id="pe-stat-search" placeholder="搜尋類別／活動名稱"><div class="pe-stat-actions"><button id="pe-export-csv" title="匯出 CSV">CSV</button><button id="pe-print-stats" title="列印／儲存 PDF">PDF</button></div></div><div id="pe-stat-content"></div><div class="pe-actions"><button class="pe-btn" id="pe-manage-categories">管理活動類型</button><button class="pe-btn" id="pe-stat-close">關閉</button></div></div>`;
+    document.body.appendChild(modal);modal.addEventListener('click',e=>{if(e.target===modal)closeModal(modal)});modal.querySelector('#pe-stat-close').addEventListener('click',()=>closeModal(modal));modal.querySelector('#pe-manage-categories').addEventListener('click',openCategoryManager);modal.querySelector('#pe-stat-range').addEventListener('change',()=>{refreshStatsCategoryOptions();renderStats()});modal.querySelector('#pe-stat-category').addEventListener('change',renderStats);modal.querySelector('#pe-stat-search').addEventListener('input',renderStats);modal.querySelector('#pe-export-csv').addEventListener('click',exportActivitiesCsv);modal.querySelector('#pe-print-stats').addEventListener('click',printActivityStats);return modal;
   }
   function schoolYearBounds(){const[y,m]=hkToday().split('-').map(Number),sy=m>=8?y:y-1;return{year:[`${sy}-08-01`,`${sy+1}-07-31`],term1:[`${sy}-08-01`,`${sy}-12-31`],term2:[`${sy+1}-01-01`,`${sy+1}-07-31`]}}
   function statsDateRange(){
@@ -1264,6 +1408,96 @@
       }
     }else queueActivityPending({op:'delete',id});
   }
+
+  function inferClassFromText(text=''){
+    const m=String(text).toUpperCase().match(/\b([1-6][A-E])\b/);
+    return m?m[1]:'';
+  }
+
+  function homeworkHistoryRows(){
+    const p=plannerState(),notes=p.lessonNotes||{},rows=[];
+    const subs=window.__submissionTrackerAPI?.getRecords?.()||state.submissions||[];
+
+    for(const [key,val] of Object.entries(notes)){
+      if(!val||typeof val!=='string')continue;
+      const m=key.match(/^(\d{4}-\d{2}-\d{2})-(\d+)-h$/);
+      if(!m)continue;
+
+      const date=m[1],period=Number(m[2])+1,text=val.trim();
+      const linked=subs.find(r=>{
+        if(!r?.sourceKey)return false;
+        const bits=String(r.sourceKey).split('|');
+        return bits[0]===date && bits[3]===text;
+      });
+
+      const subject=linked?.sourceSubject||'';
+      const className=(linked?.className && linked.className!=='班別')
+        ? linked.className
+        : (inferClassFromText(subject)||inferClassFromText(text)||p.className||'未分類');
+
+      rows.push({
+        date,period,subject,
+        className:String(className||'未分類').trim()||'未分類',
+        text,
+        tracked:!!linked
+      });
+    }
+
+    return rows.sort((a,b)=>b.date.localeCompare(a.date)||a.period-b.period);
+  }
+
+  function ensureHomeworkHistoryModal(){
+    let m=document.getElementById('pe-homework-history-modal');
+    if(m)return m;
+    m=document.createElement('div');m.id='pe-homework-history-modal';m.className='pe-modal';
+    m.innerHTML=`<div class="pe-dialog">
+      <h3>📚 功課紀錄</h3>
+      <p class="pe-note">列出教學日誌曾輸入過的「功課」。曾加入「＋追收」的功課會優先使用追收紀錄的班別；舊資料沒有班別時會以可辨認班別／目前任教班別作 fallback。</p>
+      <div class="pe-homework-toolbar">
+        <select id="pe-homework-class"><option value="">全部班別</option></select>
+        <input id="pe-homework-search" placeholder="搜尋功課／科目">
+      </div>
+      <div id="pe-homework-summary" class="pe-note"></div>
+      <div id="pe-homework-list" class="pe-homework-list"></div>
+      <div class="pe-actions"><button class="pe-btn" id="pe-homework-close">關閉</button></div>
+    </div>`;
+    document.body.appendChild(m);
+    m.addEventListener('click',e=>{if(e.target===m)closeModal(m)});
+    m.querySelector('#pe-homework-close').addEventListener('click',()=>closeModal(m));
+    m.querySelector('#pe-homework-class').addEventListener('change',renderHomeworkHistory);
+    m.querySelector('#pe-homework-search').addEventListener('input',renderHomeworkHistory);
+    return m;
+  }
+
+  function renderHomeworkHistory(){
+    const m=ensureHomeworkHistoryModal(),all=homeworkHistoryRows();
+    const select=m.querySelector('#pe-homework-class');
+    const current=select.value;
+    const classes=[...new Set(all.map(x=>x.className))].sort((a,b)=>a.localeCompare(b,'zh-HK'));
+    select.innerHTML='<option value="">全部班別</option>'+classes.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    if(classes.includes(current))select.value=current;
+
+    const cls=select.value;
+    const q=(m.querySelector('#pe-homework-search').value||'').trim().toLowerCase();
+    const rows=all.filter(x=>(!cls||x.className===cls)&&(!q||`${x.subject} ${x.text}`.toLowerCase().includes(q)));
+
+    m.querySelector('#pe-homework-summary').textContent=`共 ${rows.length} 份功課${cls?`・${cls}`:''}`;
+    m.querySelector('#pe-homework-list').innerHTML=rows.length?rows.map(x=>`
+      <div class="pe-homework-item">
+        <div class="top">
+          <div><b>${esc(x.className)}｜${fmt(x.date)}</b><small>第${x.period}節${x.subject?`・${esc(x.subject)}`:''}</small></div>
+          <small>${x.tracked?'📋 已加入追收':'日誌紀錄'}</small>
+        </div>
+        <p>${esc(x.text)}</p>
+      </div>`).join(''):'<div class="pe-note">暫時未有符合條件的功課紀錄。</div>';
+  }
+
+  function openHomeworkHistory(){
+    const m=ensureHomeworkHistoryModal();
+    m.classList.add('open');
+    renderHomeworkHistory();
+  }
+
   function openJournalSearch(){const m=ensureSearchModal();m.classList.add('open');document.getElementById('pe-global-query').focus();renderGlobalSearch()}
   function currentVisibleSubjectMap(){const map={};document.querySelectorAll('.journal-table tbody tr').forEach(row=>{const subject=row.querySelector('.subject-cell')?.textContent?.trim();const ta=row.querySelector('textarea[aria-label*="進度"],textarea[aria-label*="功課"]');const label=ta?.getAttribute('aria-label')||'';const m=label.match(/第(\d+)節/);if(subject&&m)map[Number(m[1])-1]=subject});return map}
   function journalRows(){const data=readPlannerData(),notes=data.lessonNotes||{},subjects=currentVisibleSubjectMap(),rows=[];for(const[key,val]of Object.entries(notes)){if(!val||typeof val!=='string')continue;const m=key.match(/^(\d{4}-\d{2}-\d{2})-(\d+)-(p|h)$/);if(!m)continue;rows.push({kind:m[3]==='p'?'教學進度':'功課',date:m[1],title:`第${Number(m[2])+1}節${subjects[Number(m[2])]?`・${subjects[Number(m[2])]}`:''}`,text:val})}return rows}
@@ -1304,7 +1538,7 @@
     let sheet=document.getElementById('pe-mobile-more');
     if(sheet)return sheet;
     sheet=document.createElement('div');sheet.id='pe-mobile-more';sheet.className='pe-mobile-more';
-    sheet.innerHTML=`<button id="pe-more-dashboard">☀ 今日工作台</button><button id="pe-more-done">✅ 今日完成</button><button id="pe-more-pending">⏳ 待處理事項</button><button id="pe-more-tags">🏷 月曆標籤</button><button id="pe-more-search">🔎 全站搜尋</button><button id="pe-more-stats">📊 活動統計</button><button id="pe-more-activity">＋ 活動紀錄</button><button id="pe-more-submission">📋 作業／回條</button>`;
+    sheet.innerHTML=`<button id="pe-more-dashboard">☀ 今日工作台</button><button id="pe-more-done">✅ 今日完成</button><button id="pe-more-pending">⏳ 待處理事項</button><button id="pe-more-homework">📚 功課紀錄</button><button id="pe-more-tags">🏷 月曆標籤</button><button id="pe-more-search">🔎 全站搜尋</button><button id="pe-more-stats">📊 活動統計</button><button id="pe-more-categories">🏷 類型管理</button><button id="pe-more-activity">＋ 活動紀錄</button><button id="pe-more-submission">📋 作業／回條</button>`;
     document.body.appendChild(sheet);
     sheet.querySelector('#pe-more-dashboard').addEventListener('click',()=>{
       closeMobileMore();
@@ -1314,6 +1548,8 @@
     });
     sheet.querySelector('#pe-more-done').addEventListener('click',()=>{closeMobileMore();openDoneCheck()});
     sheet.querySelector('#pe-more-pending').addEventListener('click',()=>{closeMobileMore();openPendingModal()});
+    sheet.querySelector('#pe-more-homework').addEventListener('click',()=>{closeMobileMore();openHomeworkHistory()});
+    sheet.querySelector('#pe-more-categories').addEventListener('click',()=>{closeMobileMore();openCategoryManager()});
     sheet.querySelector('#pe-more-tags').addEventListener('click',()=>{closeMobileMore();openTagVisibilityModal()});
     sheet.querySelector('#pe-more-search').addEventListener('click',()=>{closeMobileMore();openJournalSearch()});
     sheet.querySelector('#pe-more-stats').addEventListener('click',()=>{closeMobileMore();openStatsModal()});
@@ -1459,6 +1695,8 @@
     ensurePendingEditModal();
     ensureTagVisibilityModal();
     ensureDateQuickModal();
+    ensureHomeworkHistoryModal();
+    ensureCategoryManager();
     ensureMobileNav();
     ensureIpadRail();
     ensureDesktopMoreToggle();

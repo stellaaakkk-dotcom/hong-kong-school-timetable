@@ -1,9 +1,10 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.2.1';
+  const VERSION = '1.3.0';
   const LOCAL_KEY = 'hk-school-submission-records-v1';
   const PENDING_KEY = 'hk-school-submission-pending-v1';
+  const CLASS_PREF_KEY = 'hk-school-class-student-counts-v1';
   const COLORS = {
     cream: '#fff8d9',
     cream2: '#fff3b8',
@@ -49,6 +50,45 @@
     const [y,m,d] = s.split('-');
     return `${d}/${m}/${y}`;
   }
+
+  function loadClassPrefs(){
+    try{
+      const x=JSON.parse(localStorage.getItem(CLASS_PREF_KEY)||'{}');
+      return x&&typeof x==='object'?x:{};
+    }catch{return{}}
+  }
+
+  function rememberClassPref(className,count){
+    const cls=String(className||'').trim();
+    const n=Math.max(1,Math.min(60,Number(count)||30));
+    if(!cls||cls==='班別')return;
+    const prefs=loadClassPrefs();
+    prefs[cls]=n;
+    try{localStorage.setItem(CLASS_PREF_KEY,JSON.stringify(prefs))}catch{}
+  }
+
+  function knownClassPrefs(){
+    const prefs=loadClassPrefs();
+    state.records.forEach(r=>{
+      const cls=String(r.className||'').trim();
+      if(cls&&cls!=='班別'&&!prefs[cls])prefs[cls]=Number(r.studentCount)||30;
+    });
+    return prefs;
+  }
+
+  function attachClassAutoFill(classInputId,countInputId){
+    const cls=document.getElementById(classInputId),count=document.getElementById(countInputId);
+    if(!cls||!count||cls.dataset.classAutoFill==='1')return;
+    cls.dataset.classAutoFill='1';
+    const apply=()=>{
+      const prefs=knownClassPrefs(),name=cls.value.trim();
+      if(prefs[name])count.value=String(prefs[name]);
+    };
+    cls.addEventListener('input',apply);
+    cls.addEventListener('change',apply);
+    cls.addEventListener('blur',apply);
+  }
+
 
   function id() {
     return `sub_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
@@ -237,6 +277,7 @@
     if (idx >= 0) state.records[idx] = r;
     else state.records.unshift(r);
     state.activeId = r.id;
+    rememberClassPref(r.className,r.studentCount);
     saveLocal();
     render();
 
@@ -436,7 +477,7 @@
           <div class="sub-grid">
             <div class="sub-field"><label>名稱</label><input id="sub-name" placeholder="例如：家長日回條"></div>
             <div class="sub-field"><label>類別</label><select id="sub-type"><option>作業</option><option>回條</option><option>其他</option></select></div>
-            <div class="sub-field"><label>班別</label><input id="sub-class" placeholder="例如：3A"></div>
+            <div class="sub-field"><label>班別</label><input id="sub-class" list="sub-class-list" placeholder="例如：3A"><datalist id="sub-class-list">${Object.keys(knownClassPrefs()).sort((a,b)=>a.localeCompare(b,'zh-HK')).map(c=>`<option value="${esc(c)}"></option>`).join('')}</datalist></div>
             <div class="sub-field"><label>學生人數</label><input id="sub-count" type="number" min="1" max="60" value="30"></div>
             <div class="sub-field"><label>派發日期</label><input id="sub-issue" type="date" value="${hkDateString()}"></div>
             <div class="sub-field"><label>繳交日期</label><input id="sub-due" type="date"></div>
@@ -542,6 +583,7 @@
 
   function wireEvents() {
     document.getElementById('submission-close')?.addEventListener('click', hidePage);
+    attachClassAutoFill('sub-class','sub-count');
     document.getElementById('sub-create')?.addEventListener('click', async () => {
       const name = document.getElementById('sub-name').value.trim();
       if (!name) return toast('請輸入名稱', 'error');
@@ -681,7 +723,7 @@
         <p class="source" id="jf-source"></p>
         <div class="sub-grid">
           <div class="sub-field full"><label>功課名稱</label><input id="jf-name"></div>
-          <div class="sub-field"><label>班別</label><input id="jf-class" placeholder="例如：3A"></div>
+          <div class="sub-field"><label>班別</label><input id="jf-class" list="jf-class-list" placeholder="例如：3A"><datalist id="jf-class-list"></datalist></div>
           <div class="sub-field"><label>學生人數</label><input id="jf-count" type="number" min="1" max="60" value="30"></div>
           <div class="sub-field"><label>派發日期</label><input id="jf-issue" type="date"></div>
           <div class="sub-field"><label>繳交日期</label><input id="jf-due" type="date"></div>
@@ -726,8 +768,12 @@
       `${src.issueDate} ・ ${src.subject || '未有科目'}${src.period ? ' ・ ' + src.period : ''}`;
     document.getElementById('jf-name').value =
       `${src.subject ? src.subject + '｜' : ''}${src.homework}`;
+    const prefs=knownClassPrefs(),classes=Object.keys(prefs).sort((a,b)=>a.localeCompare(b,'zh-HK'));
+    const dl=document.getElementById('jf-class-list');
+    if(dl)dl.innerHTML=classes.map(c=>`<option value="${esc(c)}"></option>`).join('');
     document.getElementById('jf-class').value = '';
     document.getElementById('jf-count').value = '30';
+    attachClassAutoFill('jf-class','jf-count');
     document.getElementById('jf-issue').value = src.issueDate;
     document.getElementById('jf-due').value = src.issueDate;
     document.getElementById('jf-deadline').value = '';
