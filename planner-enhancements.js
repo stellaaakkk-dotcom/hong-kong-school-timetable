@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.9.3';
+  const VERSION = '1.9.4';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -2042,10 +2042,58 @@
     renderHomeworkHistory();
   }
 
+  function ensureSearchModal(){
+    let m=document.getElementById('pe-search-modal');
+    if(m)return m;
+
+    m=document.createElement('div');
+    m.id='pe-search-modal';
+    m.className='pe-modal';
+    m.innerHTML=`<div class="pe-dialog">
+      <h3>🔎 全站搜尋</h3>
+      <p class="pe-note">搜尋教學進度、功課、月曆記事、校曆活動、活動紀錄、追收紀錄及待處理事項。</p>
+      <div class="pe-homework-toolbar">
+        <input id="pe-global-query" type="search" placeholder="輸入關鍵字，例如：默書、家長、3C、工作紙">
+        <button class="pe-btn" type="button" id="pe-search-clear">清除</button>
+      </div>
+      <div class="pe-search-hint">可按整張搜尋結果，或按「前往來源」直接跳返原本位置。</div>
+      <div id="pe-search-results" class="pe-search-results">
+        <div class="pe-note">輸入關鍵字開始搜尋。</div>
+      </div>
+      <div class="pe-actions">
+        <button class="pe-btn" type="button" id="pe-search-close">關閉</button>
+      </div>
+    </div>`;
+
+    document.body.appendChild(m);
+
+    m.addEventListener('click',e=>{
+      if(e.target===m)closeModal(m);
+    });
+
+    const input=m.querySelector('#pe-global-query');
+    input.addEventListener('input',renderGlobalSearch);
+    input.addEventListener('keydown',e=>{
+      if(e.key==='Escape')closeModal(m);
+    });
+
+    m.querySelector('#pe-search-clear').addEventListener('click',()=>{
+      input.value='';
+      renderGlobalSearch();
+      input.focus();
+    });
+
+    m.querySelector('#pe-search-close').addEventListener('click',()=>closeModal(m));
+
+    return m;
+  }
+
   function openJournalSearch(){
     const m=ensureSearchModal();
+    if(!m)return;
     m.classList.add('open');
-    document.getElementById('pe-global-query').focus();
+    const input=m.querySelector('#pe-global-query');
+    input?.focus();
     renderGlobalSearch();
   }
 
