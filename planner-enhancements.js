@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.7.0';
+  const VERSION = '1.7.1';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -821,13 +821,25 @@
     await syncPendingSet(item);
   }
 
-  async function deletePendingItem(id){
-    const item=state.pendingItems.find(x=>x.id===id);if(!item||!confirm(`刪除「${item.title}」？`))return;
-    state.pendingItems=state.pendingItems.filter(x=>x.id!==id);saveLocalPending();renderPendingList();renderDashboard();
+  async function deletePendingItem(id,skipConfirm=false){
+    const item=state.pendingItems.find(x=>x.id===id);
+    if(!item)return;
+    if(!skipConfirm && !confirm(`確定要刪除「${item.title||'這項待辦'}」？\n刪除後月曆及 Deadline 提醒都會同步移除。`))return;
+
+    state.pendingItems=state.pendingItems.filter(x=>x.id!==id);
+    saveLocalPending();
+    renderPendingList();
+    renderDashboard();
+
     if(state.firebaseReady&&navigator.onLine){
       setSync('syncing');
-      try{await pendingCollection().doc(id).delete();savePendingQueue(loadPendingQueue().filter(x=>x.id!==id));updateSyncDisplay()}
-      catch{queuePendingOp({op:'delete',id})}
+      try{
+        await pendingCollection().doc(id).delete();
+        savePendingQueue(loadPendingQueue().filter(x=>x.id!==id));
+        updateSyncDisplay();
+      }catch{
+        queuePendingOp({op:'delete',id});
+      }
     }else queuePendingOp({op:'delete',id});
   }
 
@@ -875,6 +887,7 @@
         <button class="pe-btn" id="pe-pending-nextweek">下星期</button>
       </div>
       <div class="pe-actions">
+        <button class="pe-btn danger" id="pe-edit-pending-delete">刪除</button>
         <button class="pe-btn" id="pe-edit-pending-cancel">取消</button>
         <button class="pe-btn" id="pe-edit-pending-complete">✓ 完成今次</button>
         <button class="pe-btn primary" id="pe-edit-pending-save">儲存</button>
@@ -883,6 +896,14 @@
     document.body.appendChild(modal);
     modal.addEventListener('click',e=>{if(e.target===modal)closeModal(modal)});
     modal.querySelector('#pe-edit-pending-cancel').addEventListener('click',()=>closeModal(modal));
+    modal.querySelector('#pe-edit-pending-delete').addEventListener('click',async()=>{
+      const id=modal.dataset.editId;
+      const rec=state.pendingItems.find(x=>x.id===id);
+      if(!rec)return;
+      if(!confirm(`確定要刪除「${rec.title||'這項待辦'}」？\n刪除後月曆及 Deadline 提醒都會同步移除。`))return;
+      closeModal(modal);
+      await deletePendingItem(id,true);
+    });
     modal.querySelector('#pe-edit-pending-save').addEventListener('click',savePendingEdit);
     modal.querySelector('#pe-edit-pending-complete').addEventListener('click',async()=>{
       const id=modal.dataset.editId;closeModal(modal);await togglePendingComplete(id);
@@ -980,6 +1001,7 @@
         <div class="pe-field pe-full"><label>備註</label><textarea id="pe-edit-act-note"></textarea></div>
       </div>
       <div class="pe-actions">
+        <button class="pe-btn danger" id="pe-edit-act-delete">刪除</button>
         <button class="pe-btn" id="pe-edit-act-cancel">取消</button>
         <button class="pe-btn primary" id="pe-edit-act-save">儲存修改</button>
       </div>
@@ -987,6 +1009,14 @@
     document.body.appendChild(modal);
     modal.addEventListener('click',e=>{if(e.target===modal)closeModal(modal)});
     modal.querySelector('#pe-edit-act-cancel').addEventListener('click',()=>closeModal(modal));
+    modal.querySelector('#pe-edit-act-delete').addEventListener('click',async()=>{
+      const id=modal.dataset.editId;
+      const rec=state.activities.find(x=>x.id===id);
+      if(!rec)return;
+      if(!confirm(`確定要刪除「${rec.title||'這項活動'}」？\n刪除後月曆、統計及今日工作台都會同步移除。`))return;
+      closeModal(modal);
+      await deleteActivity(id,true);
+    });
     modal.querySelector('#pe-edit-act-save').addEventListener('click',saveActivityEdit);
     return modal;
   }
@@ -1087,18 +1117,28 @@
   function renderStats(){const out=document.getElementById('pe-stat-content');if(!out)return;const items=filteredActivities(),groups={};items.forEach(a=>(groups[(a.category||'未分類').trim()||'未分類']||=[]).push(a));const entries=Object.entries(groups).sort((a,b)=>b[1].length-a[1].length||a[0].localeCompare(b[0],'zh-HK'));out.innerHTML=entries.length?entries.map(([cat,arr])=>`<details class="pe-stat-group" open><summary><span>${esc(cat)}</span><span>${arr.length} 次</span></summary><div class="pe-stat-list">${arr.sort((a,b)=>a.date.localeCompare(b.date)).map(a=>`<div class="pe-stat-item"><b>${fmt(a.date)}</b><small><strong>${esc(a.title||'')}</strong>${a.note?`<br>${esc(a.note)}`:''}</small><span class="pe-stat-row-actions"><button data-edit-activity="${esc(a.id||'')}">修改</button><button data-delete-activity="${esc(a.id||'')}">刪除</button></span></div>`).join('')}</div></details>`).join(''):'<div class="pe-note">這個範圍暫時未有活動紀錄。</div>';out.querySelectorAll('[data-edit-activity]').forEach(b=>b.addEventListener('click',()=>openActivityEdit(b.dataset.editActivity)));out.querySelectorAll('[data-delete-activity]').forEach(b=>b.addEventListener('click',()=>deleteActivity(b.dataset.deleteActivity)))}
   function openStatsModal(){ensureStatsModal().classList.add('open');refreshStatsCategoryOptions();renderStats()}
   function renderStatsIfOpen(){if(document.getElementById('pe-stats-modal')?.classList.contains('open')){refreshStatsCategoryOptions();renderStats()}}
-  async function deleteActivity(id){const r=state.activities.find(x=>x.id===id);if(!r||!confirm(`刪除「${r.title}」？`))return;state.activities=state.activities.filter(x=>x.id!==id);saveLocalActivities();renderStats();renderDashboard();renderCalendarActivityOverlay();if(state.firebaseReady&&navigator.onLine){setSync('syncing');try{await activityCollection().doc(id).delete();saveActivityPending(loadActivityPending().filter(x=>!(x.op==='delete'&&x.id===id)));updateSyncDisplay()}catch{queueActivityPending({op:'delete',id})}}else queueActivityPending({op:'delete',id})}
+  async function deleteActivity(id,skipConfirm=false){
+    const rec=state.activities.find(x=>x.id===id);
+    if(!rec)return;
+    if(!skipConfirm && !confirm(`確定要刪除「${rec.title||'這項活動'}」？\n刪除後月曆、統計及今日工作台都會同步移除。`))return;
 
-  function csvCell(v){return `"${String(v??'').replace(/"/g,'""')}"`}
-  function exportActivitiesCsv(){const rows=filteredActivities().sort((a,b)=>a.date.localeCompare(b.date));const csv=['日期,活動類別,活動名稱,備註',...rows.map(a=>[a.date,a.category,a.title,a.note].map(csvCell).join(','))].join('\r\n');const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`活動紀錄_${hkToday()}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
-  function printActivityStats(){const items=filteredActivities().sort((a,b)=>a.date.localeCompare(b.date));const w=window.open('','_blank');if(!w){alert('瀏覽器阻擋咗列印視窗，請允許彈出視窗後再試。');return}w.document.write(`<!doctype html><meta charset="utf-8"><title>活動紀錄統計</title><style>body{font-family:Arial,"Microsoft JhengHei",sans-serif;padding:24px;color:#333}h1{font-size:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #bbb;padding:7px;font-size:12px;text-align:left}th{background:#f3eee7}</style><h1>活動紀錄統計</h1><p>匯出日期：${fmt(hkToday())}</p><table><thead><tr><th>日期</th><th>類別</th><th>活動</th><th>備註</th></tr></thead><tbody>${items.map(a=>`<tr><td>${esc(fmt(a.date))}</td><td>${esc(a.category)}</td><td>${esc(a.title)}</td><td>${esc(a.note||'')}</td></tr>`).join('')}</tbody></table><script>window.onload=()=>window.print()<\/script>`);w.document.close()}
+    state.activities=state.activities.filter(x=>x.id!==id);
+    saveLocalActivities();
+    refreshCategoryList();
+    renderStatsIfOpen();
+    renderDashboard();
+    renderCalendarActivityOverlay();
 
-  function readPlannerData(){try{return JSON.parse(localStorage.getItem(PLANNER_LOCAL_KEY)||'{}')}catch{return{}}}
-  function ensureSearchModal(){
-    let modal=document.getElementById('pe-search-modal');if(modal)return modal;
-    modal=document.createElement('div');modal.id='pe-search-modal';modal.className='pe-modal';
-    modal.innerHTML=`<div class="pe-dialog pe-global-search"><h3>🔎 全站搜尋</h3><p class="pe-note">一次搜尋教學日誌／功課、月曆記事、校曆活動、活動紀錄及追收紀錄。</p><div class="pe-grid"><div class="pe-field pe-full"><label>關鍵字</label><input id="pe-global-query" placeholder="例如：作文／家長會／3A／詞語改正"></div></div><div id="pe-search-results" class="pe-search-results"></div><div class="pe-actions"><button class="pe-btn" id="pe-search-close">關閉</button></div></div>`;
-    document.body.appendChild(modal);modal.addEventListener('click',ev=>{if(ev.target===modal)closeModal(modal)});modal.querySelector('#pe-search-close').addEventListener('click',()=>closeModal(modal));modal.querySelector('#pe-global-query').addEventListener('input',renderGlobalSearch);return modal;
+    if(state.firebaseReady&&navigator.onLine){
+      setSync('syncing');
+      try{
+        await activityCollection().doc(id).delete();
+        saveActivityPending(loadActivityPending().filter(x=>x.id!==id));
+        updateSyncDisplay();
+      }catch{
+        queueActivityPending({op:'delete',id});
+      }
+    }else queueActivityPending({op:'delete',id});
   }
   function openJournalSearch(){const m=ensureSearchModal();m.classList.add('open');document.getElementById('pe-global-query').focus();renderGlobalSearch()}
   function currentVisibleSubjectMap(){const map={};document.querySelectorAll('.journal-table tbody tr').forEach(row=>{const subject=row.querySelector('.subject-cell')?.textContent?.trim();const ta=row.querySelector('textarea[aria-label*="進度"],textarea[aria-label*="功課"]');const label=ta?.getAttribute('aria-label')||'';const m=label.match(/第(\d+)節/);if(subject&&m)map[Number(m[1])-1]=subject});return map}
