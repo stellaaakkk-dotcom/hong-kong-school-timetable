@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.3.0';
+  const VERSION = '2.3.1';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -2131,6 +2131,9 @@
       lessonId:meta.lessonId||'',
       homeworkId:meta.homeworkId||'',
       sourceType:meta.sourceType||'manual',
+      studentId:meta.studentId||'',
+      studentName:meta.studentName||'',
+      studentNo:meta.studentNo||'',
       completed:false,completedAt:'',
       createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()
     };
@@ -3493,6 +3496,143 @@
   }
 
 
+
+  function studentProfileFromRefs(classRef='',studentRef=''){
+    const classRec=(state.classCore||[]).find(c=>
+      String(c.classId||c.id)===String(classRef) ||
+      normalizeClassId(c.name)===normalizeClassId(classRef)
+    );
+    if(!classRec)return null;
+    const normalized=normalizeClassProfile(classRec);
+    const student=normalized.students.find(s=>
+      String(s.studentId||s.id)===String(studentRef) ||
+      s.name===String(studentRef) ||
+      String(s.number)===String(studentRef)
+    );
+    if(!student)return null;
+    return {classRec:normalized,student};
+  }
+
+  function studentMainSnapshot(classRef='',studentRef=''){
+    const found=studentProfileFromRefs(classRef,studentRef);
+    if(!found)return {classInfo:null,student:null,submissions:[],pending:[],classPending:[]};
+
+    const {classRec,student}=found;
+    const className=normalizeClassId(classRec.name);
+    const studentNo=Number(student.number)||0;
+    const submissions=(window.__submissionTrackerAPI?.getRecords?.()||state.submissions||[])
+      .filter(r=>normalizeClassId(r.className)===className)
+      .map(r=>{
+        const missing=Array.isArray(r.missing)?r.missing.map(Number):[];
+        const submitted=Array.isArray(r.submitted)?r.submitted.map(Number):[];
+        const status=missing.includes(studentNo)
+          ? 'missing'
+          : submitted.includes(studentNo)
+            ? 'submitted'
+            : 'pending';
+        return {
+          id:r.id,
+          name:r.name||r.type||'追收項目',
+          type:r.type||'',
+          issueDate:r.issueDate||'',
+          dueDate:r.dueDate||'',
+          deadlineDate:r.deadlineDate||'',
+          status
+        };
+      })
+      .filter(x=>x.status==='missing')
+      .sort((a,b)=>String(b.dueDate||b.issueDate||'').localeCompare(String(a.dueDate||a.issueDate||'')))
+      .slice(0,20);
+
+    const pending=(state.pendingItems||[])
+      .filter(x=>{
+        if(x.completed)return false;
+        if(x.studentId && String(x.studentId)===String(student.studentId))return true;
+        if(x.studentName && String(x.studentName).trim()===String(student.name).trim()){
+          const s=normalizedPendingScope(x);
+          return s.type!=='class' || normalizeClassId(s.name)===className;
+        }
+        if(x.studentNo && Number(x.studentNo)===studentNo){
+          const s=normalizedPendingScope(x);
+          return s.type!=='class' || normalizeClassId(s.name)===className;
+        }
+        return false;
+      })
+      .map(x=>({
+        id:x.id,
+        title:x.title||'待辦',
+        dueDate:x.dueDate||'',
+        priority:x.priority||'medium',
+        note:x.note||'',
+        status:pendingStatus(x)
+      }))
+      .sort((a,b)=>String(a.dueDate).localeCompare(String(b.dueDate)))
+      .slice(0,20);
+
+    const classPending=(state.pendingItems||[])
+      .filter(x=>{
+        if(x.completed||x.studentId||x.studentName||x.studentNo)return false;
+        const s=normalizedPendingScope(x);
+        return s.type==='class' &&
+          (String(s.id)===String(classRec.classId) || normalizeClassId(s.name)===className);
+      })
+      .map(x=>({
+        id:x.id,
+        title:x.title||'班別待辦',
+        dueDate:x.dueDate||'',
+        priority:x.priority||'medium',
+        note:x.note||'',
+        status:pendingStatus(x)
+      }))
+      .sort((a,b)=>String(a.dueDate).localeCompare(String(b.dueDate)))
+      .slice(0,8);
+
+    return {
+      classInfo:{id:classRec.classId||classRec.id,name:classRec.name},
+      student:{id:student.studentId||student.id,name:student.name,number:studentNo},
+      submissions,
+      pending,
+      classPending
+    };
+  }
+
+  window.__studentHubAPI={
+    version:2,
+    getStudentSnapshot:studentMainSnapshot,
+    openSubmission:(recordId='')=>{
+      if(!recordId)return;
+      closeSeatScore();
+      setTimeout(()=>window.__submissionTrackerAPI?.openRecord?.(recordId),40);
+    },
+    openPending:(pendingId='')=>{
+      if(!pendingId)return;
+      closeSeatScore();
+      setTimeout(()=>openPendingEdit(pendingId),40);
+    },
+    newStudentPending:(classRef='',studentRef='',title='')=>{
+      const found=studentProfileFromRefs(classRef,studentRef);
+      if(!found)return;
+      const {classRec,student}=found;
+      closeSeatScore();
+      setTimeout(()=>openPendingPrefill(
+        title||'',
+        hkToday(),
+        '',
+        {
+          scopeType:'class',
+          scopeName:classRec.name,
+          scopeId:classRec.classId||classRec.id,
+          className:classRec.name,
+          classId:classRec.classId||classRec.id,
+          studentId:student.studentId||student.id,
+          studentName:student.name,
+          studentNo:student.number,
+          sourceType:'studentProfile'
+        }
+      ),40);
+    }
+  };
+
   function ensureSeatScoreModal(){
     let m=document.getElementById('pe-seat-score-modal');
     if(m)return m;
@@ -3504,7 +3644,7 @@
         <div><b>🪑 座位／積分</b><small id="pe-seat-score-status">共用班級及學生資料</small></div>
         <button type="button" id="pe-seat-score-close">✕</button>
       </div>
-      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=230"></iframe>
+      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=231"></iframe>
     </div>`;
     document.body.appendChild(m);
     m.querySelector('#pe-seat-score-close').addEventListener('click',()=>closeSeatScore());

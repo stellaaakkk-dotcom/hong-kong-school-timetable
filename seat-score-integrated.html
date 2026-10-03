@@ -831,7 +831,13 @@ body.event-select-mode #seatPanel .desk span{
   }
 }
 
-</style></head><body><div id="integrationBanner" style="position:sticky;top:0;z-index:9999;background:#eef5ff;border-bottom:1px solid #cfdcf0;padding:5px 10px;font:700 11px system-ui;color:#35506f">🔗 已整合香港教師教學日誌：班級／學生由主系統提供；座位、積分及學生紀錄保留喺本模組。</div><div class="app"><div class="topbar"><div class="brand"><h1 id="pageTitle">七組座位表＋課堂積分 Pro</h1><p>班別管理｜今日班務｜學生｜座位｜積分｜紀錄</p></div><div class="class-switcher"><span id="classColorDot" class="class-dot"></span><select id="classSwitcher" onchange="switchClass(this.value)"></select><button class="btn" onclick="openGlobalSearch()">搜尋</button><button class="btn" onclick="openClassManager()">班別</button></div><div class="tabs"><button class="tab active" data-tab="dashboardPanel">今日</button><button class="tab" data-tab="studentsPanel">學生</button><button class="tab" data-tab="seatPanel">座位</button><button class="tab" data-tab="scorePanel">積分</button><button class="tab" data-tab="historyPanel">紀錄</button><button class="tab" data-tab="setupPanel">更多</button></div></div>
+</style>
+<style>
+.main-system-record{border-left:3px solid #6b8afd}
+#studentMainSubmissions .profile-history-item,
+#studentMainPending .profile-history-item{padding:7px!important;margin-bottom:5px!important}
+</style>
+</head><body><div id="integrationBanner" style="position:sticky;top:0;z-index:9999;background:#eef5ff;border-bottom:1px solid #cfdcf0;padding:5px 10px;font:700 11px system-ui;color:#35506f">🔗 已整合香港教師教學日誌：班級／學生由主系統提供；座位、積分及學生紀錄保留喺本模組。</div><div class="app"><div class="topbar"><div class="brand"><h1 id="pageTitle">七組座位表＋課堂積分 Pro</h1><p>班別管理｜今日班務｜學生｜座位｜積分｜紀錄</p></div><div class="class-switcher"><span id="classColorDot" class="class-dot"></span><select id="classSwitcher" onchange="switchClass(this.value)"></select><button class="btn" onclick="openGlobalSearch()">搜尋</button><button class="btn" onclick="openClassManager()">班別</button></div><div class="tabs"><button class="tab active" data-tab="dashboardPanel">今日</button><button class="tab" data-tab="studentsPanel">學生</button><button class="tab" data-tab="seatPanel">座位</button><button class="tab" data-tab="scorePanel">積分</button><button class="tab" data-tab="historyPanel">紀錄</button><button class="tab" data-tab="setupPanel">更多</button></div></div>
 
 <section class="panel active" id="dashboardPanel">
   <div id="dashboardContent"></div>
@@ -1012,7 +1018,14 @@ body.event-select-mode #seatPanel .desk span{
       <button class="btn" onclick="openParentContactModal()">＋ 新增</button>
     </div>
     <div id="studentParentContacts"></div>
-    <div class="section-title">相關待辦</div>
+    <div class="section-title">主系統追收</div>
+    <div id="studentMainSubmissions"></div>
+    <div class="section-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span>主系統待辦</span>
+      <button class="btn" onclick="openMainPendingForStudent()">＋ 新增</button>
+    </div>
+    <div id="studentMainPending"></div>
+    <div class="section-title">座位／積分待辦</div>
     <div id="studentProfileTodos"></div>
   </div>
 </div>
@@ -1719,6 +1732,93 @@ function closeStudentAttendanceHistory(){
  document.getElementById('studentAttendanceHistoryModal').classList.remove('show');
 }
 
+
+function parentStudentHub(){
+ try{
+   if(window.parent===window)return null;
+   return window.parent.__studentHubAPI||null;
+ }catch{return null}
+}
+
+function mainStudentSnapshot(student){
+ const hub=parentStudentHub();
+ if(!hub||!student)return null;
+ try{
+   return hub.getStudentSnapshot(manager.activeClassId||state.className,student.id);
+ }catch(e){
+   console.warn('[seat phase2] student snapshot',e);
+   return null;
+ }
+}
+
+function mainPendingStatusLabel(status){
+ return status==='overdue'?'逾期':
+   status==='today'?'今日到期':
+   status==='soon'?'即將到期':
+   status==='done'?'已完成':'未完成';
+}
+
+function renderMainStudentData(student){
+ const subBox=document.getElementById('studentMainSubmissions');
+ const pendingBox=document.getElementById('studentMainPending');
+ if(!subBox||!pendingBox)return;
+
+ const snap=mainStudentSnapshot(student);
+ if(!snap){
+   subBox.innerHTML='<div class="note">未能連接主系統資料。</div>';
+   pendingBox.innerHTML='<div class="note">未能連接主系統資料。</div>';
+   return;
+ }
+
+ const submissions=snap.submissions||[];
+ subBox.innerHTML=submissions.length?submissions.map(r=>`
+   <div class="profile-history-item main-system-record">
+     <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+       <b>${esc(r.name||'追收項目')}</b>
+       <span class="todo-status-badge status-pending">欠交</span>
+     </div>
+     <div class="note">${r.dueDate?'繳交 '+esc(r.dueDate):''}${r.deadlineDate?'｜追收 '+esc(r.deadlineDate):''}</div>
+     <button class="btn" style="margin-top:5px" onclick="openMainSubmission('${esc(r.id)}')">開啟追收</button>
+   </div>`).join(''):'<div class="note">目前沒有欠交項目。</div>';
+
+ const personal=snap.pending||[];
+ const classPending=snap.classPending||[];
+ let html='';
+ if(personal.length){
+   html+=personal.map(t=>`
+     <div class="profile-history-item main-system-record">
+       <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+         <b>${esc(t.title||'待辦')}</b>
+         <span class="todo-status-badge status-${t.status==='overdue'?'done':'pending'}">${esc(mainPendingStatusLabel(t.status))}</span>
+       </div>
+       <div class="note">${t.dueDate?'Deadline '+esc(t.dueDate):''}${t.note?'｜'+esc(t.note):''}</div>
+       <button class="btn" style="margin-top:5px" onclick="openMainPending('${esc(t.id)}')">開啟待辦</button>
+     </div>`).join('');
+ }
+ if(classPending.length){
+   html+=`<div class="note" style="margin:7px 0 4px"><b>班別待辦（全班）</b></div>`+
+     classPending.map(t=>`
+       <div class="profile-history-item">
+         <b>${esc(t.title||'班別待辦')}</b>
+         <div class="note">${t.dueDate?'Deadline '+esc(t.dueDate):''}</div>
+         <button class="btn" style="margin-top:5px" onclick="openMainPending('${esc(t.id)}')">開啟待辦</button>
+       </div>`).join('');
+ }
+ pendingBox.innerHTML=html||'<div class="note">目前沒有主系統待辦。</div>';
+}
+
+function openMainSubmission(id){
+ try{parentStudentHub()?.openSubmission(id)}catch(e){console.warn(e)}
+}
+function openMainPending(id){
+ try{parentStudentHub()?.openPending(id)}catch(e){console.warn(e)}
+}
+function openMainPendingForStudent(){
+ const s=state.students.find(x=>x.id===currentProfileStudentId);
+ if(!s)return;
+ try{parentStudentHub()?.newStudentPending(manager.activeClassId||state.className,s.id,'')}catch(e){console.warn(e)}
+}
+
 function openStudentProfile(id){
  const s=state.students.find(x=>x.id===id);if(!s)return;
  currentProfileStudentId=id;
@@ -1727,6 +1827,8 @@ function openStudentProfile(id){
  document.getElementById('studentProfileTitle').textContent=`班號 ${s.no}${s.name?'｜'+s.name:''}`;
  document.getElementById('studentProfileSummary').textContent=`第${s.group}組｜${s.leader?'組長｜':''}${s.absent?'缺席':'在席'}｜本課 ${s.todayScore}｜累積 ${s.score}`;
  document.getElementById('studentPrivateNote').value=state.studentNotes[id]||'';
+
+ renderMainStudentData(s);
 
  // Compact attendance summary; full history opens separately.
  const attendanceItems=collectStudentAttendanceItems(id);
@@ -3157,7 +3259,7 @@ const initialPanel=document.querySelector('.panel.active')?.id||'dashboardPanel'
 </script>
 <script>
 (function(){
-  const INTEGRATION_VERSION='2.3.0';
+  const INTEGRATION_VERSION='2.3.1';
 
   function parentApi(){
     try{
