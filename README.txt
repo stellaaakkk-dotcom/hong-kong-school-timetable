@@ -1,18 +1,22 @@
-香港教師教學日誌 v2.4.11 — 教學模式重開仍彈出的根本修正
+香港教師教學日誌 v2.4.12 — 手機／iPad 總課表＋日誌縮排顯示
 
-真正原因：
-- 舊版在 ONBOARDING_KEY 宣告之前就呼叫 maybeOpenOnboarding()。
-- 因為 const 尚未初始化，第一次檢查會拋出 ReferenceError。
-- catch fallback 會直接打開教學，因此每次重開網站都會彈出。
+今次只改顯示層，不改課表／日誌資料。
 
-修正：
-- 移除過早的 maybeOpenOnboarding() 呼叫。
-- 改為等 ONBOARDING_KEY、ONBOARDING_STEP_KEY、所有 onboarding functions 都完成初始化後，先執行 maybeOpenOnboarding()。
-- 保留 device seen 邏輯：
-  hk-school-onboarding-device-seen = 1
-- 第一次自動顯示前即寫入 seen。
-- 之後同一個 origin/device 重開網站，不會再自動彈。
-- More／設定 → 使用教學仍可手動重播。
+1. 教師及班級資料
+- 手機／iPad：縮細 panel padding、section 間距、標題、label、input 高度。
+- 保留可操作性，但減少縱向佔位。
 
-注意：
-- 如果手動清除網站資料 / localStorage，系統會視為首次使用。
+2. 總課表
+- 維持 760px 文件比例，再按裝置寬度縮放顯示。
+- 手機會自動縮細；iPad 接近全寬。
+- 不再用「橫向超闊先睇到」作主要顯示方式。
+- browser viewport 保留 pinch zoom，可用雙指放大整頁細節。
+
+3. 教學日誌
+- 採用與總課表相同的文件預覽縮放。
+- 表格欄比例不變，避免 responsive 硬壓到欄位變形。
+- 手機／iPad 可先睇完整版面，需要時再雙指放大。
+
+4. 桌面及列印
+- >900px 桌面不受影響。
+- 列印強制 zoom 1，沿用原本列印尺寸。
