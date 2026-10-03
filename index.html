@@ -152,127 +152,60 @@
 
 .account-control{position:relative;margin-left:auto;display:flex;align-items:center}.account-button{border:1px solid var(--accent);border-radius:10px;background:#fff;color:var(--accent);padding:9px 13px;font-size:11px;font-weight:800;white-space:nowrap}.account-button:disabled{opacity:.55}.account-button.signed-in{display:flex;align-items:center;gap:7px;max-width:170px}.account-button.signed-in span{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--soft);overflow:hidden}.account-button.signed-in img{width:100%;height:100%;object-fit:cover}.account-button.signed-in b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.auth-popover{position:absolute;z-index:30;right:0;top:calc(100% + 8px);width:280px;padding:16px;background:#fff;border:1px solid #d6e3de;border-radius:14px;box-shadow:0 14px 40px #173c3130}.auth-popover b,.auth-popover span,.auth-popover small{display:block}.auth-popover span{font-size:12px;margin-top:4px;word-break:break-all}.auth-popover small{font-size:10px;line-height:1.5;color:#71837d;margin:10px 0}.auth-popover button{width:100%;border:0;border-radius:9px;background:var(--accent);color:#fff;padding:9px;font-weight:800}.auth-popover button:disabled{opacity:.55}.cloud-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}.cloud-actions button+button{background:#fff;color:var(--accent);border:1px solid var(--accent)}.cloud-message{margin:9px 0;border-radius:8px;background:var(--soft);padding:9px;color:#36564c;font-size:10px;line-height:1.45}.auth-popover .signout-button{margin-top:10px;background:#eef3f1;color:#53665f}.auth-dialog-backdrop{position:fixed;z-index:100;inset:0;background:#102a2380;display:grid;place-items:center;padding:18px}.auth-dialog{position:relative;width:min(420px,100%);max-height:calc(100vh - 36px);overflow:auto;background:#fff;border-radius:20px;padding:25px;box-shadow:0 24px 70px #102a2355}.auth-close{position:absolute;right:13px;top:10px;border:0;background:transparent;color:#657770;font-size:28px}.auth-symbol{width:44px;height:44px;margin:auto;border-radius:14px;background:var(--accent);color:#fff;display:grid;place-items:center;font:700 23px serif}.auth-dialog h2{text-align:center;margin:12px 0 5px;font-size:21px}.auth-dialog>p{text-align:center;color:#71837d;font-size:12px;line-height:1.5;margin:0 20px 17px}.google-auth,.auth-submit{width:100%;border:0;border-radius:11px;padding:12px;font-weight:800}.google-auth{background:#fff;color:#30443e;border:1px solid #cbd8d3}.auth-submit{background:var(--accent);color:#fff;margin-top:5px}.google-auth:disabled,.auth-submit:disabled{opacity:.55}.auth-divider{display:flex;align-items:center;gap:10px;color:#87958f;font-size:10px;margin:15px 0}.auth-divider:before,.auth-divider:after{content:"";height:1px;background:#dce5e1;flex:1}.auth-dialog label{margin:9px 0}.auth-message{margin-top:11px;border-radius:9px;background:var(--soft);color:#36564c;padding:10px;font-size:11px;line-height:1.5}.auth-links{display:flex;justify-content:space-between;gap:8px;margin-top:13px}.auth-links button{border:0;background:transparent;color:var(--accent);padding:3px;font-size:11px;font-weight:700}.auth-local-note{display:block;border-top:1px dashed #d6e3de;margin-top:16px;padding-top:12px;text-align:center;color:#71837d;font-size:10px;line-height:1.5}.account-load-error{display:none}@media(max-width:900px){.account-control{order:2;margin-left:auto}.account-button.signed-in{max-width:125px}.auth-dialog{padding:22px 18px}.topbar .install-app{margin-left:0}}@media print{.account-control{display:none!important}}
 </style>
-<style id="responsive-document-fit-v2413">
-/* v2.4.13 — compact setup panel + true responsive master timetable/journal */
+<style id="responsive-document-fit-v2414">
+/* v2.4.14 — compact setup panel + journal responsive; master is JS-scaled */
 @media screen and (max-width:900px){
-  /* Teacher / class settings */
-  .panel{
-    padding:12px 12px 14px!important;
-    overflow:visible!important;
-  }
-  .panel section{
-    padding-bottom:11px!important;
-    margin-bottom:10px!important;
-  }
-  .panel .section-title{
-    margin-bottom:7px!important;
-    gap:6px!important;
-  }
-  .panel .section-title span{
-    width:22px!important;
-    height:22px!important;
-    font-size:11px!important;
-  }
+  .panel{padding:12px 12px 14px!important;overflow:visible!important}
+  .panel section{padding-bottom:11px!important;margin-bottom:10px!important}
+  .panel .section-title{margin-bottom:7px!important;gap:6px!important}
+  .panel .section-title span{width:22px!important;height:22px!important;font-size:11px!important}
   .panel .section-title h2{font-size:14px!important}
-  .panel label{
-    gap:4px!important;
-    margin:6px 0!important;
-    font-size:11px!important;
-  }
-  .panel label input{
-    padding:7px 8px!important;
-    min-height:34px!important;
-    border-radius:8px!important;
-  }
+  .panel label{gap:4px!important;margin:6px 0!important;font-size:11px!important}
+  .panel label input{padding:7px 8px!important;min-height:34px!important;border-radius:8px!important}
   .panel .two-col{gap:7px!important}
-  .panel .hint{
-    margin-bottom:7px!important;
-    font-size:10px!important;
-    line-height:1.45!important;
-  }
+  .panel .hint{margin-bottom:7px!important;font-size:10px!important;line-height:1.45!important}
   .panel .choice-grid{gap:6px!important}
-  .panel .choice-grid button{
-    padding:8px!important;
-    border-radius:9px!important;
-  }
+  .panel .choice-grid button{padding:8px!important;border-radius:9px!important}
 
-  /*
-   * Actual React DOM:
-   * master = .preview-wrap > .paper.integrated-master
-   * journal = .preview-wrap > .journal-stack > .journal-day
-   */
-  .preview-wrap:has(.integrated-master),
   .preview-wrap:has(.journal-stack){
     padding:10px 6px 18px!important;
     overflow:visible!important;
     touch-action:pan-x pan-y pinch-zoom;
     -webkit-overflow-scrolling:touch;
   }
-
-  .integrated-master,
-  .journal-stack{
-    transform-origin:top center!important;
-    margin-left:auto!important;
-    margin-right:auto!important;
-  }
-
-  .integrated-master,
+  .journal-stack{transform-origin:top center!important;margin-inline:auto!important;gap:14px!important}
   .journal-stack>.journal-day{
     min-width:760px!important;
     max-width:760px!important;
     width:760px!important;
     transform-origin:top center!important;
   }
-
-  .journal-stack{gap:14px!important}
   .preview-head{padding-inline:4px!important}
   .preview-head h2{font-size:14px!important}
   .preview-head span{font-size:9px!important}
 }
-
-/* Compact phones */
 @media screen and (max-width:390px){
-  .integrated-master,
   .journal-stack>.journal-day{zoom:.45}
   .journal-stack{width:342px!important}
-  .preview-wrap:has(.integrated-master){min-height:470px}
 }
 @media screen and (min-width:391px) and (max-width:480px){
-  .integrated-master,
   .journal-stack>.journal-day{zoom:.52}
   .journal-stack{width:396px!important}
-  .preview-wrap:has(.integrated-master){min-height:540px}
 }
-/* Large phones / small tablets */
 @media screen and (min-width:481px) and (max-width:600px){
-  .integrated-master,
   .journal-stack>.journal-day{zoom:.68}
   .journal-stack{width:518px!important}
-  .preview-wrap:has(.integrated-master){min-height:690px}
 }
 @media screen and (min-width:601px) and (max-width:720px){
-  .integrated-master,
   .journal-stack>.journal-day{zoom:.84}
   .journal-stack{width:640px!important}
-  .preview-wrap:has(.integrated-master){min-height:825px}
 }
-/* iPad-size */
 @media screen and (min-width:721px) and (max-width:900px){
-  .integrated-master,
   .journal-stack>.journal-day{zoom:.96}
   .journal-stack{width:730px!important}
-  .preview-wrap:has(.integrated-master){min-height:930px}
 }
-
-/* Print remains native size */
 @media print{
-  .integrated-master,
-  .journal-stack>.journal-day{
-    zoom:1!important;
-    min-width:0!important;
-    max-width:none!important;
-    width:100%!important;
-  }
+  .journal-stack>.journal-day{zoom:1!important;min-width:0!important;max-width:none!important;width:100%!important}
   .journal-stack{width:auto!important}
 }
 </style>
@@ -374,4 +307,4 @@ react/cjs/react-jsx-runtime.production.js:
    * LICENSE file in the root directory of this source tree.
    *)
 */
-</script><script src="firebase-bootstrap.js?v=2413"></script><script src="automate-bridge.js"></script><script src="submission-module-v227.js?v=227"></script><script src="planner-enhancements-v2413.js"></script></body></html>
+</script><script src="firebase-bootstrap.js?v=2414"></script><script src="automate-bridge.js"></script><script src="submission-module-v227.js?v=227"></script><script src="planner-enhancements-v2414.js"></script></body></html>
