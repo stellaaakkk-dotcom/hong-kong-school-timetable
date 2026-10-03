@@ -1,0 +1,3307 @@
+<!doctype html>
+<html lang="zh-HK"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>七組座位表＋課堂積分 Pro</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1f2937;--muted:#6b7280;--line:#dfe4ea;--accent:#4f7cff;--accent2:#eef3ff;--green:#15803d;--green2:#eaf8ef;--red:#c62828;--red2:#fff0f0;--shadow:0 8px 24px rgba(31,41,55,.08)}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang HK","Microsoft JhengHei",sans-serif}button,input,select,textarea{font:inherit}button{cursor:pointer}.app{max-width:1280px;margin:auto;padding:8px}.topbar{border-top:4px solid var(--accent);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px}.brand h1{font-size:17px;margin:0}.brand p{margin:2px 0 0;color:var(--muted);font-size:10px}.class-switcher{display:flex;gap:5px;align-items:center}.class-dot{width:12px;height:12px;border-radius:50%;border:1px solid rgba(0,0,0,.12);flex:0 0 auto}.class-switcher select{min-width:86px;font-weight:850;font-size:11px}.tabs{display:flex;gap:4px;background:white;border:1px solid var(--line);border-radius:12px;padding:3px}.tab{border:0;background:transparent;padding:6px 8px;border-radius:9px;font-weight:800;color:var(--muted);font-size:11px}.tab.active{background:var(--accent);color:#fff}.panel{display:none}.panel.active{display:block}.toolbar,.card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}.toolbar{padding:6px;margin-bottom:7px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}.card{padding:10px}.btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:9px;padding:7px 9px;font-weight:800;font-size:11px;min-height:34px}.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+#moveGroupMainBtn{font-size:12px;font-weight:950;padding:8px 12px}.btn.soft{background:var(--accent2);border-color:#dbe5ff;color:#315fd6}.btn.green{background:var(--green2);border-color:#cdeed8;color:#127a38}.btn.danger{color:var(--red)}.btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}.spacer{flex:1}.chip{padding:5px 7px;border-radius:999px;background:#f3f4f6;font-weight:900;font-size:10px}.classroom{background:#fff;border:1px solid var(--line);border-radius:15px;box-shadow:var(--shadow);padding:7px;overflow:auto}.front-row{display:grid;grid-template-columns:72px 1fr 56px;align-items:center;gap:6px;margin-bottom:8px}.board{margin:0 auto;width:min(420px,100%);text-align:center;border:2px solid #374151;border-radius:7px;padding:5px;font-weight:950;letter-spacing:4px;background:#f9fafb;font-size:12px}.teacher-desk,.door{border:1px solid var(--line);border-radius:9px;padding:5px 7px;font-weight:850;background:#fafafa;color:#4b5563;text-align:center;white-space:nowrap;font-size:10px}.room-grid{display:grid;grid-template-columns:repeat(4,minmax(132px,1fr));grid-template-rows:repeat(2,minmax(116px,auto));gap:8px;min-width:620px}.room-slot{min-height:116px;border:1.5px dashed #d7dde7;border-radius:12px;background:#fbfcfe;position:relative;display:flex;align-items:center;justify-content:center;padding:4px}.room-slot::after{content:attr(data-slot-label);position:absolute;right:5px;bottom:4px;font-size:8px;color:#c0c6d0;font-weight:800}.room-slot.slot-drop{outline:3px dashed var(--accent);background:#f4f7ff}.group-cluster{position:relative;width:100%;min-height:108px;padding-top:22px;cursor:pointer}.group-cluster.group-dragging{opacity:.45}.group-label{position:absolute;top:0;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:4px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:3px 5px;z-index:3;white-space:nowrap}.group-label b,.group-label .score{font-size:10px}.group-label .score{color:#315fd6;font-weight:950}.group-handle{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;padding:2px 3px;border-radius:6px}.group-handle:active{cursor:grabbing;background:var(--accent2)}.desks{display:grid;grid-template-columns:repeat(2,1fr);gap:0;width:100%;max-width:190px;margin:auto;border:1px solid #bfc8d6;border-radius:7px;overflow:hidden}.desk{min-height:40px;border-right:1px solid #bfc8d6;border-bottom:1px solid #bfc8d6;display:flex;align-items:center;justify-content:center;position:relative;background:#fff;font-weight:950;font-size:13px;user-select:none;touch-action:none}.desk:nth-child(2n){border-right:0}.desk:nth-last-child(-n+2){border-bottom:0}.desk .pts{position:absolute;right:3px;top:3px;font-size:7px;color:#fff;background:var(--accent);border-radius:999px;padding:1px 4px}.desk .today{position:absolute;left:3px;bottom:3px;font-size:7px;color:#315fd6}.desk .lock{position:absolute;left:3px;top:3px;font-size:8px}.desk .leader{position:absolute;right:3px;bottom:3px;font-size:10px}.desk.absent{opacity:.35;filter:grayscale(1)}.desk.dragging{opacity:.35}.desk.drop-hint{outline:3px solid var(--accent);outline-offset:-3px;background:#f3f6ff}.empty-desk{color:#b2bac7;background:#fafafa;font-size:9px;font-weight:700}.bottom-door-row{display:grid;grid-template-columns:1fr auto;margin-top:6px}.score-layout{display:grid;grid-template-columns:300px 1fr;gap:10px}.group-score-list,.history-list{display:flex;flex-direction:column;gap:6px}.score-row{display:grid;grid-template-columns:42px 1fr 48px auto;gap:6px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:6px}.circle-no{width:38px;height:30px;border-radius:999px;background:var(--accent2);color:#315fd6;display:grid;place-items:center;font-weight:950;font-size:11px}.score-num{text-align:center;font-size:15px;font-weight:950}.personal-group-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.score-group{background:#fff;border:1px solid var(--line);border-radius:13px;overflow:hidden}.score-group-head{display:flex;align-items:center;justify-content:space-between;padding:7px 9px;background:#fafbff;border-bottom:1px solid var(--line)}.score-group-body{padding:6px;display:flex;flex-direction:column;gap:5px}.student-row{display:grid;grid-template-columns:38px 1fr 44px auto;gap:5px;align-items:center;border:1px solid var(--line);border-radius:9px;padding:6px}.reason-tag{font-size:9px;color:#7c5b00;background:#fff7db;padding:2px 4px;border-radius:999px;display:inline-block}.setup-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}label{font-size:10px;font-weight:800;color:var(--muted)}input,select,textarea{border:1px solid var(--line);border-radius:9px;padding:7px;background:#fff;font-size:12px}textarea{min-height:72px}.note{font-size:10px;color:var(--muted);line-height:1.45}.history-item{border:1px solid var(--line);border-radius:9px;padding:7px;background:#fff;display:flex;justify-content:space-between;gap:6px;align-items:center}.history-main{font-size:11px;font-weight:800}.history-meta{font-size:9px;color:var(--muted)}.modal-back{position:fixed;inset:0;background:rgba(15,23,42,.38);display:none;align-items:center;justify-content:center;padding:12px;z-index:50}.modal-back.show{display:flex}.modal{width:min(410px,95vw);background:white;border-radius:16px;padding:12px;box-shadow:var(--shadow)}.compact-bubble{width:min(350px,94vw)}.modal h3{margin:0 0 8px;font-size:15px}.quick-row{display:flex;gap:5px;flex-wrap:wrap}.modal-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:10px}.reason-grid{display:flex;gap:5px;flex-wrap:wrap}.reason-btn,.choice{border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 7px;font-size:10px;font-weight:800}.reason-btn.active,.choice.active{background:var(--accent2);border-color:#aebfff;color:#315fd6}.compact-student{border:1px solid var(--line);border-radius:9px;padding:6px;display:flex;align-items:center;justify-content:space-between;gap:5px}.mobile-quickbar{display:none;position:sticky;bottom:0;z-index:30;background:rgba(255,255,255,.96);border:1px solid var(--line);border-radius:12px;padding:5px;gap:4px;justify-content:space-between}
+.mobile-quickbar .btn{flex:1;font-size:10px;padding:6px 4px}
+@media(max-width:700px){.mobile-quickbar{display:flex}}
+.attendance-btn.absent{background:var(--red2);color:var(--red);border-color:#f2caca}
+.attendance-btn.present{background:var(--green2);color:var(--green);border-color:#cdeed8}
+.mobile-quickbar{display:none;position:sticky;bottom:0;z-index:30;background:rgba(255,255,255,.97);border:1px solid var(--line);border-radius:12px;padding:5px;gap:4px;justify-content:space-between}
+.mobile-quickbar .btn{flex:1;font-size:10px;padding:6px 4px}
+@media(max-width:700px){.mobile-quickbar{display:flex}}
+.event-shortcuts{display:flex;gap:5px;flex-wrap:wrap;margin:6px 0}
+.event-chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 9px;font-size:10px;font-weight:800}
+.event-chip.active{outline:2px solid var(--accent)}
+.student-history-list{display:grid;gap:6px;margin-top:8px}
+.student-history-item,.session-card{padding:8px;border:1px solid var(--line);border-radius:10px;background:#fff;margin:6px 0}
+.dashboard-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.dash-card{border:1px solid var(--line);border-radius:12px;background:#fff;padding:10px}
+.dash-card h3{margin:0 0 6px;font-size:12px}
+.dash-big{font-size:22px;font-weight:950}
+.section-title{font-size:14px;font-weight:950;margin:12px 0 7px}
+.student-manager-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.student-manager-card{border:1px solid var(--line);border-radius:10px;background:#fff;padding:9px;text-align:left}
+.student-manager-card .meta{font-size:10px;color:var(--muted);margin-top:3px}
+.todo-item{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;padding:8px;border:1px solid var(--line);border-radius:10px;background:#fff;margin:6px 0}
+.todo-item.done{opacity:.55}
+.profile-history-item{padding:7px 8px;border:1px solid var(--line);border-radius:9px;background:#fff;margin:5px 0}
+@media(max-width:560px){.dashboard-grid,.student-manager-grid{grid-template-columns:1fr}}
+.toast{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:#111827;color:#fff;padding:8px 11px;border-radius:999px;opacity:0;pointer-events:none;transition:.2s;z-index:99;font-size:11px}.toast.show{opacity:1}body.classroom-mode .brand p,body.classroom-mode .tabs,body.classroom-mode #seatToolbarSecondary{display:none}body.projector-mode .tabs,body.projector-mode .teacher-only,body.projector-mode .room-slot::after{display:none!important}body.hide-ranking .group-label .score{display:none}@media(max-width:900px){.score-layout,.setup-grid{grid-template-columns:1fr}.personal-group-grid{grid-template-columns:1fr 1fr}}@media(max-width:600px){.personal-group-grid{grid-template-columns:1fr}}@media print{body{background:#fff}.topbar,.toolbar,.tabs,#scorePanel,#setupPanel,#historyPanel{display:none!important}#seatPanel{display:block!important}.app{max-width:none;padding:0}.classroom{box-shadow:none;border:0}.desk .pts,.desk .today,.desk .lock,.room-slot::after{display:none}.room-grid{min-width:0}}
+
+@page{
+  size:A4 landscape;
+  margin:8mm;
+}
+@media print{
+  html,body{
+    width:100%;
+    height:auto;
+    background:#fff!important;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+  .topbar,.toolbar,.tabs,#scorePanel,#setupPanel,#historyPanel,
+  .modal-back,.toast{
+    display:none!important;
+  }
+  #seatPanel{
+    display:block!important;
+  }
+  .app{
+    max-width:none!important;
+    width:100%!important;
+    padding:0!important;
+    margin:0!important;
+  }
+  .classroom{
+    width:100%!important;
+    padding:4mm!important;
+    border:1px solid #bbb!important;
+    border-radius:0!important;
+    box-shadow:none!important;
+    overflow:visible!important;
+    break-inside:avoid;
+  }
+  .front-row{
+    grid-template-columns:22mm 1fr 18mm!important;
+    gap:3mm!important;
+    margin-bottom:4mm!important;
+  }
+  .board{
+    max-width:105mm!important;
+    padding:2mm!important;
+    font-size:11pt!important;
+  }
+  .teacher-desk,.door{
+    font-size:8pt!important;
+    padding:2mm!important;
+  }
+  .room-grid{
+    min-width:0!important;
+    width:100%!important;
+    grid-template-columns:repeat(4,1fr)!important;
+    grid-template-rows:repeat(2,auto)!important;
+    gap:3mm!important;
+  }
+  .room-slot{
+    min-height:39mm!important;
+    padding:1.5mm!important;
+    border-color:#c8c8c8!important;
+    break-inside:avoid;
+  }
+  .room-slot::after{
+    display:none!important;
+  }
+  .group-cluster{
+    min-height:36mm!important;
+    padding-top:7mm!important;
+  }
+  .group-label{
+    padding:1mm 2mm!important;
+    box-shadow:none!important;
+  }
+  .group-label b,.group-label .score{
+    font-size:8pt!important;
+  }
+  .desks{
+    max-width:none!important;
+    width:100%!important;
+  }
+  .desk{
+    min-height:12mm!important;
+    font-size:10pt!important;
+  }
+  .desk .pts,.desk .today,.desk .reason-dot,.desk .lock{
+    display:none!important;
+  }
+  .empty-desk{
+    font-size:7pt!important;
+  }
+  .bottom-door-row{
+    margin-top:3mm!important;
+  }
+}
+
+
+.room-slot[data-slot="1"]{grid-column:4;grid-row:1}
+.room-slot[data-slot="2"]{grid-column:4;grid-row:2}
+.room-slot[data-slot="3"]{grid-column:3;grid-row:1}
+.room-slot[data-slot="4"]{grid-column:3;grid-row:2}
+.room-slot[data-slot="5"]{grid-column:2;grid-row:1}
+.room-slot[data-slot="6"]{grid-column:2;grid-row:2}
+.room-slot[data-slot="7"]{grid-column:1;grid-row:1}
+.room-slot[data-slot="8"]{grid-column:1;grid-row:2}
+
+
+/* v42 compact layout */
+#dashboardPanel .dashboard-grid,
+#dashboardPanel .summary-grid,
+#dashboardPanel .stat-grid{
+  display:grid !important;
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  gap:8px !important;
+}
+#dashboardPanel .card,
+#dashboardPanel .summary-card,
+#dashboardPanel .stat-card{
+  padding:10px !important;
+  min-height:0 !important;
+}
+#dashboardPanel h2,
+#dashboardPanel h3{
+  margin-top:0 !important;
+}
+
+#studentsPanel .student-grid,
+#studentsPanel #studentsManagerList,
+#studentsPanel #studentManagerList,
+#studentsPanel .students-grid{
+  display:grid !important;
+  grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+  gap:7px !important;
+}
+#studentsPanel .student-card,
+#studentsPanel .student-manage-card,
+#studentsPanel .student-item{
+  padding:8px !important;
+  min-width:0 !important;
+}
+#studentsPanel .student-card .note,
+#studentsPanel .student-manage-card .note{
+  font-size:11px !important;
+  line-height:1.25 !important;
+}
+
+@media (max-width:560px){
+  #dashboardPanel .dashboard-grid,
+  #dashboardPanel .summary-grid,
+  #dashboardPanel .stat-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  }
+  #studentsPanel .student-grid,
+  #studentsPanel #studentsManagerList,
+  #studentsPanel #studentManagerList,
+  #studentsPanel .students-grid{
+    grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+  }
+}
+
+/* Hide duplicated bottom toolbar in seat page; floating dock remains */
+#seatPanel .bottom-toolbar,
+#seatPanel .bottom-bar,
+#seatPanel .seat-bottom-bar,
+#seatPanel .mobile-bottom-bar,
+#seatPanel .sticky-bottom,
+#seatPanel .action-bar-bottom{
+  display:none !important;
+}
+
+
+.panel{padding-bottom:8px !important}
+.card{margin-bottom:8px}
+.toolbar{gap:6px}
+
+
+/* v43: hide the duplicated lower toolbar inside the seat page */
+#seatToolbarSecondary{
+  display:none !important;
+}
+
+
+/* v45 restore primary tabs + one floating dock */
+.topbar .tabs{
+  display:flex !important;
+  visibility:visible !important;
+  opacity:1 !important;
+}
+.topbar .tab{
+  display:inline-flex !important;
+  visibility:visible !important;
+}
+.mobile-quickbar{
+  display:flex !important;
+  visibility:visible !important;
+  opacity:1 !important;
+  position:fixed !important;
+  left:50% !important;
+  transform:translateX(-50%) !important;
+  bottom:10px !important;
+  z-index:80 !important;
+}
+@media(max-width:720px){
+  .topbar{
+    display:block !important;
+    padding:8px !important;
+  }
+  .topbar .brand{
+    display:none !important;
+  }
+  .topbar .class-switcher{
+    display:flex !important;
+    align-items:center !important;
+    gap:6px !important;
+    margin-bottom:6px !important;
+  }
+  .topbar .tabs{
+    display:flex !important;
+    gap:5px !important;
+    overflow-x:auto !important;
+    white-space:nowrap !important;
+    scrollbar-width:none;
+  }
+  .topbar .tabs::-webkit-scrollbar{display:none}
+  .topbar .tab{
+    flex:0 0 auto !important;
+    padding:7px 10px !important;
+    font-size:12px !important;
+  }
+  .app{
+    padding-bottom:72px !important;
+  }
+}
+
+
+/* v46: bottom dock becomes the primary global navigation */
+.topbar .tabs{
+  display:none !important;
+}
+.topbar{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:8px !important;
+  padding:7px 9px !important;
+}
+.topbar .brand{
+  flex:1 1 auto;
+  min-width:0;
+}
+.topbar .brand h1{
+  font-size:15px !important;
+  margin:0 !important;
+}
+.topbar .brand p{
+  display:none !important;
+}
+.topbar .class-switcher{
+  display:flex !important;
+  align-items:center !important;
+  gap:5px !important;
+  flex:0 0 auto;
+}
+
+.global-nav-dock{
+  display:grid !important;
+  grid-template-columns:repeat(6,minmax(0,1fr)) !important;
+  gap:3px !important;
+  position:fixed !important;
+  left:50% !important;
+  transform:translateX(-50%) !important;
+  bottom:8px !important;
+  width:min(calc(100% - 16px),680px) !important;
+  padding:5px !important;
+  z-index:100 !important;
+  background:rgba(255,255,255,.96) !important;
+  border:1px solid rgba(0,0,0,.09) !important;
+  border-radius:16px !important;
+  box-shadow:0 8px 26px rgba(0,0,0,.14) !important;
+  backdrop-filter:blur(12px);
+}
+.global-nav-dock .dock-tab{
+  border:0;
+  background:transparent;
+  border-radius:11px;
+  padding:9px 4px;
+  font:inherit;
+  font-size:12px;
+  font-weight:800;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.global-nav-dock .dock-tab.active{
+  background:var(--primary,#4A90E2);
+  color:#fff;
+}
+.app{
+  padding-bottom:78px !important;
+}
+
+@media(max-width:560px){
+  .topbar{
+    padding:6px 7px !important;
+  }
+  .topbar .brand h1{
+    font-size:13px !important;
+  }
+  .topbar .class-switcher select{
+    max-width:95px !important;
+  }
+  .global-nav-dock{
+    width:calc(100% - 12px) !important;
+    bottom:6px !important;
+    border-radius:14px !important;
+  }
+  .global-nav-dock .dock-tab{
+    font-size:11px !important;
+    padding:8px 2px !important;
+  }
+}
+
+
+#globalSearchResults{max-height:60vh;overflow:auto}
+#globalSearchResults .section-title{margin-top:10px}
+#globalSearchResults .profile-history-item{margin-bottom:6px}
+@media(max-width:560px){#globalSearchModal .modal{max-height:86vh}}
+
+
+.record-filter-row{
+  display:flex;
+  gap:5px;
+  overflow-x:auto;
+  padding:2px 0 7px;
+  margin-bottom:4px;
+  scrollbar-width:none;
+}
+.record-filter-row::-webkit-scrollbar{display:none}
+.record-filter{
+  flex:0 0 auto;
+  border:1px solid rgba(0,0,0,.1);
+  background:#fff;
+  border-radius:999px;
+  padding:6px 10px;
+  font:inherit;
+  font-size:11px;
+  font-weight:800;
+  cursor:pointer;
+}
+.record-filter.active{
+  background:var(--primary,#4A90E2);
+  color:#fff;
+  border-color:transparent;
+}
+
+
+.event-chip{
+  touch-action:manipulation;
+  cursor:pointer;
+}
+.event-chip.active{
+  outline:2px solid var(--primary,#4A90E2);
+  outline-offset:1px;
+  font-weight:900;
+}
+body.event-select-mode #seatPanel .desk{
+  cursor:pointer;
+  box-shadow:0 0 0 2px rgba(74,144,226,.14);
+}
+body.event-select-mode #seatPanel .desk:active{
+  transform:scale(.97);
+}
+
+
+#eventShortcuts{
+  position:relative;
+  z-index:20;
+  pointer-events:auto !important;
+}
+#eventShortcuts .event-chip{
+  pointer-events:auto !important;
+  touch-action:manipulation !important;
+  -webkit-tap-highlight-color:rgba(0,0,0,.08);
+  user-select:none;
+  -webkit-user-select:none;
+}
+body.event-select-mode #seatPanel .desk{
+  touch-action:manipulation !important;
+  user-select:none;
+  -webkit-user-select:none;
+}
+body.event-select-mode #seatPanel .desk::after{
+  content:'';
+  position:absolute;
+  inset:0;
+  z-index:3;
+}
+body.event-select-mode #seatPanel .desk span{
+  position:relative;
+  z-index:4;
+}
+
+
+/* v51: classroom events live inside each group bubble */
+.bubble-event-section{
+  margin-top:8px;
+  padding:8px;
+  border:1px solid rgba(0,0,0,.08);
+  border-radius:12px;
+  background:rgba(74,144,226,.045);
+}
+.bubble-event-title{
+  font-size:12px;
+  font-weight:900;
+  margin-bottom:6px;
+}
+.bubble-event-buttons,
+.bubble-event-students{
+  display:flex;
+  gap:5px;
+  flex-wrap:wrap;
+}
+.bubble-event-students{
+  margin-top:7px;
+}
+.bubble-event-chip{
+  flex:0 0 auto;
+}
+.bubble-student-event-btn{
+  border:1px solid rgba(0,0,0,.1);
+  background:#fff;
+  border-radius:10px;
+  padding:7px 9px;
+  font:inherit;
+  font-size:12px;
+  font-weight:850;
+  cursor:pointer;
+  touch-action:manipulation;
+}
+.bubble-student-event-btn:active{
+  transform:scale(.97);
+}
+.bubble-student-event-btn.absent,
+.bubble-student-event-btn:disabled{
+  opacity:.42;
+  cursor:not-allowed;
+}
+#eventShortcuts,
+#eventShortcutHint{
+  display:none !important;
+}
+
+
+.todo-status-row{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:5px;
+  margin:8px 0;
+}
+.todo-status-btn{
+  border:1px solid rgba(0,0,0,.1);
+  background:#fff;
+  border-radius:10px;
+  padding:8px 4px;
+  font:inherit;
+  font-size:11px;
+  font-weight:850;
+  cursor:pointer;
+  touch-action:manipulation;
+}
+.todo-status-btn.active{
+  background:var(--primary,#4A90E2);
+  color:#fff;
+  border-color:transparent;
+}
+.todo-status-badge{
+  display:inline-flex;
+  align-items:center;
+  border-radius:999px;
+  padding:3px 7px;
+  font-size:10px;
+  font-weight:850;
+  white-space:nowrap;
+  background:#eef2f7;
+}
+.todo-status-badge.status-contacted{background:#fff4d6}
+.todo-status-badge.status-observing{background:#e8f3ff}
+.todo-status-badge.status-done{background:#e8f7ec}
+
+
+.contact-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+.contact-record{
+  border-left:3px solid var(--primary,#4A90E2);
+}
+@media(max-width:560px){
+  .contact-grid{grid-template-columns:1fr 1fr}
+}
+
+
+#parentContactModal .modal{
+  max-height:88vh !important;
+  overflow-y:auto !important;
+  padding-bottom:72px !important;
+}
+#parentContactModal .field{
+  margin-top:7px !important;
+}
+#parentContactModal textarea{
+  min-height:54px !important;
+  max-height:84px !important;
+  resize:vertical;
+}
+#parentContactModal input,
+#parentContactModal select,
+#parentContactModal textarea{
+  font-size:14px !important;
+}
+.parent-contact-actions{
+  position:sticky !important;
+  bottom:-1px !important;
+  z-index:5;
+  background:#fff;
+  padding:8px 0 2px;
+  margin-top:8px;
+  border-top:1px solid rgba(0,0,0,.08);
+}
+.parent-contact-actions .btn{
+  flex:1 1 0;
+}
+@media(max-width:560px){
+  #parentContactModal .modal{
+    max-height:90vh !important;
+    padding:12px !important;
+    padding-bottom:68px !important;
+  }
+  #parentContactModal .contact-grid{
+    gap:6px !important;
+  }
+  #parentContactModal .field label{
+    font-size:12px !important;
+  }
+  #parentContactModal textarea{
+    min-height:48px !important;
+    max-height:72px !important;
+  }
+}
+
+
+#studentProfileModal .modal{
+  max-height:90vh !important;
+  overflow-y:auto !important;
+  padding:12px !important;
+}
+.student-profile-sticky-head{
+  position:sticky;
+  top:-12px;
+  z-index:6;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+  background:#fff;
+  padding:10px 0 8px;
+  margin-top:-2px;
+  border-bottom:1px solid rgba(0,0,0,.06);
+}
+#studentProfileModal .field{
+  margin-top:7px !important;
+}
+#studentProfileModal #studentPrivateNote{
+  min-height:48px !important;
+  max-height:72px !important;
+  resize:vertical;
+  font-size:14px !important;
+}
+.student-note-save{
+  padding:6px 10px !important;
+  font-size:12px !important;
+  margin-top:2px;
+}
+#studentProfileModal .section-title{
+  margin-top:10px !important;
+  margin-bottom:5px !important;
+  font-size:13px !important;
+}
+#studentProfileModal .profile-history-item{
+  padding:7px !important;
+  margin-bottom:5px !important;
+}
+#studentProfileModal .record-filter-row{
+  padding-bottom:5px !important;
+  margin-bottom:2px !important;
+}
+#studentProfileModal .record-filter{
+  padding:5px 8px !important;
+  font-size:10px !important;
+}
+@media(max-width:560px){
+  #studentProfileModal .modal{
+    max-height:92vh !important;
+    padding:10px !important;
+  }
+  .student-profile-sticky-head{
+    top:-10px;
+    padding:8px 0 6px;
+  }
+  #studentProfileModal #studentPrivateNote{
+    min-height:42px !important;
+    max-height:60px !important;
+  }
+  #studentProfileModal .section-title{
+    margin-top:8px !important;
+  }
+}
+
+
+/* v58: compact every popup form on phone */
+#rosterText{
+  min-height:150px !important;
+}
+
+.modal-back .modal{
+  max-height:90vh;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+
+.modal-back textarea{
+  min-height:48px !important;
+  max-height:84px !important;
+  resize:vertical;
+}
+
+.modal-back input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]),
+.modal-back select{
+  min-height:34px;
+}
+
+#todoDetailModal .modal{
+  max-height:88vh !important;
+  overflow-y:auto !important;
+}
+#todoDetailModal #todoFollowUpRemark{
+  min-height:48px !important;
+  max-height:68px !important;
+}
+
+#eventEditorModal .field{
+  margin-bottom:6px !important;
+}
+#todoModal .field{
+  margin-bottom:6px !important;
+}
+
+@media(max-width:560px){
+  .modal-back{
+    padding:8px !important;
+    align-items:center !important;
+  }
+  .modal-back .modal{
+    width:min(410px,97vw) !important;
+    max-height:92vh !important;
+    padding:10px !important;
+  }
+  .modal-back textarea{
+    min-height:44px !important;
+    max-height:64px !important;
+    font-size:14px !important;
+  }
+  .modal-back .field{
+    margin-bottom:6px !important;
+  }
+  .modal-back .modal-actions,
+  .modal-back .quick-row{
+    margin-top:6px;
+  }
+}
+
+
+/* v59 integration-ready compact UI */
+.modal-title-row,
+.modal-sticky-head{
+  position:sticky !important;
+  top:-10px !important;
+  z-index:20 !important;
+  display:flex !important;
+  justify-content:space-between !important;
+  align-items:center !important;
+  gap:8px !important;
+  background:#fff !important;
+  padding:8px 0 6px !important;
+  margin-top:-2px !important;
+  border-bottom:1px solid rgba(0,0,0,.06);
+}
+.modal-sticky-head .btn:last-child,
+.modal-title-row .btn:last-child{
+  flex:0 0 auto;
+  min-width:34px;
+  min-height:34px;
+  padding:5px 8px !important;
+  font-size:15px !important;
+}
+.modal-back .modal{
+  max-height:90vh !important;
+  overflow-y:auto !important;
+  overscroll-behavior:contain;
+}
+
+.attendance-compact-row{
+  display:grid;
+  grid-template-columns:1fr 1.45fr;
+  gap:6px;
+}
+.attendance-summary-card{
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:7px;
+  background:#fff;
+  min-height:58px;
+}
+.mini-label{
+  font-size:9px;
+  color:var(--muted);
+  font-weight:800;
+  margin-bottom:4px;
+}
+.attendance-current{
+  font-size:17px;
+  font-weight:950;
+}
+.attendance-current.absent{
+  color:var(--red);
+}
+.attendance-mini-history{
+  display:flex;
+  justify-content:space-between;
+  gap:5px;
+  font-size:10px;
+  line-height:1.5;
+}
+.attendance-more-btn{
+  width:100%;
+  margin-top:5px;
+  padding:5px 8px !important;
+  font-size:10px !important;
+}
+.compact-history-line{
+  display:grid !important;
+  grid-template-columns:1fr auto auto;
+  gap:8px;
+  align-items:center !important;
+}
+.attendance-status-pill{
+  display:inline-flex;
+  border-radius:999px;
+  padding:3px 7px;
+  font-size:10px;
+  font-weight:850;
+  background:var(--green2);
+  color:var(--green);
+}
+.attendance-status-pill.absent{
+  background:var(--red2);
+  color:var(--red);
+}
+
+/* Keep frequently-used popup actions visible without oversized spacing */
+.modal-back .field{
+  margin-bottom:6px !important;
+}
+.modal-back h3{
+  margin-bottom:4px !important;
+}
+.modal-back .profile-history-item{
+  margin:4px 0 !important;
+  padding:7px !important;
+}
+.modal-back .section-title{
+  margin:9px 0 5px !important;
+}
+
+/* Event editor is now intentionally simple */
+#eventEditorModal .modal{
+  max-width:390px;
+}
+
+@media(max-width:560px){
+  .modal-sticky-head,
+  .modal-title-row{
+    top:-8px !important;
+    padding:7px 0 5px !important;
+  }
+  .attendance-compact-row{
+    grid-template-columns:.9fr 1.5fr;
+  }
+  .attendance-summary-card{
+    padding:6px;
+    min-height:54px;
+  }
+}
+
+</style></head><body><div id="integrationBanner" style="position:sticky;top:0;z-index:9999;background:#eef5ff;border-bottom:1px solid #cfdcf0;padding:5px 10px;font:700 11px system-ui;color:#35506f">🔗 已整合香港教師教學日誌：班級／學生由主系統提供；座位、積分及學生紀錄保留喺本模組。</div><div class="app"><div class="topbar"><div class="brand"><h1 id="pageTitle">七組座位表＋課堂積分 Pro</h1><p>班別管理｜今日班務｜學生｜座位｜積分｜紀錄</p></div><div class="class-switcher"><span id="classColorDot" class="class-dot"></span><select id="classSwitcher" onchange="switchClass(this.value)"></select><button class="btn" onclick="openGlobalSearch()">搜尋</button><button class="btn" onclick="openClassManager()">班別</button></div><div class="tabs"><button class="tab active" data-tab="dashboardPanel">今日</button><button class="tab" data-tab="studentsPanel">學生</button><button class="tab" data-tab="seatPanel">座位</button><button class="tab" data-tab="scorePanel">積分</button><button class="tab" data-tab="historyPanel">紀錄</button><button class="tab" data-tab="setupPanel">更多</button></div></div>
+
+<section class="panel active" id="dashboardPanel">
+  <div id="dashboardContent"></div>
+</section>
+<section class="panel" id="studentsPanel">
+  <div class="toolbar">
+    <input id="studentManagerSearch" placeholder="搜尋班號／姓名" oninput="renderStudentsManager()">
+    <div class="spacer"></div>
+    <button class="btn" onclick="openAttendance()">快速點名</button>
+    <button class="btn" onclick="openTodoModal()">新增待處理</button>
+  </div>
+  <div id="studentsManagerList" class="students-grid student-manager-grid"></div>
+</section>
+<section class="panel" id="seatPanel"><div class="toolbar"><button class="btn primary" onclick="startClassSession()">今日課堂開始</button><button class="btn" onclick="openAttendance()">快速點名</button><button class="btn" onclick="openPicker()">抽選</button><button class="btn primary" onclick="openMoveGroupModal()" id="moveGroupMainBtn">移動組別</button><button class="btn primary teacher-only" onclick="generateRandomPreview()">隨機全部</button><button class="btn teacher-only" onclick="randomizeWithinGroups()">只亂組內</button><button class="btn teacher-only" onclick="openPartialRandomModal()">指定組隨機</button><button class="btn soft teacher-only" onclick="openFiveGroupModal()">設定5人組</button><button class="btn teacher-only" onclick="toggleEighthGroup()" id="eighthGroupBtn">開設第8組</button><button class="btn teacher-only" id="swapModeBtn" onclick="toggleSwapMode()">交換模式</button><button class="btn soft teacher-only" onclick="undoLast()">↶ Undo</button><button class="btn teacher-only" onclick="saveSeatVersion()">儲存版本</button><div class="spacer"></div><span class="chip" id="seatCountChip"></span><button class="btn" onclick="toggleProjectorMode()">投影</button><button class="btn" onclick="toggleClassroomMode()">課堂模式</button></div><div class="toolbar" id="seatToolbarSecondary"><button class="btn teacher-only" onclick="resetGroupLayout()">重設4×2位置</button><button class="btn teacher-only" onclick="window.print()">列印</button><button class="btn teacher-only" onclick="openVersionsModal()">座位版本</button><button class="btn teacher-only" onclick="openRestrictionsModal()">座位限制</button><button class="btn teacher-only" onclick="awardWholeClass()">全班 +1</button><button class="btn teacher-only" onclick="endClassSession()">結束課堂</button><button class="btn teacher-only" onclick="openSessionHistory()">課堂歷史</button><label class="chip"><input type="checkbox" id="hideRankingChk" onchange="toggleRanking()"> 隱藏小組分</label></div><div class="classroom"><div class="front-row"><div class="teacher-desk">教師桌</div><div class="board">黑 板</div><div class="door">門口</div></div><div class="room-grid" id="roomGrid"></div><div class="bottom-door-row"><div></div><div class="door">門口</div></div></div></section>
+<section class="panel" id="scorePanel"><div class="toolbar"><button class="btn soft" onclick="undoLast()">↶ Undo</button><button class="btn" onclick="resetTodayScores()">清本課分</button><button class="btn danger" onclick="resetAllScores()">清全部分</button><div class="spacer"></div><input id="search" placeholder="搜尋班號／姓名" oninput="renderScoreList()"><select id="scoreFilter" onchange="renderScoreList()"><option value="all">班號排序</option><option value="desc">累積分排序</option></select></div><div class="score-layout"><div class="card"><h2 style="margin:0 0 8px;font-size:15px">小組積分</h2><div id="groupScoreList" class="group-score-list"></div></div><div id="studentScoreList" class="personal-group-grid"></div></div></section>
+<section class="panel" id="historyPanel"><div class="card"><div class="modal-title-row"><h2 style="margin:0;font-size:15px">課堂紀錄</h2><button class="btn danger" onclick="clearHistory()">清除紀錄</button></div><p class="note">每一筆計分可獨立撤銷。</p><div id="historyList" class="history-list"></div></div></section>
+<section class="panel" id="setupPanel">
+<div class="card" style="margin-bottom:8px">
+  <h2 style="margin:0 0 8px;font-size:15px">課堂事件設定</h2>
+  <div class="note" style="margin-bottom:6px">每班可獨立設定快捷事件、分值及原因。</div>
+  <div id="eventSettingsList"></div>
+  <button class="btn primary" onclick="openEventEditor()">＋ 新增課堂事件</button>
+</div>
+<div class="card" style="margin-bottom:8px"><h2 style="margin:0 0 8px;font-size:15px">班務待處理</h2><div id="moreTodoList"></div><div class="quick-row"><button class="btn" onclick="showAllTodos()">查看全部待辦</button><button class="btn" onclick="openTodoModal()">新增待處理</button></div></div><div class="setup-grid"><div class="card"><h2 style="margin:0 0 8px;font-size:15px">學生名單</h2><div class="field"><label>每行：班號,姓名</label><textarea id="rosterText"></textarea></div><button class="btn primary" onclick="applyRoster()">套用名單</button></div><div class="card"><h2 style="margin:0 0 8px;font-size:15px">班級／計分</h2><div class="field"><label>班級名稱</label><input id="classNameInput" onchange="saveSettings()"></div><div class="field"><label>預設加減分</label><input id="stepInput" type="number" min="1" max="20" onchange="saveSettings()"></div><div class="field"><label>快捷原因（逗號分隔）</label><input id="reasonsInput" onchange="saveSettings()"></div><div class="field"><label>連續加分模式</label><select id="continuousReason" onchange="saveSettings()"><option value="">關閉</option></select></div><div class="quick-row"><button class="btn" onclick="exportData()">匯出設定</button><label class="btn">匯入設定<input type="file" accept=".json" hidden onchange="importData(event)"></label><button class="btn danger" onclick="clearAll()">清空全部</button></div></div></div></section></div>
+<div class="modal-back" id="groupBubble"><div class="modal compact-bubble"><div style="display:flex;justify-content:space-between;align-items:center"><h3 id="groupBubbleTitle"></h3><button class="btn" onclick="closeGroupBubble()">✕</button></div><div class="reason-grid" id="bubbleReasonButtons"></div>
+<div class="bubble-event-section">
+  <div class="bubble-event-title">課堂事件</div>
+  <div id="bubbleEventButtons" class="bubble-event-buttons"></div>
+  <div id="bubbleEventStudentButtons" class="bubble-event-students"></div>
+  <div id="bubbleEventHint" class="note">先揀事件，再撳學生班號。</div>
+</div>
+<div id="groupBubbleScoreSummary" class="note" style="margin:6px 0 2px;font-weight:800"></div><div class="quick-row" style="margin-top:8px"><button class="btn soft" onclick="bubbleGroupScore(1)">小組分 +1</button><button class="btn" onclick="bubbleGroupScore(-1)">小組分 -1</button><button class="btn green" onclick="bubbleEveryone()">全組每人 +1</button></div><div id="bubbleStudents" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-top:8px"></div>
+    <div class="field" style="margin-top:8px">
+      <label>組長</label>
+      <select id="groupLeaderSelect"></select>
+    </div>
+    <button class="btn" onclick="saveGroupLeader()">設定組長 ⭐</button></div></div>
+<div class="modal-back" id="fiveGroupModal"><div class="modal compact-bubble"><div style="display:flex;justify-content:space-between;align-items:center"><h3>設定5人組</h3><button class="btn" onclick="closeFiveGroupModal()">✕</button></div><p class="note">5人組顯示6格，其他組顯示4格。</p><div id="fiveGroupChoices" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px"></div><div class="modal-actions"><button class="btn primary" onclick="saveFiveGroupSetting()">套用</button></div></div></div>
+<div class="modal-back" id="partialRandomModal"><div class="modal compact-bubble"><div style="display:flex;justify-content:space-between;align-items:center"><h3>指定組隨機</h3><button class="btn" onclick="closePartialRandomModal()">✕</button></div><div id="partialGroupChoices" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px"></div><div class="modal-actions"><button class="btn primary" onclick="applyPartialRandom()">重新排列</button></div></div></div>
+<div class="modal-back" id="versionsModal"><div class="modal"><div style="display:flex;justify-content:space-between;align-items:center"><h3>座位版本</h3><button class="btn" onclick="closeVersionsModal()">✕</button></div><div id="versionsList" class="history-list"></div></div></div>
+<div class="modal-back" id="restrictionsModal"><div class="modal"><div style="display:flex;justify-content:space-between;align-items:center"><h3>座位限制</h3><button class="btn" onclick="closeRestrictionsModal()">✕</button></div><div class="field"><label>鎖定學生</label><select id="lockStudentSelect"></select></div><button class="btn" onclick="toggleLockSelected()">鎖定／解除</button><div class="field" style="margin-top:10px"><label>不可同組</label><div class="quick-row"><select id="noGroupA"></select><select id="noGroupB"></select><button class="btn" onclick="addNoGroupPair()">加入</button></div></div><div id="noGroupPairs"></div><div class="field" style="margin-top:10px"><label>前排學生</label><select id="frontStudentSelect"></select></div><button class="btn" onclick="toggleFrontSelected()">設定／解除</button></div></div>
+
+
+<div class="modal-back" id="randomPreviewModal">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h3>隨機調位預覽</h3>
+      <button class="btn" onclick="closeRandomPreview()">✕</button>
+    </div>
+    <div id="randomPreviewBody" class="note"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="generateRandomPreview()">再抽一次</button>
+      <button class="btn primary" onclick="applyRandomPreview()">套用</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-back" id="moveGroupModal">
+  <div class="modal compact-bubble">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
+      <h3>移動組別</h3>
+      <button class="btn" onclick="closeMoveGroupModal()">✕</button>
+    </div>
+    <div class="field">
+      <label>選擇組別</label>
+      <select id="moveGroupSelect"></select>
+    </div>
+    <div class="field">
+      <label>移動到位置</label>
+      <select id="moveSlotSelect"></select>
+    </div>
+    <p class="note" id="moveGroupHint"></p>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeMoveGroupModal()">取消</button>
+      <button class="btn primary" onclick="applyMoveGroupFromModal()">移動</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="mobile-quickbar global-nav-dock">
+  <button class="dock-tab active" data-target="dashboardPanel" onclick="switchMainPanel('dashboardPanel',this)">今日</button>
+  <button class="dock-tab" data-target="studentsPanel" onclick="switchMainPanel('studentsPanel',this)">學生</button>
+  <button class="dock-tab" data-target="seatPanel" onclick="switchMainPanel('seatPanel',this)">座位</button>
+  <button class="dock-tab" data-target="scorePanel" onclick="switchMainPanel('scorePanel',this)">積分</button>
+  <button class="dock-tab" data-target="historyPanel" onclick="switchMainPanel('historyPanel',this)">紀錄</button>
+  <button class="dock-tab" data-target="setupPanel" onclick="switchMainPanel('setupPanel',this)">更多</button>
+</div>
+
+
+<div class="modal-back" id="classManagerModal">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center"><h3>班別管理</h3><button class="btn" onclick="closeClassManager()">✕</button></div>
+    <div class="field"><label>新增班別</label><div class="quick-row"><input id="newClassName" placeholder="例如 3B"><button class="btn primary" onclick="addClass()">新增</button></div></div>
+    <div id="classManagerList" class="history-list"></div>
+  </div>
+</div>
+
+<div class="modal-back" id="attendanceModal">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center"><h3>快速點名</h3><button class="btn" onclick="closeAttendance()">✕</button></div>
+    <p class="note">撳班號切換「到／缺」。缺席學生會自動避開加分、連續加分、抽選及隨機調位。</p>
+    <div id="attendanceGrid" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px"></div>
+    <div class="modal-actions"><button class="btn primary" onclick="closeAttendance()">完成</button></div>
+  </div>
+</div>
+
+<div class="modal-back" id="pickerModal">
+  <div class="modal compact-bubble">
+    <div style="display:flex;justify-content:space-between;align-items:center"><h3>隨機抽選</h3><button class="btn" onclick="closePicker()">✕</button></div>
+    <div id="pickerResult" style="font-size:26px;font-weight:950;text-align:center;padding:18px 6px">—</div>
+    <div class="quick-row" style="justify-content:center"><button class="btn primary" onclick="pickStudent()">抽學生</button><button class="btn" onclick="pickGroup()">抽小組</button></div>
+  </div>
+</div>
+
+
+
+
+<div class="modal-back" id="studentHistoryModal">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h3 id="studentHistoryTitle">學生個人紀錄</h3>
+      <button class="btn" onclick="closeStudentHistory()">✕</button>
+    </div>
+    <div id="studentHistorySummary" class="note"></div>
+    <div id="studentHistoryList" class="student-history-list"></div>
+  </div>
+</div>
+
+
+<div class="modal-back" id="studentAttendanceHistoryModal">
+  <div class="modal">
+    <div class="modal-title-row">
+      <h3 id="studentAttendanceHistoryTitle">出席歷史</h3>
+      <button class="btn" onclick="closeStudentAttendanceHistory()">✕</button>
+    </div>
+    <div id="studentAttendanceHistoryFull"></div>
+  </div>
+</div>
+
+<div class="modal-back" id="sessionHistoryModal">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h3>每班課堂歷史</h3>
+      <button class="btn" onclick="closeSessionHistory()">✕</button>
+    </div>
+    <div id="sessionHistoryList"></div>
+  </div>
+</div>
+
+
+<div class="modal-back" id="studentProfileModal">
+  <div class="modal">
+    <div class="student-profile-sticky-head">
+      <h3 id="studentProfileTitle">學生個人檔案</h3>
+      <button class="btn" onclick="closeStudentProfile()">✕</button>
+    </div>
+    <div id="studentProfileSummary" class="note"></div>
+    <div class="field">
+      <label>教師私人備註</label>
+      <textarea id="studentPrivateNote" rows="2" placeholder="只供教師查看"></textarea>
+    </div>
+    <button class="btn primary student-note-save" onclick="saveStudentPrivateNote()">儲存備註</button>
+    <div class="section-title">出席紀錄</div>
+    <div id="studentAttendanceHistory"></div>
+    <div class="section-title">學生紀錄</div>
+    <div class="record-filter-row" id="studentRecordFilters">
+      <button class="record-filter active" data-filter="all" onclick="setStudentRecordFilter('all',this)">全部</button>
+      <button class="record-filter" data-filter="score" onclick="setStudentRecordFilter('score',this)">加扣分</button>
+      <button class="record-filter" data-filter="positive" onclick="setStudentRecordFilter('positive',this)">正面表現</button>
+      <button class="record-filter" data-filter="behavior" onclick="setStudentRecordFilter('behavior',this)">行為問題</button>
+      <button class="record-filter" data-filter="todo" onclick="setStudentRecordFilter('todo',this)">待辦跟進</button>
+      <button class="record-filter" data-filter="attendance" onclick="setStudentRecordFilter('attendance',this)">出勤</button>
+    </div>
+    <div id="studentProfileHistory"></div>
+    <div class="section-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span>家校聯絡</span>
+      <button class="btn" onclick="openParentContactModal()">＋ 新增</button>
+    </div>
+    <div id="studentParentContacts"></div>
+    <div class="section-title">相關待辦</div>
+    <div id="studentProfileTodos"></div>
+  </div>
+</div>
+
+<div class="modal-back" id="todoModal">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h3>新增待處理事項</h3>
+      <button class="btn" onclick="closeTodoModal()">✕</button>
+    </div>
+    <div class="field"><label>事項</label><input id="todoText" placeholder="例如：追功課／補測／聯絡家長"></div>
+    <div class="field"><label>學生（可留空）</label><select id="todoStudent"></select></div>
+    <div class="field"><label>截止日期</label><input type="date" id="todoDate"></div>
+    <button class="btn primary" onclick="saveTodo()">新增</button>
+  </div>
+</div>
+
+
+<div class="modal-back" id="eventEditorModal">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h3 id="eventEditorTitle">新增課堂事件</h3>
+      <button class="btn" onclick="closeEventEditor()">✕</button>
+    </div>
+    <input type="hidden" id="eventEditIndex" value="">
+    <div class="field">
+      <label>快捷鍵名稱</label>
+      <input id="eventLabelInput" placeholder="例如：完成任務／多次離座">
+    </div>
+    <div class="note" style="margin-bottom:7px">課堂事件只作紀錄，不會改變學生積分；加減分請使用獨立計分功能。</div>
+    <div class="field">
+      <label>事件原因／紀錄文字</label>
+      <input id="eventReasonInput" placeholder="例如：多次離座／完成任務">
+    </div>
+    <label class="checkline"><input type="checkbox" id="eventCreateTodoInput" onchange="updateEventEditorMode()"> 記錄事件後建立待辦</label>
+    <div class="field" id="eventTodoTextField" style="display:none">
+      <label>待辦內容</label>
+      <input id="eventTodoTextInput" placeholder="例如：聯絡家長／跟進學生">
+    </div>
+    <div class="quick-row">
+      <button class="btn primary" onclick="saveEventShortcut()">儲存</button>
+      <button class="btn" onclick="closeEventEditor()">取消</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal-back" id="todoDetailModal">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h3 id="todoDetailTitle">待辦詳情</h3>
+      <button class="btn" onclick="closeTodoDetail()">✕</button>
+    </div>
+    <div id="todoDetailMeta" class="note"></div>
+    <div class="todo-status-row" id="todoStatusRow">
+      <button type="button" class="todo-status-btn" data-status="pending" onclick="setCurrentTodoStatus('pending')">待處理</button>
+      <button type="button" class="todo-status-btn" data-status="contacted" onclick="setCurrentTodoStatus('contacted')">已聯絡</button>
+      <button type="button" class="todo-status-btn" data-status="observing" onclick="setCurrentTodoStatus('observing')">觀察中</button>
+      <button type="button" class="todo-status-btn" data-status="done" onclick="setCurrentTodoStatus('done')">完成</button>
+    </div>
+    <div id="todoSourceEventBox" class="profile-history-item" style="margin-top:8px"></div>
+    <div class="field">
+      <label>跟進備註／聯絡家長結果</label>
+      <textarea id="todoFollowUpRemark" rows="2" placeholder="例如：已致電家長，家長表示會在家跟進；明天再觀察。"></textarea>
+    </div>
+    <div class="quick-row">
+      <button class="btn primary" onclick="saveTodoRemark()">儲存備註</button>
+      <button class="btn" id="todoToContactBtn" onclick="openParentContactFromTodo()">轉為家校聯絡</button>
+    </div>
+  </div>
+</div>
+
+
+
+<div class="modal-back" id="parentContactModal">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h3 id="parentContactModalTitle">新增家校聯絡</h3>
+      <button class="btn" onclick="closeParentContactModal()">✕</button>
+    </div>
+    <input type="hidden" id="parentContactTodoId">
+    <input type="hidden" id="parentContactSourceEventId">
+    <div id="parentContactStudentLabel" class="note"></div>
+    <div id="parentContactDraftHint" class="note">由待辦開啟時，輸入內容會自動暫存。</div>
+    <div class="contact-grid">
+      <div class="field">
+        <label>日期</label>
+        <input type="date" id="parentContactDate" onchange="saveParentContactDraft()">
+      </div>
+      <div class="field">
+        <label>聯絡方式</label>
+        <select id="parentContactMethod" onchange="saveParentContactDraft()">
+          <option>電話</option>
+          <option>家長通訊 App</option>
+          <option>面談</option>
+          <option>電郵</option>
+          <option>學生手冊</option>
+          <option>其他</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>聯絡對象</label>
+      <input id="parentContactTarget" value="家長" oninput="saveParentContactDraft()" placeholder="例如：媽媽／爸爸／家長">
+    </div>
+    <div class="field">
+      <label>聯絡內容</label>
+      <textarea id="parentContactContent" rows="2" oninput="saveParentContactDraft()" placeholder="今次主要聯絡事項"></textarea>
+    </div>
+    <div class="field">
+      <label>家長回覆</label>
+      <textarea id="parentContactResponse" rows="2" oninput="saveParentContactDraft()" placeholder="家長回應／補充資料"></textarea>
+    </div>
+    <div class="field">
+      <label>後續安排</label>
+      <textarea id="parentContactFollowUp" rows="2" oninput="saveParentContactDraft()" placeholder="例如：下星期再觀察／明天跟進"></textarea>
+    </div>
+    <div class="quick-row parent-contact-actions">
+      <button class="btn primary" id="saveParentContactBtn" onclick="saveParentContact()">儲存聯絡紀錄</button>
+      <button class="btn" onclick="closeParentContactModal()">取消</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-back" id="allTodosModal">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h3>全部待辦</h3>
+      <button class="btn" onclick="closeAllTodos()">✕</button>
+    </div>
+    <div id="allTodosList"></div>
+  </div>
+</div>
+
+
+<div class="modal-back" id="globalSearchModal">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <h3 style="margin:0">全域搜尋</h3>
+      <button class="btn" onclick="closeGlobalSearch()">✕</button>
+    </div>
+    <div class="field" style="margin-top:10px">
+      <input id="globalSearchInput" placeholder="搜尋班號、姓名、事件、待辦…" oninput="renderGlobalSearch()">
+    </div>
+    <div id="globalSearchResults"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+const KEY='seat_score_multiclass_v22',OLD_KEY='seat_score_pro_v14',DEFAULT_REASONS=['回答問題','合作良好','專心學習','守規矩','幫助同學'];
+function makeDefaultStudents(){const arr=[],counts=[4,4,4,4,3,3,3];let no=1;for(let g=1;g<=7;g++)for(let seat=0;seat<counts[g-1];seat++)arr.push({id:'s'+no,no:String(no++),name:'',score:0,todayScore:0,group:g,seat,lastReason:'',locked:false,front:false,leader:false,absent:false});return arr}
+function makeClassTemplate(name='3A'){return{className:name,step:1,reasons:[...DEFAULT_REASONS],continuousReason:'',students:makeDefaultStudents(),groupScores:{1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0},groupToday:{1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0},fivePersonGroups:[],enableEighthGroup:false,groupPositions:{1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:8},history:[],versions:[],noGroupPairs:[],settings:{hideRanking:false,projector:false,classroomMode:false},sessionHistory:[],currentSessionDate:'',classColor:'#4A90E2',attendanceHistory:[],todos:[],parentContacts:[],studentNotes:{},lessonContext:{className:'',subject:'',period:'',startTime:'',endTime:'',dayCode:'',weekCode:''},eventShortcuts:[{label:'回答問題',mode:'record',delta:0,reason:'回答問題',createTodo:false,todoText:''},{label:'合作良好',mode:'record',delta:0,reason:'合作良好',createTodo:false,todoText:''},{label:'主動參與',mode:'record',delta:0,reason:'主動參與',createTodo:false,todoText:''},{label:'需要提醒',mode:'record',delta:0,reason:'需要提醒',createTodo:false,todoText:''}],lastUsed:Date.now()}}
+
+
+const TODO_STATUS_LABELS={
+ pending:'待處理',
+ contacted:'已聯絡',
+ observing:'觀察中',
+ done:'完成'
+};
+
+function normalizeTodoStatus(t){
+ const valid=['pending','contacted','observing','done'];
+ if(t && valid.includes(t.status))return t.status;
+ return t?.done?'done':'pending';
+}
+
+function todoStatusLabel(t){
+ return TODO_STATUS_LABELS[normalizeTodoStatus(t)]||'待處理';
+}
+
+function normalizeTodoText(v){
+ return String(v||'').trim().replace(/\s+/g,' ').toLowerCase();
+}
+
+function todoDedupeKey(t){
+ if(!t || typeof t!=='object')return '';
+
+ // Event-generated todos should be strictly one todo per source event.
+ if(t.sourceEventId)return 'event:'+String(t.sourceEventId);
+
+ // Same persisted id means it is definitely the same todo.
+ if(t.id)return 'id:'+String(t.id);
+
+ // Fallback for very old todo records that pre-date ids.
+ return [
+   'legacy',
+   normalizeTodoText(t.text),
+   String(t.studentId||t.studentNo||''),
+   String(t.date||''),
+   String(t.createdAt||''),
+   String(!!t.done),
+   normalizeTodoText(t.followUpRemark||'')
+ ].join('|');
+}
+
+function dedupeTodos(arr){
+ if(!Array.isArray(arr))return [];
+ const seen=new Set();
+ const out=[];
+
+ for(const raw of arr){
+   if(!raw || typeof raw!=='object')continue;
+
+   const t={
+     ...raw,
+     id:raw.id||('todo_legacy_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)),
+     text:String(raw.text||'').trim(),
+     studentId:raw.studentId||'',
+     studentNo:String(raw.studentNo||''),
+     date:raw.date||'',
+     status:normalizeTodoStatus(raw),
+     done:normalizeTodoStatus(raw)==='done',
+     statusUpdatedAt:raw.statusUpdatedAt||'',
+     followUpRemark:raw.followUpRemark||'',
+     completedAt:normalizeTodoStatus(raw)==='done'?(raw.completedAt||''): '',
+     sourceEventId:raw.sourceEventId||'',
+     sourceEvent:raw.sourceEvent||'',
+     sourceEventDate:raw.sourceEventDate||'',
+     sourceEventTime:raw.sourceEventTime||'',
+     sourceLessonContext:raw.sourceLessonContext&&typeof raw.sourceLessonContext==='object'
+       ? raw.sourceLessonContext:{},
+     createdAt:raw.createdAt||''
+   };
+
+   if(!t.text)continue;
+
+   let key=todoDedupeKey(t);
+
+   // Older duplicated records sometimes gained different ids during migration.
+   // For those, use an exact content fingerprint only when all meaningful fields match.
+   const legacyContentKey=[
+     'content',
+     normalizeTodoText(t.text),
+     String(t.studentId||t.studentNo||''),
+     String(t.date||''),
+     String(t.sourceEventId||''),
+     String(t.sourceEventDate||''),
+     String(t.sourceEventTime||''),
+     String(t.createdAt||''),
+     String(normalizeTodoStatus(t)),
+     normalizeTodoText(t.followUpRemark||'')
+   ].join('|');
+
+   if(seen.has(key) || seen.has(legacyContentKey))continue;
+
+   seen.add(key);
+   seen.add(legacyContentKey);
+   out.push(t);
+ }
+ return out;
+}
+
+
+function normalizeContactText(v){
+ return String(v||'').trim().replace(/\s+/g,' ').toLowerCase();
+}
+
+function parentContactFingerprint(c){
+ return [
+   String(c.studentId||c.studentNo||''),
+   String(c.date||''),
+   normalizeContactText(c.method||''),
+   normalizeContactText(c.target||''),
+   normalizeContactText(c.content||''),
+   normalizeContactText(c.response||''),
+   normalizeContactText(c.followUp||'')
+ ].join('|');
+}
+
+function dedupeParentContacts(arr){
+ if(!Array.isArray(arr))return [];
+ const seenIds=new Set();
+ const seenTodoExact=new Set();
+ const seenLegacyExact=new Set();
+ const out=[];
+
+ for(const raw of arr){
+   if(!raw || typeof raw!=='object')continue;
+
+   const c={
+     ...raw,
+     id:raw.id||('contact_legacy_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)),
+     studentId:raw.studentId||'',
+     studentNo:String(raw.studentNo||''),
+     date:raw.date||'',
+     method:raw.method||'電話',
+     target:raw.target||'家長',
+     content:String(raw.content||'').trim(),
+     response:String(raw.response||'').trim(),
+     followUp:String(raw.followUp||'').trim(),
+     todoId:raw.todoId||'',
+     sourceEventId:raw.sourceEventId||'',
+     createdAt:raw.createdAt||''
+   };
+
+   if(!c.content)continue;
+
+   if(seenIds.has(c.id))continue;
+
+   const fp=parentContactFingerprint(c);
+   const todoExact=c.todoId ? `todo:${c.todoId}|${fp}` : '';
+   const legacyExact=!c.todoId ? `legacy:${fp}|${String(c.createdAt||'')}` : '';
+
+   if(todoExact && seenTodoExact.has(todoExact))continue;
+   if(legacyExact && seenLegacyExact.has(legacyExact))continue;
+
+   seenIds.add(c.id);
+   if(todoExact)seenTodoExact.add(todoExact);
+   if(legacyExact)seenLegacyExact.add(legacyExact);
+   out.push(c);
+ }
+ return out;
+}
+
+function normalizeClass(c){
+ c.className=c.className||'未命名班';c.step=Number(c.step)||1;c.reasons=Array.isArray(c.reasons)&&c.reasons.length?c.reasons:[...DEFAULT_REASONS];c.continuousReason=c.continuousReason||'';
+ c.students=Array.isArray(c.students)?c.students:makeDefaultStudents();c.students=c.students.map((s,i)=>({...s,id:s.id||('s'+i),score:Number(s.score)||0,todayScore:Number(s.todayScore)||0,group:Number(s.group)||1,seat:Number.isInteger(Number(s.seat))?Number(s.seat):0,lastReason:s.lastReason||'',locked:!!s.locked,front:!!s.front,leader:!!s.leader,absent:!!s.absent}));
+ c.groupScores=c.groupScores||{1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0};c.groupToday=c.groupToday||{1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0};if(c.groupScores[8]===undefined)c.groupScores[8]=0;if(c.groupToday[8]===undefined)c.groupToday[8]=0;c.fivePersonGroups=Array.isArray(c.fivePersonGroups)?c.fivePersonGroups:[];c.enableEighthGroup=!!c.enableEighthGroup;c.groupPositions=c.groupPositions||{1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:8};const defaultPos={1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:8};for(let g=1;g<=8;g++){if(c.groupPositions[g]===undefined)c.groupPositions[g]=defaultPos[g]};c.history=Array.isArray(c.history)?c.history:[];c.history=c.history.map(h=>{const p=h.payload||h.undoPayload||{};return {...h,payload:p,undoPayload:h.undoPayload||p,text:h.text||h.action||'紀錄'};});c.versions=Array.isArray(c.versions)?c.versions:[];c.noGroupPairs=Array.isArray(c.noGroupPairs)?c.noGroupPairs:[];c.settings=c.settings||{hideRanking:false,projector:false,classroomMode:false};c.sessionHistory=Array.isArray(c.sessionHistory)?c.sessionHistory:[];c.currentSessionDate=c.currentSessionDate||'';c.classColor=c.classColor||'#4A90E2';c.attendanceHistory=Array.isArray(c.attendanceHistory)?c.attendanceHistory:[];c.attendanceHistory=c.attendanceHistory.map(a=>({...a,presentIds:Array.isArray(a.presentIds)?a.presentIds:[],absentIds:Array.isArray(a.absentIds)?a.absentIds:[],absentNos:Array.isArray(a.absentNos)?a.absentNos:[],presentNos:Array.isArray(a.presentNos)?a.presentNos:[],endedAt:a.endedAt||'',sessionId:a.sessionId||''}));c.todos=dedupeTodos(c.todos);
+ c.parentContacts=dedupeParentContacts(c.parentContacts);
+ c.studentNotes=c.studentNotes&&typeof c.studentNotes==='object'?c.studentNotes:{};c.lessonContext=c.lessonContext&&typeof c.lessonContext==='object'?c.lessonContext:{className:'',subject:'',period:'',startTime:'',endTime:'',dayCode:'',weekCode:''};c.eventShortcuts=Array.isArray(c.eventShortcuts)&&c.eventShortcuts.length?c.eventShortcuts:[{label:'回答問題',mode:'record',delta:0,reason:'回答問題',createTodo:false,todoText:''},{label:'合作良好',mode:'record',delta:0,reason:'合作良好',createTodo:false,todoText:''},{label:'主動參與',mode:'record',delta:0,reason:'主動參與',createTodo:false,todoText:''},{label:'需要提醒',mode:'record',delta:0,reason:'需要提醒',createTodo:false,todoText:''}];c.eventShortcuts=c.eventShortcuts.map(e=>({label:e.label||'事件',mode:'record',delta:0,reason:e.reason||e.label||'事件',createTodo:!!e.createTodo,todoText:e.todoText||''}));c.lastUsed=c.lastUsed||Date.now();return c
+}
+function loadManager(){
+ try{const m=JSON.parse(localStorage.getItem(KEY));if(m&&m.classes&&m.activeClassId)return m}catch(e){}
+ let old=null;try{old=JSON.parse(localStorage.getItem(OLD_KEY))}catch(e){}
+ const id='class_'+Date.now();const first=normalizeClass(old||makeClassTemplate(old?.className||'3A'));return{activeClassId:id,classes:{[id]:first}}
+}
+let manager=loadManager();Object.keys(manager.classes).forEach(id=>manager.classes[id]=normalizeClass(manager.classes[id]));let state=manager.classes[manager.activeClassId];
+let undoStack=[],dragId=null,groupDragId=null,bubbleGroupId=null,tempFiveGroups=[],swapMode=false,swapFirstId=null,tempPartialGroups=[],groupMoveMode=false,selectedMoveGroup=null;
+function saveManager(){localStorage.setItem(KEY,JSON.stringify(manager))}
+saveManager();
+function save(){state.todos=dedupeTodos(state.todos);state.parentContacts=dedupeParentContacts(state.parentContacts);state.lastUsed=Date.now();manager.classes[manager.activeClassId]=state;saveManager()}function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1200)}function numSort(a,b){return(parseInt(a)||0)-(parseInt(b)||0)}
+function activeGroupCount(){return state.enableEighthGroup?8:7}
+function activeGroups(){return Array.from({length:activeGroupCount()},(_,i)=>i+1)}
+
+
+function groupStudentTodayTotal(g){
+ return groupStudents(g).reduce((sum,s)=>sum+(Number(s.todayScore)||0),0);
+}
+function groupStudentTotal(g){
+ return groupStudents(g).reduce((sum,s)=>sum+(Number(s.score)||0),0);
+}
+function groupStudents(g){return state.students.filter(s=>s.group===g)}function groupCap(g){return state.fivePersonGroups.includes(+g)?5:4}function groupSeatSpaces(g){return state.fivePersonGroups.includes(+g)?6:4}function groupTotal(g){return Number(state.groupScores[g])||0}function groupTodayTotal(g){return Number(state.groupToday[g])||0}
+function autoBackupSeat(label){
+ state.versions=Array.isArray(state.versions)?state.versions:[];
+ state.versions.unshift({
+   id:'auto'+Date.now(),
+   name:'自動備份：'+label,
+   time:new Date().toLocaleString('zh-HK'),
+   students:state.students.map(s=>({id:s.id,group:s.group,seat:s.seat})),
+   groupPositions:{...state.groupPositions},
+   fivePersonGroups:[...state.fivePersonGroups],
+   auto:true
+ });
+ state.versions=state.versions.slice(0,12);
+}
+
+function pushUndo(label){undoStack.push({label,state:JSON.stringify(state)});if(undoStack.length>40)undoStack.shift()}function undoLast(){const x=undoStack.pop();if(!x){toast('沒有可復原操作');return}state=JSON.parse(x.state);save();renderAll();toast('已復原：'+x.label)}function logAction(text,reason='',undoPayload=null){const id='h'+Date.now()+Math.random().toString(36).slice(2,6);state.history.unshift({id,text,reason,time:new Date().toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'}),undoPayload,payload:undoPayload,undone:false});state.history=state.history.slice(0,120)}
+
+function switchMainPanel(panelId,sourceBtn=null){
+ document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+ const panel=document.getElementById(panelId);
+ if(panel)panel.classList.add('active');
+
+ // Sync legacy top tabs even though they are visually hidden.
+ document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===panelId));
+
+ // Sync bottom dock.
+ document.querySelectorAll('.dock-tab').forEach(x=>x.classList.toggle('active',x.dataset.target===panelId));
+
+ if(panelId==='dashboardPanel')renderDashboard();
+ if(panelId==='studentsPanel')renderStudentsManager();
+ if(panelId==='scorePanel')renderScores();
+ if(panelId==='historyPanel')renderHistory();
+}
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>switchMainPanel(b.dataset.tab,b));
+
+
+let selectedEventShortcut=null;
+
+function renderEventShortcuts(){return;}
+function selectEventShortcut(i){
+ const arr=state.eventShortcuts||[];
+ if(!Number.isInteger(i)||!arr[i]){
+   selectedEventShortcut=null;
+   document.body.classList.remove('event-select-mode');
+   renderEventShortcuts();
+   renderSeat();
+   return;
+ }
+
+ selectedEventShortcut=(selectedEventShortcut===i)?null:i;
+ document.body.classList.toggle('event-select-mode',selectedEventShortcut!==null);
+
+ renderEventShortcuts();
+ renderSeat();
+
+ if(selectedEventShortcut===null){
+   toast('已取消課堂事件');
+ }else{
+   toast('已選擇：'+arr[selectedEventShortcut].label+'，請撳學生');
+ }
+}
+
+function applySelectedEventToStudent(id){
+ if(selectedEventShortcut===null)return false;
+ const s=state.students.find(x=>x.id===id);
+ if(!s)return true;
+ const e=state.eventShortcuts[selectedEventShortcut];
+ if(!e)return false;
+
+ pushUndo(`班號${s.no}課堂事件`);
+
+ const eventId='evt_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+ logAction(
+   `班號 ${s.no}｜${e.label}`,
+   e.reason||e.label,
+   {
+     type:'record',
+     id:s.id,
+     studentNo:String(s.no),
+     delta:0,
+     eventMode:'record',
+     eventLabel:e.label,
+     eventId:eventId,
+     eventDate:new Date().toLocaleDateString('zh-HK'),
+     eventTime:new Date().toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'}),
+     lessonContext:currentLessonContext(),
+     linkedTodoId:''
+   }
+ );
+
+ if(e.createTodo){
+   state.todos=dedupeTodos(state.todos);
+   const existingTodo=state.todos.find(t=>t.sourceEventId===eventId);
+   const todoId=existingTodo?.id||('todo_'+Date.now()+'_'+Math.random().toString(36).slice(2,7));
+   if(!existingTodo)state.todos.unshift({
+     id:todoId,
+     text:e.todoText||('跟進：'+e.label),
+     studentId:s.id,
+     studentNo:String(s.no),
+     date:'',
+     status:'pending',
+     done:false,
+     statusUpdatedAt:new Date().toLocaleString('zh-HK'),
+     createdAt:new Date().toLocaleString('zh-HK'),
+     sourceEvent:e.label,
+     sourceEventId:eventId,
+     sourceEventDate:new Date().toLocaleDateString('zh-HK'),
+     sourceEventTime:new Date().toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'}),
+     sourceLessonContext:currentLessonContext(),
+     followUpRemark:'',
+     completedAt:''
+   });
+   const h=state.history.find(x=>(x.payload||x.undoPayload)?.eventId===eventId);
+   if(h){
+     const hp=h.payload||h.undoPayload||{};
+     hp.linkedTodoId=todoId;
+     h.payload=hp;
+     h.undoPayload=hp;
+   }
+ }
+
+ save();
+ renderAll();
+ toast(`已記錄：${s.no} ${e.label}${e.createTodo?'，並建立待辦':''}`);
+ return true;
+}
+function renderClassSwitcher(){const sel=document.getElementById('classSwitcher');if(!sel)return;const entries=Object.entries(manager.classes).sort((a,b)=>(b[1].lastUsed||0)-(a[1].lastUsed||0));sel.innerHTML=entries.map(([id,c])=>`<option value="${id}"${id===manager.activeClassId?' selected':''}>${esc(c.className||'未命名班')}</option>`).join('');const dot=document.getElementById('classColorDot');if(dot)dot.style.background=state.classColor||'#4A90E2';document.documentElement.style.setProperty('--accent',state.classColor||'#4A90E2')}
+function switchClass(id){if(!manager.classes[id])return;save();manager.activeClassId=id;state=normalizeClass(manager.classes[id]);saveManager();undoStack=[];renderAll();toast('已切換至 '+state.className)}
+function openClassManager(){renderClassManager();document.getElementById('classManagerModal').classList.add('show')}
+function closeClassManager(){document.getElementById('classManagerModal').classList.remove('show')}
+function renderClassManager(){const w=document.getElementById('classManagerList');w.innerHTML=Object.entries(manager.classes).map(([id,c])=>`<div class="history-item"><div style="display:flex;align-items:center;gap:7px"><span class="class-dot" style="background:${c.classColor||'#4A90E2'}"></span><div><div class="history-main">${esc(c.className||'未命名班')}</div><div class="history-meta">${c.students?.length||0}人</div></div></div><div class="quick-row"><label class="btn" style="display:inline-flex;align-items:center;gap:5px">顏色<input type="color" value="${c.classColor||'#4A90E2'}" onchange="setClassColor('${id}',this.value)" style="width:28px;height:24px;padding:0;border:0;background:transparent"></label><button class="btn" onclick="renameClass('${id}')">改名</button><button class="btn danger" onclick="deleteClass('${id}')">刪除</button></div></div>`).join('')}
+
+function setClassColor(id,color){
+ const c=manager.classes[id];if(!c)return;
+ c.classColor=color||'#4A90E2';
+ if(id===manager.activeClassId)state.classColor=c.classColor;
+ saveManager();
+ renderAll();
+ renderClassManager();
+}
+
+function addClass(){const name=document.getElementById('newClassName').value.trim();if(!name)return;save();const id='class_'+Date.now();manager.classes[id]=makeClassTemplate(name);manager.activeClassId=id;state=manager.classes[id];saveManager();undoStack=[];document.getElementById('newClassName').value='';renderAll();renderClassManager()}
+function renameClass(id){const c=manager.classes[id];if(!c)return;const n=prompt('新班別名稱：',c.className||'');if(!n)return;c.className=n.trim();if(id===manager.activeClassId)state.className=c.className;saveManager();renderAll();renderClassManager()}
+function deleteClass(id){if(Object.keys(manager.classes).length<=1){alert('至少要保留一個班別。');return}const c=manager.classes[id];if(!confirm(`確定刪除「${c.className}」？座位、積分及紀錄會一併刪除。`))return;delete manager.classes[id];if(manager.activeClassId===id){manager.activeClassId=Object.keys(manager.classes)[0];state=normalizeClass(manager.classes[manager.activeClassId])}saveManager();undoStack=[];renderAll();renderClassManager()}
+
+
+function toggleEighthGroup(){
+ const currentCount=state.students.length;
+ if(!state.enableEighthGroup){
+   if(currentCount<=25 && !confirm('目前學生人數不多於25人。仍然開設第8組？'))return;
+   state.enableEighthGroup=true;
+   if(state.groupScores[8]===undefined)state.groupScores[8]=0;
+   if(state.groupToday[8]===undefined)state.groupToday[8]=0;
+   if(state.groupPositions[8]===undefined)state.groupPositions[8]=8;
+   toast('已開設第8組');
+ }else{
+   if(groupStudents(8).length>0){alert('第8組仍有學生，請先調走學生再關閉第8組。');return}
+   state.enableEighthGroup=false;
+   state.fivePersonGroups=state.fivePersonGroups.filter(g=>g!==8);
+   toast('已關閉第8組');
+ }
+ save();renderAll();
+}
+
+
+let currentProfileStudentId=null;
+let currentStudentRecordFilter='all';
+let currentTodoId=null;
+
+
+function renderEventSettings(){
+ const w=document.getElementById('eventSettingsList');
+ if(!w)return;
+ const arr=state.eventShortcuts||[];
+ w.innerHTML=arr.length?arr.map((e,i)=>`
+   <div class="history-item">
+     <div>
+       <div class="history-main">${esc(e.label)}</div>
+       <div class="history-meta">純紀錄｜原因：${esc(e.reason||'')}${e.createTodo?'｜會建立待辦':''}</div>
+     </div>
+     <div class="quick-row">
+       <button class="btn" onclick="openEventEditor(${i})">編輯</button>
+       <button class="btn danger" onclick="deleteEventShortcut(${i})">刪除</button>
+     </div>
+   </div>`).join(''):'<div class="note">未設定課堂事件。</div>';
+}
+function openEventEditor(index=''){
+ const editing=index!=='' && index!==null && index!==undefined;
+ document.getElementById('eventEditorTitle').textContent=editing?'編輯課堂事件':'新增課堂事件';
+ document.getElementById('eventEditIndex').value=editing?String(index):'';
+ const e=editing?state.eventShortcuts[index]:null;
+ document.getElementById('eventLabelInput').value=e?.label||'';
+ document.getElementById('eventReasonInput').value=e?.reason||'';
+ document.getElementById('eventCreateTodoInput').checked=!!e?.createTodo;
+ document.getElementById('eventTodoTextInput').value=e?.todoText||'';
+ updateEventEditorMode();
+ document.getElementById('eventEditorModal').classList.add('show');
+}
+function updateEventEditorMode(){
+ const makeTodo=document.getElementById('eventCreateTodoInput').checked;
+ document.getElementById('eventTodoTextField').style.display=makeTodo?'block':'none';
+}
+function closeEventEditor(){document.getElementById('eventEditorModal').classList.remove('show')}
+function saveEventShortcut(){
+ const label=document.getElementById('eventLabelInput').value.trim();
+ const reason=document.getElementById('eventReasonInput').value.trim();
+ const createTodo=document.getElementById('eventCreateTodoInput').checked;
+ const todoText=document.getElementById('eventTodoTextInput').value.trim();
+
+ if(!label){alert('請輸入快捷鍵名稱');return}
+ if(createTodo && !todoText){alert('請輸入待辦內容，例如「聯絡家長」');return}
+
+ const idx=document.getElementById('eventEditIndex').value;
+ const item={label,mode:'record',delta:0,reason:reason||label,createTodo,todoText};
+ if(idx==='')state.eventShortcuts.push(item);
+ else state.eventShortcuts[Number(idx)]=item;
+
+ selectedEventShortcut=null;
+ save();closeEventEditor();renderAll();toast(idx===''?'已新增課堂事件':'已更新課堂事件');
+}
+
+function deleteEventShortcut(index){
+ const e=state.eventShortcuts[index];if(!e)return;
+ if(!confirm(`刪除「${e.label}」？`))return;
+ state.eventShortcuts.splice(index,1);
+ selectedEventShortcut=null;
+ save();renderAll();toast('已刪除課堂事件');
+}
+
+function renderDashboard(){
+ const w=document.getElementById('dashboardContent');if(!w)return;
+ const absent=state.students.filter(s=>s.absent);
+ const pending=(state.todos||[]).filter(t=>normalizeTodoStatus(t)!=='done');
+ const studentPts=state.students.reduce((a,s)=>a+(Number(s.todayScore)||0),0);
+ const groupPts=activeGroups().reduce((a,g)=>a+(Number(state.groupToday[g])||0),0);
+ const recent=(state.sessionHistory||[])[0];
+ w.innerHTML=`
+   <div class="dashboard-grid">
+     <div class="dash-card"><h3>${esc(state.className||'目前班別')}</h3><div class="dash-big">${state.students.length}人</div><div class="note">${state.enableEighthGroup?'8組':'7組'}｜${state.fivePersonGroups.length}個5人組</div></div>
+     <div class="dash-card"><h3>今日出席</h3><div class="dash-big">${state.students.length-absent.length}/${state.students.length}</div><div class="note">${absent.length?'缺席：'+absent.map(s=>esc(s.no)).join('、'):'全員到齊'}</div></div>
+     <div class="dash-card"><h3>本課積分</h3><div class="dash-big">${studentPts+groupPts}</div><div class="note">學生分 ${studentPts}｜小組分 ${groupPts}</div></div>
+     <div class="dash-card"><h3>待處理</h3><div class="dash-big">${pending.length}</div><div class="note">${pending.slice(0,2).map(t=>esc(t.text)).join('、')||'暫無待處理事項'}</div></div>
+   </div>
+   <div class="toolbar" style="margin-top:8px">
+     <button class="btn primary" onclick="openAttendance()">快速點名</button>
+     <button class="btn" onclick="openTodoModal()">新增待處理</button>
+     <button class="btn" onclick="switchMainPanel('seatPanel')">進入座位</button>
+   </div>
+   <div class="section-title">今日待處理</div>
+   ${renderTodoList(true)}
+   <div class="section-title">最近課堂</div>
+   ${recent?`<div class="session-card"><b>${esc(recent.date||'最近課堂')}</b><div class="note">${esc(recent.endedAt||'')}</div></div>`:'<div class="note">暫時未有封存課堂。</div>'}
+ `;
+}
+
+function renderStudentsManager(){
+ const w=document.getElementById('studentsManagerList');if(!w)return;
+ const q=(document.getElementById('studentManagerSearch')?.value||'').trim().toLowerCase();
+ const arr=state.students.slice().sort((a,b)=>numSort(a.no,b.no)).filter(s=>!q||String(s.no).toLowerCase().includes(q)||String(s.name||'').toLowerCase().includes(q));
+ w.innerHTML=arr.map(s=>`<button class="student-manager-card" onclick="openStudentProfile('${s.id}')"><b>${esc(s.no)}${s.leader?' ⭐':''}${s.name?' '+esc(s.name):''}</b><div class="meta">第${s.group}組｜${s.absent?'缺席':'在席'}｜本課 ${s.todayScore}｜累積 ${s.score}</div></button>`).join('');
+}
+
+
+function classifyStudentRecord(h){
+ const p=h.payload||h.undoPayload||{};
+ const label=(p.eventLabel||h.text||'').toLowerCase();
+ const reason=(h.reason||'').toLowerCase();
+ const combined=label+' '+reason;
+
+ if(p.type==='attendance' || combined.includes('缺席') || combined.includes('到課') || combined.includes('遲到') || combined.includes('早退')) return 'attendance';
+
+ if(p.linkedTodoId) return 'todo';
+
+ if(Number(p.delta)!==0){
+   if(Number(p.delta)>0) return 'positive';
+   return 'score';
+ }
+
+ if(p.eventMode==='record' || p.type==='record'){
+   const positiveWords=['合作','主動','幫助','完成','進步','表現良好','投入','專心','守規'];
+   const behaviorWords=['離座','爭執','提醒','行為','忘記','欠交','打擾','說話','衝突','違規','情緒'];
+   if(positiveWords.some(w=>combined.includes(w))) return 'positive';
+   if(behaviorWords.some(w=>combined.includes(w))) return 'behavior';
+   return 'behavior';
+ }
+
+ if(Number(p.delta)>0) return 'positive';
+ if(Number(p.delta)<0) return 'score';
+ return 'all';
+}
+
+function setStudentRecordFilter(filter,btn){
+ currentStudentRecordFilter=filter;
+ document.querySelectorAll('#studentRecordFilters .record-filter').forEach(b=>b.classList.toggle('active',b.dataset.filter===filter));
+ if(currentProfileStudentId)openStudentProfile(currentProfileStudentId);
+}
+
+
+function collectStudentAttendanceItems(id){
+ const s=state.students.find(x=>x.id===id);
+ if(!s)return [];
+ const studentNo=String(s.no);
+ const attendanceMap=new Map();
+
+ (state.attendanceHistory||[]).forEach((a,idx)=>{
+   const absentById=Array.isArray(a.absentIds)&&a.absentIds.includes(id);
+   const presentById=Array.isArray(a.presentIds)&&a.presentIds.includes(id);
+   const absentByNo=Array.isArray(a.absentNos)&&a.absentNos.map(String).includes(studentNo);
+   const presentByNo=Array.isArray(a.presentNos)&&a.presentNos.map(String).includes(studentNo);
+   if(!(absentById||presentById||absentByNo||presentByNo))return;
+
+   const status=(absentById||absentByNo)?'缺席':'出席';
+   const key=a.sessionId||`${a.date||''}|${a.endedAt||''}|${status}|${idx}`;
+   attendanceMap.set(key,{
+     date:a.date||'未記錄日期',
+     endedAt:a.endedAt||'',
+     status
+   });
+ });
+
+ (state.sessionHistory||[]).forEach((sess,idx)=>{
+   const rec=(sess.studentScores||[]).find(x=>String(x.no)===studentNo || x.id===id);
+   if(!rec)return;
+   const status=rec.absent?'缺席':'出席';
+   const simpleEnded=(sess.endedAt||'').match(/(\d{1,2}:\d{2})(?::\d{2})?/);
+   const endedAt=simpleEnded?simpleEnded[1]:'';
+   const existing=[...attendanceMap.values()].some(x=>
+     x.date===(sess.date||'未記錄日期') &&
+     x.status===status &&
+     (!endedAt||!x.endedAt||x.endedAt===endedAt)
+   );
+   if(!existing){
+     attendanceMap.set(`legacy_${sess.id||idx}`,{
+       date:sess.date||'未記錄日期',
+       endedAt,
+       status
+     });
+   }
+ });
+
+ return [...attendanceMap.values()];
+}
+
+function openStudentAttendanceHistory(id=currentProfileStudentId){
+ const s=state.students.find(x=>x.id===id);if(!s)return;
+ const items=collectStudentAttendanceItems(id);
+ document.getElementById('studentAttendanceHistoryTitle').textContent=
+   `班號 ${s.no}${s.name?'｜'+s.name:''}｜出席歷史`;
+ document.getElementById('studentAttendanceHistoryFull').innerHTML=
+   items.length?items.map(a=>`
+     <div class="profile-history-item compact-history-line">
+       <b>${esc(a.date)}</b>
+       <span class="attendance-status-pill ${a.status==='缺席'?'absent':''}">${esc(a.status)}</span>
+       <span class="note">${a.endedAt?esc(a.endedAt):''}</span>
+     </div>`).join('')
+   :'<div class="note">暫時未有已封存的出席紀錄。</div>';
+ document.getElementById('studentAttendanceHistoryModal').classList.add('show');
+}
+
+function closeStudentAttendanceHistory(){
+ document.getElementById('studentAttendanceHistoryModal').classList.remove('show');
+}
+
+function openStudentProfile(id){
+ const s=state.students.find(x=>x.id===id);if(!s)return;
+ currentProfileStudentId=id;
+ const studentNo=String(s.no);
+
+ document.getElementById('studentProfileTitle').textContent=`班號 ${s.no}${s.name?'｜'+s.name:''}`;
+ document.getElementById('studentProfileSummary').textContent=`第${s.group}組｜${s.leader?'組長｜':''}${s.absent?'缺席':'在席'}｜本課 ${s.todayScore}｜累積 ${s.score}`;
+ document.getElementById('studentPrivateNote').value=state.studentNotes[id]||'';
+
+ // Compact attendance summary; full history opens separately.
+ const attendanceItems=collectStudentAttendanceItems(id);
+ const recentAttendance=attendanceItems.slice(0,2);
+
+ document.getElementById('studentAttendanceHistory').innerHTML=`
+   <div class="attendance-compact-row">
+     <div class="attendance-summary-card">
+       <div class="mini-label">目前狀態</div>
+       <div class="attendance-current ${s.absent?'absent':''}">${s.absent?'缺席':'在席'}</div>
+     </div>
+     <div class="attendance-summary-card">
+       <div class="mini-label">最近歷史</div>
+       ${recentAttendance.length?recentAttendance.map(a=>`
+         <div class="attendance-mini-history">
+           <span>${esc(a.date)}</span>
+           <b>${esc(a.status)}</b>
+         </div>`).join(''):'<div class="note">暫未有紀錄</div>'}
+     </div>
+   </div>
+   <button class="btn attendance-more-btn" onclick="openStudentAttendanceHistory('${id}')">更多歷史紀錄…</button>
+ `;
+
+ // Unified student timeline with de-duplication.
+ const rawItems=(state.history||[]).filter(h=>{
+   const p=h.payload||h.undoPayload||{};
+   return p.id===id
+     || p.studentId===id
+     || String(p.studentNo||'')===studentNo
+     || (Array.isArray(p.ids)&&p.ids.includes(id))
+     || (Array.isArray(p.studentIds)&&p.studentIds.includes(id))
+     || (Array.isArray(p.studentNos)&&p.studentNos.map(String).includes(studentNo));
+ });
+
+ const seen=new Set();
+ let items=[];
+ for(const h of rawItems){
+   const p=h.payload||h.undoPayload||{};
+   const key=p.eventId
+     ?`event:${p.eventId}`
+     :h.id
+       ?`history:${h.id}`
+       :`${h.text||''}|${h.reason||''}|${h.time||''}|${p.type||''}|${p.delta||0}|${p.id||''}`;
+   if(seen.has(key))continue;
+   seen.add(key);
+   items.push(h);
+   if(items.length>=30)break;
+ }
+
+ // Allow "出勤" to be viewed through the same student-record filter.
+ const attendancePseudo=attendanceItems.map((a,i)=>({
+   id:`attendance_${i}_${a.date}_${a.endedAt}`,
+   text:`${a.status}`,
+   reason:'出勤紀錄',
+   time:a.endedAt||'',
+   payload:{type:'attendance',eventDate:a.date||'',eventTime:a.endedAt||'',delta:0}
+ }));
+
+ if(currentStudentRecordFilter==='attendance'){
+   items=attendancePseudo;
+ }else if(currentStudentRecordFilter!=='all'){
+   items=items.filter(h=>{
+     const cat=classifyStudentRecord(h);
+     if(currentStudentRecordFilter==='score'){
+       const p=h.payload||h.undoPayload||{};
+       return Number(p.delta)!==0;
+     }
+     if(currentStudentRecordFilter==='todo'){
+       const p=h.payload||h.undoPayload||{};
+       return !!p.linkedTodoId;
+     }
+     return cat===currentStudentRecordFilter;
+   });
+ }
+
+ document.getElementById('studentProfileHistory').innerHTML=items.length?items.map(h=>{
+   const p=h.payload||h.undoPayload||{};
+   const todoId=p.linkedTodoId||'';
+   const t=todoId?(state.todos||[]).find(x=>x.id===todoId):null;
+
+   let kind='紀錄';
+   let scoreText='';
+   if(p.type==='attendance'){
+     kind='出勤';
+   }else if(Number(p.delta)!==0){
+     kind=Number(p.delta)>0?'加分':'扣分';
+     scoreText=`${Number(p.delta)>0?'+':''}${Number(p.delta)}`;
+   }else if(p.eventMode==='record'||p.type==='record'){
+     kind='課堂事件';
+   }
+
+   return `<div class="profile-history-item">
+     <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+       <b>${esc(h.text||p.eventLabel||'紀錄')}</b>
+       <span class="note">${esc(kind)}${scoreText?' '+esc(scoreText):''}</span>
+     </div>
+     ${h.reason?`<div class="note">${esc(h.reason)}</div>`:''}
+     <div class="note">${p.eventDate?esc(p.eventDate):''}${p.eventTime?' '+esc(p.eventTime):esc(h.time||'')}</div>
+     ${p.lessonContext&&lessonContextLabel(p.lessonContext)?`<div class="note">課堂：${esc(lessonContextLabel(p.lessonContext))}</div>`:''}
+     ${t?`<div class="note">待辦：${esc(t.text)}｜${t.done?'已完成':'未完成'}${t.completedAt?'｜'+esc(t.completedAt):''}</div>`:''}
+     ${t?.followUpRemark?`<div class="note">跟進備註：${esc(t.followUpRemark)}</div>`:''}
+     ${t?`<button class="btn" style="margin-top:5px" onclick="openTodoDetail('${t.id}')">查看待辦詳情</button>`:''}
+   </div>`;
+ }).join(''):'<div class="note">暫時未有學生紀錄。</div>';
+
+
+ const contacts=dedupeParentContacts(state.parentContacts||[])
+   .filter(c=>c.studentId===id || String(c.studentNo||'')===studentNo)
+   .sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')))
+   .slice(0,20);
+
+ const contactBox=document.getElementById('studentParentContacts');
+ if(contactBox){
+   contactBox.innerHTML=contacts.length?contacts.map(c=>`
+     <div class="profile-history-item contact-record">
+       <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+         <b>${esc(c.date||'未記錄日期')}｜${esc(c.method||'聯絡')}</b>
+         <span class="note">${esc(c.target||'家長')}</span>
+       </div>
+       <div>${esc(c.content||'')}</div>
+       ${c.response?`<div class="note">家長回覆：${esc(c.response)}</div>`:''}
+       ${c.followUp?`<div class="note">後續：${esc(c.followUp)}</div>`:''}
+       ${c.todoId?`<div class="note">由待辦建立</div>`:''}
+     </div>
+   `).join(''):'<div class="note">暫時未有家校聯絡紀錄。</div>';
+ }
+
+ const relatedTodos=(state.todos||[]).filter(t=>t.studentId===id || String(t.studentNo||'')===studentNo).slice(0,12);
+ document.getElementById('studentProfileTodos').innerHTML=relatedTodos.length?relatedTodos.map(t=>`
+   <div class="profile-history-item">
+     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+       <b>${esc(t.text)}</b>
+       <span class="todo-status-badge status-${normalizeTodoStatus(t)}">${esc(todoStatusLabel(t))}</span>
+     </div>
+     <div class="note">${t.completedAt?'完成：'+esc(t.completedAt):''}</div>
+     ${t.sourceEvent?`<div class="note">來源：${esc(t.sourceEvent)}${t.sourceEventDate?'｜'+esc(t.sourceEventDate):''}${t.sourceEventTime?' '+esc(t.sourceEventTime):''}</div>`:''}
+     ${t.followUpRemark?`<div class="note">跟進備註：${esc(t.followUpRemark)}</div>`:''}
+     <button class="btn" style="margin-top:5px" onclick="openTodoDetail('${t.id}')">查看詳情</button>
+   </div>`).join(''):'<div class="note">暫時未有相關待辦。</div>';
+
+ document.getElementById('studentProfileModal').classList.add('show');
+}
+function closeStudentProfile(){document.getElementById('studentProfileModal').classList.remove('show');currentProfileStudentId=null}
+function saveStudentPrivateNote(){
+ if(!currentProfileStudentId)return;
+ state.studentNotes[currentProfileStudentId]=document.getElementById('studentPrivateNote').value.trim();
+ save();toast('已儲存私人備註');
+}
+
+function openTodoModal(){
+ const sel=document.getElementById('todoStudent');
+ sel.innerHTML='<option value="">不指定學生</option>'+state.students.slice().sort((a,b)=>numSort(a.no,b.no)).map(s=>`<option value="${s.id}">${esc(s.no)}${s.name?' '+esc(s.name):''}</option>`).join('');
+ document.getElementById('todoText').value='';
+ document.getElementById('todoDate').value='';
+ document.getElementById('todoModal').classList.add('show');
+}
+function closeTodoModal(){document.getElementById('todoModal').classList.remove('show')}
+function saveTodo(){
+ const v=document.getElementById('todoText').value.trim();
+ if(!v){alert('請輸入待處理事項');return}
+
+ const studentId=document.getElementById('todoStudent').value||'';
+ const date=document.getElementById('todoDate').value||'';
+
+ const duplicate=(state.todos||[]).find(t=>
+   !t.done &&
+   !t.sourceEventId &&
+   normalizeTodoText(t.text)===normalizeTodoText(v) &&
+   String(t.studentId||'')===String(studentId) &&
+   String(t.date||'')===String(date)
+ );
+
+ if(duplicate){
+   closeTodoModal();
+   openTodoDetail(duplicate.id);
+   toast('已有相同未完成待辦，未有重複新增');
+   return;
+ }
+
+ state.todos.unshift({
+   id:'todo_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+   text:v,
+   studentId,
+   studentNo:'',
+   date,
+   status:'pending',
+   done:false,
+   statusUpdatedAt:new Date().toLocaleString('zh-HK'),
+   createdAt:new Date().toLocaleString('zh-HK'),
+   followUpRemark:'',
+   completedAt:'',
+   sourceEventId:'',
+   sourceEvent:'',
+   sourceEventDate:'',
+   sourceEventTime:'',
+   sourceLessonContext:{}
+ });
+ save();
+ closeTodoModal();
+ renderAll();
+ toast('已新增待處理事項');
+}
+
+function cleanupDuplicateTodos(){
+ const before=(state.todos||[]).length;
+ state.todos=dedupeTodos(state.todos);
+ const removed=before-state.todos.length;
+ save();
+ renderAll();
+ toast(removed?`已清理 ${removed} 個重複待辦`:'沒有發現重複待辦');
+}
+
+function setTodoStatus(id,status){
+ const t=state.todos.find(x=>x.id===id);
+ if(!t)return;
+ if(!['pending','contacted','observing','done'].includes(status))return;
+
+ t.status=status;
+ t.done=status==='done';
+ t.statusUpdatedAt=new Date().toLocaleString('zh-HK');
+ if(t.done){
+   if(!t.completedAt)t.completedAt=t.statusUpdatedAt;
+ }else{
+   t.completedAt='';
+ }
+
+ save();
+ renderAll();
+}
+
+function setCurrentTodoStatus(status){
+ if(!currentTodoId)return;
+ const id=currentTodoId;
+ setTodoStatus(id,status);
+ if(currentProfileStudentId)openStudentProfile(currentProfileStudentId);
+ openTodoDetail(id);
+ toast('已改為「'+(TODO_STATUS_LABELS[status]||status)+'」');
+}
+
+function toggleTodo(id){
+ const t=state.todos.find(x=>x.id===id);if(!t)return;
+ setTodoStatus(id,t.done?'pending':'done');
+}
+function deleteTodo(id){if(!confirm('刪除呢項待處理事項？'))return;state.todos=state.todos.filter(x=>x.id!==id);save();renderAll()}
+function renderTodoList(onlyPending){
+ const arr=dedupeTodos(state.todos||[]).filter(t=>onlyPending?!t.done:true);
+ if(!arr.length)return '<div class="note">暫時未有事項。</div>';
+ return arr.map(t=>{
+   const s=t.studentId?state.students.find(x=>x.id===t.studentId):null;
+   const linked=!!t.sourceEventId;
+   const status=normalizeTodoStatus(t);
+   return `<div class="todo-item ${t.done?'done':''}">
+     <div>
+       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+         <b>${esc(t.text)}</b>
+         <span class="todo-status-badge status-${status}">${esc(todoStatusLabel(t))}</span>
+       </div>
+       <div class="note">${s?'班號 '+esc(s.no)+(s.name?' '+esc(s.name):'')+'｜':''}${t.date?'截止 '+esc(t.date):'未設截止日期'}</div>
+       ${linked?`<div class="note">來源：${esc(t.sourceEvent||'課堂事件')}${t.sourceEventDate?'｜'+esc(t.sourceEventDate):''}${t.sourceEventTime?' '+esc(t.sourceEventTime):''}</div>`:''}
+       ${t.followUpRemark?`<div class="note">跟進：${esc(t.followUpRemark)}</div>`:''}
+     </div>
+     <div class="quick-row">
+       <button class="btn" onclick="openTodoDetail('${t.id}')">詳情</button>
+       <button class="btn" onclick="toggleTodo('${t.id}')">${t.done?'重開':'完成'}</button>
+       <button class="btn danger" onclick="deleteTodo('${t.id}')">刪除</button>
+     </div>
+   </div>`;
+ }).join('');
+}
+
+
+function contactDateToday(){
+ const d=new Date();
+ const y=d.getFullYear();
+ const m=String(d.getMonth()+1).padStart(2,'0');
+ const day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`;
+}
+
+function openParentContactModal(){
+ const saveBtn=document.getElementById('saveParentContactBtn');if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='儲存聯絡紀錄';}
+ const s=state.students.find(x=>x.id===currentProfileStudentId);
+ if(!s){toast('請先開啟學生 Profile');return}
+ document.getElementById('parentContactModalTitle').textContent='新增家校聯絡';
+ document.getElementById('parentContactStudentLabel').textContent=`班號 ${s.no}${s.name?'｜'+s.name:''}`;
+ document.getElementById('parentContactDate').value=contactDateToday();
+ document.getElementById('parentContactMethod').value='電話';
+ document.getElementById('parentContactTarget').value='家長';
+ document.getElementById('parentContactContent').value='';
+ document.getElementById('parentContactResponse').value='';
+ document.getElementById('parentContactFollowUp').value='';
+ document.getElementById('parentContactTodoId').value='';
+ document.getElementById('parentContactSourceEventId').value='';
+ document.getElementById('parentContactModal').classList.add('show');
+}
+
+function openParentContactFromTodo(){
+ const saveBtn=document.getElementById('saveParentContactBtn');if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='儲存聯絡紀錄';}
+ const t=state.todos.find(x=>x.id===currentTodoId);
+ if(!t){toast('找不到待辦');return}
+ const s=state.students.find(x=>x.id===t.studentId);
+ if(!s){toast('呢個待辦未指定學生');return}
+
+ const todoId=t.id;
+ const draft=t.contactDraft&&typeof t.contactDraft==='object'?t.contactDraft:{};
+
+ currentProfileStudentId=s.id;
+
+ document.getElementById('parentContactModalTitle').textContent='由待辦建立家校聯絡';
+ document.getElementById('parentContactStudentLabel').textContent=`班號 ${s.no}${s.name?'｜'+s.name:''}`;
+ document.getElementById('parentContactDate').value=draft.date||contactDateToday();
+ document.getElementById('parentContactMethod').value=draft.method||'電話';
+ document.getElementById('parentContactTarget').value=draft.target||'家長';
+ document.getElementById('parentContactContent').value=
+   draft.content!==undefined?draft.content:(t.text||'');
+ document.getElementById('parentContactResponse').value=
+   draft.response!==undefined?draft.response:(t.followUpRemark||'');
+ document.getElementById('parentContactFollowUp').value=
+   draft.followUp!==undefined?draft.followUp:(normalizeTodoStatus(t)==='observing'?'繼續觀察':'');
+ document.getElementById('parentContactTodoId').value=todoId;
+ document.getElementById('parentContactSourceEventId').value=t.sourceEventId||'';
+
+ // Important: close the todo overlay before opening the contact form,
+ // otherwise the saved student profile can remain hidden behind it.
+ document.getElementById('todoDetailModal').classList.remove('show');
+ currentTodoId=null;
+
+ document.getElementById('parentContactModal').classList.add('show');
+}
+
+
+function saveParentContactDraft(){
+ const todoId=document.getElementById('parentContactTodoId')?.value||'';
+ if(!todoId)return;
+
+ const t=state.todos.find(x=>x.id===todoId);
+ if(!t)return;
+
+ t.contactDraft={
+   date:document.getElementById('parentContactDate')?.value||'',
+   method:document.getElementById('parentContactMethod')?.value||'電話',
+   target:document.getElementById('parentContactTarget')?.value||'家長',
+   content:document.getElementById('parentContactContent')?.value||'',
+   response:document.getElementById('parentContactResponse')?.value||'',
+   followUp:document.getElementById('parentContactFollowUp')?.value||''
+ };
+ manager.classes[manager.activeClassId]=state;
+ saveManager();
+}
+
+function closeParentContactModal(){
+ saveParentContactDraft();
+ document.getElementById('parentContactModal').classList.remove('show');
+}
+
+function saveParentContact(){
+ const saveBtn=document.getElementById('saveParentContactBtn');
+ if(saveBtn?.disabled)return;
+ if(saveBtn){saveBtn.disabled=true;saveBtn.textContent='儲存中…';}
+ const s=state.students.find(x=>x.id===currentProfileStudentId);
+ if(!s){if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='儲存聯絡紀錄';}toast('找不到學生');return}
+
+ const content=document.getElementById('parentContactContent').value.trim();
+ if(!content){if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='儲存聯絡紀錄';}alert('請輸入聯絡內容');return}
+
+ const todoId=document.getElementById('parentContactTodoId').value||'';
+ const rec={
+   id:'contact_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+   studentId:s.id,
+   studentNo:String(s.no),
+   date:document.getElementById('parentContactDate').value||contactDateToday(),
+   method:document.getElementById('parentContactMethod').value||'電話',
+   target:document.getElementById('parentContactTarget').value.trim()||'家長',
+   content,
+   response:document.getElementById('parentContactResponse').value.trim(),
+   followUp:document.getElementById('parentContactFollowUp').value.trim(),
+   todoId,
+   sourceEventId:document.getElementById('parentContactSourceEventId').value||'',
+   createdAt:new Date().toLocaleString('zh-HK')
+ };
+
+ state.parentContacts=dedupeParentContacts(state.parentContacts);
+
+ const exactDuplicate=state.parentContacts.find(c=>{
+   if(c.todoId && rec.todoId && c.todoId!==rec.todoId)return false;
+   if(!c.todoId && !rec.todoId && c.createdAt && rec.createdAt && c.createdAt!==rec.createdAt)return false;
+   return parentContactFingerprint(c)===parentContactFingerprint(rec)
+     && String(c.todoId||'')===String(rec.todoId||'');
+ });
+
+ if(exactDuplicate){
+   const t=todoId?state.todos.find(x=>x.id===todoId):null;
+   if(t){
+     t.contactRecordId=exactDuplicate.id;
+     delete t.contactDraft;
+     if(normalizeTodoStatus(t)==='pending')t.status='contacted';
+     t.done=t.status==='done';
+     t.statusUpdatedAt=new Date().toLocaleString('zh-HK');
+   }
+   save();
+   document.getElementById('parentContactModal').classList.remove('show');
+   document.getElementById('todoDetailModal').classList.remove('show');
+   currentTodoId=null;
+   renderAll();
+   openStudentProfile(s.id);
+   toast('相同家校聯絡已存在，未有重複新增');
+   return;
+ }
+
+ state.parentContacts.unshift(rec);
+
+ if(todoId){
+   const t=state.todos.find(x=>x.id===todoId);
+   if(t){
+     t.contactRecordId=rec.id;
+     delete t.contactDraft;
+     if(normalizeTodoStatus(t)==='pending')t.status='contacted';
+     t.done=t.status==='done';
+     t.statusUpdatedAt=new Date().toLocaleString('zh-HK');
+   }
+ }
+
+ save();
+
+ // Confirm it exists in the persisted in-memory state before changing the UI.
+ const saved=(state.parentContacts||[]).some(x=>x.id===rec.id);
+ if(!saved){
+   if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='儲存聯絡紀錄';}
+   alert('未能儲存家校聯絡紀錄，請再試一次。');
+   return;
+ }
+
+ document.getElementById('parentContactModal').classList.remove('show');
+ document.getElementById('todoDetailModal').classList.remove('show');
+ currentTodoId=null;
+
+ renderAll();
+ openStudentProfile(s.id);
+
+ // Scroll the new contact area into view so the save result is obvious.
+ setTimeout(()=>{
+   document.getElementById('studentParentContacts')?.scrollIntoView({block:'nearest',behavior:'smooth'});
+ },50);
+
+ toast('已儲存家校聯絡紀錄');
+}
+
+function openTodoDetail(id){
+ const t=state.todos.find(x=>x.id===id);if(!t)return;
+ currentTodoId=id;
+ const s=t.studentId?state.students.find(x=>x.id===t.studentId):null;
+ document.getElementById('todoDetailTitle').textContent=t.text||'待辦詳情';
+ const status=normalizeTodoStatus(t);
+ document.getElementById('todoDetailMeta').textContent=
+   `${s?'班號 '+s.no+(s.name?'｜'+s.name:'')+'｜':''}${todoStatusLabel(t)}${t.statusUpdatedAt?'｜更新 '+t.statusUpdatedAt:''}${t.completedAt?'｜完成 '+t.completedAt:''}`;
+ document.querySelectorAll('#todoStatusRow .todo-status-btn').forEach(b=>b.classList.toggle('active',b.dataset.status===status));
+ document.getElementById('todoFollowUpRemark').value=t.followUpRemark||'';
+
+ const box=document.getElementById('todoSourceEventBox');
+ const h=t.sourceEventId?state.history.find(x=>(x.payload||x.undoPayload)?.eventId===t.sourceEventId):null;
+ if(h){
+   const eventDate=h.payload?.eventDate||t.sourceEventDate||'';
+   const eventTime=h.payload?.eventTime||t.sourceEventTime||'';
+   const ctx=h.payload?.lessonContext||t.sourceLessonContext||{};
+   box.innerHTML=`<b>來源課堂事件</b><div class="note">${esc(h.action||'')}</div><div class="note">發生：${eventDate?esc(eventDate):'未記錄日期'}${eventTime?' '+esc(eventTime):''}</div>${lessonContextLabel(ctx)?`<div class="note">課堂：${esc(lessonContextLabel(ctx))}</div>`:''}<div class="note">${esc(h.reason||'')}</div><button class="btn" style="margin-top:6px" onclick="openSourceEventFromTodo()">查看原記錄</button>`;
+ }else if(t.sourceEvent){
+   box.innerHTML=`<b>來源</b><div class="note">${esc(t.sourceEvent)}</div><div class="note">發生：${t.sourceEventDate?esc(t.sourceEventDate):'未記錄日期'}${t.sourceEventTime?' '+esc(t.sourceEventTime):''}</div>`;
+ }else{
+   box.innerHTML='<div class="note">此待辦沒有連結課堂事件。</div>';
+ }
+
+ const contactBtn=document.getElementById('todoToContactBtn');
+ if(contactBtn)contactBtn.style.display=t.studentId?'inline-flex':'none';
+ document.getElementById('todoDetailModal').classList.add('show');
+}
+function closeTodoDetail(){document.getElementById('todoDetailModal').classList.remove('show');currentTodoId=null}
+function saveTodoRemark(){
+ const t=state.todos.find(x=>x.id===currentTodoId);if(!t)return;
+ t.followUpRemark=document.getElementById('todoFollowUpRemark').value.trim();
+ save();renderAll();
+ if(currentProfileStudentId)openStudentProfile(currentProfileStudentId);
+ openTodoDetail(t.id);
+ toast('已儲存跟進備註');
+}
+function openSourceEventFromTodo(){
+ const t=state.todos.find(x=>x.id===currentTodoId);if(!t||!t.sourceEventId)return;
+ const h=state.history.find(x=>(x.payload||x.undoPayload)?.eventId===t.sourceEventId);
+ if(!h){toast('找不到原課堂記錄');return}
+ closeTodoDetail();
+ const s=t.studentId?state.students.find(x=>x.id===t.studentId):null;
+ if(s)openStudentProfile(s.id);
+}
+
+
+function loadLessonContextFromUrl(){
+ const p=new URLSearchParams(location.search);
+ const incoming={
+   className:p.get('class')||'',
+   subject:p.get('subject')||'',
+   period:p.get('period')||'',
+   startTime:p.get('start')||'',
+   endTime:p.get('end')||'',
+   dayCode:p.get('day')||'',
+   weekCode:p.get('week')||''
+ };
+ const hasAny=Object.values(incoming).some(Boolean);
+ if(!hasAny)return;
+
+ if(incoming.className){
+   const found=Object.entries(manager.classes).find(([id,c])=>String(c.className||'').trim()===incoming.className.trim());
+   if(found){
+     manager.activeClassId=found[0];
+     state=normalizeClass(found[1]);
+   }
+ }
+ state.lessonContext={...state.lessonContext,...incoming};
+ save();
+}
+
+function currentLessonContext(){
+ return {
+   className:state.lessonContext?.className||state.className||'',
+   subject:state.lessonContext?.subject||'',
+   period:state.lessonContext?.period||'',
+   startTime:state.lessonContext?.startTime||'',
+   endTime:state.lessonContext?.endTime||'',
+   dayCode:state.lessonContext?.dayCode||'',
+   weekCode:state.lessonContext?.weekCode||''
+ };
+}
+
+function lessonContextLabel(ctx=currentLessonContext()){
+ const parts=[];
+ if(ctx.className)parts.push(ctx.className);
+ if(ctx.subject)parts.push(ctx.subject);
+ if(ctx.period)parts.push(`第${ctx.period}節`);
+ if(ctx.startTime||ctx.endTime)parts.push(`${ctx.startTime||''}${ctx.startTime&&ctx.endTime?'–':''}${ctx.endTime||''}`);
+ if(ctx.dayCode)parts.push(ctx.dayCode);
+ if(ctx.weekCode)parts.push(ctx.weekCode);
+ return parts.join('｜');
+}
+
+
+function showAllTodos(){
+ const w=document.getElementById('allTodosList');
+ const arr=(state.todos||[]).slice();
+ w.innerHTML=arr.length?arr.map(t=>{
+   const s=t.studentId?state.students.find(x=>x.id===t.studentId):null;
+   return `<div class="profile-history-item">
+     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+       <b>${esc(t.text)}</b>
+       <span class="todo-status-badge status-${normalizeTodoStatus(t)}">${esc(todoStatusLabel(t))}</span>
+     </div>
+     <div class="note">${s?'班號 '+esc(s.no)+(s.name?' '+esc(s.name):'')+'｜':''}${t.completedAt?'完成：'+esc(t.completedAt):''}</div>
+     ${t.sourceEvent?`<div class="note">來源：${esc(t.sourceEvent)}${t.sourceEventDate?'｜'+esc(t.sourceEventDate):''}${t.sourceEventTime?' '+esc(t.sourceEventTime):''}</div>`:''}
+     ${t.followUpRemark?`<div class="note">跟進備註：${esc(t.followUpRemark)}</div>`:''}
+     <button class="btn" style="margin-top:5px" onclick="openTodoDetail('${t.id}')">查看詳情</button>
+   </div>`;
+ }).join(''):'<div class="note">暫時未有待辦。</div>';
+ document.getElementById('allTodosModal').classList.add('show');
+}
+function closeAllTodos(){document.getElementById('allTodosModal').classList.remove('show')}
+
+
+function openGlobalSearch(){
+ const input=document.getElementById('globalSearchInput');
+ if(input)input.value='';
+ renderGlobalSearch();
+ document.getElementById('globalSearchModal').classList.add('show');
+ setTimeout(()=>input?.focus(),50);
+}
+function closeGlobalSearch(){document.getElementById('globalSearchModal').classList.remove('show')}
+
+function renderGlobalSearch(){
+ const q=(document.getElementById('globalSearchInput')?.value||'').trim().toLowerCase();
+ const w=document.getElementById('globalSearchResults');
+ if(!w)return;
+ if(!q){
+   w.innerHTML='<div class="note">輸入班號、姓名、事件或待辦關鍵字。</div>';
+   return;
+ }
+
+ const studentMatches=state.students.filter(s=>
+   String(s.no||'').toLowerCase().includes(q) ||
+   String(s.name||'').toLowerCase().includes(q)
+ );
+
+ const historyMatches=(state.history||[]).filter(h=>{
+   const p=h.payload||h.undoPayload||{};
+   const sid=p.id||p.studentId||'';
+   const stu=state.students.find(s=>s.id===sid);
+   const hay=[h.text,h.reason,p.eventLabel,p.eventMode,stu?.name,stu?.no].filter(Boolean).join(' ').toLowerCase();
+   return hay.includes(q);
+ }).slice(0,20);
+
+ const todoMatches=(state.todos||[]).filter(t=>{
+   const stu=state.students.find(s=>s.id===t.studentId);
+   const hay=[t.text,t.followUpRemark,t.sourceEvent,stu?.name,stu?.no].filter(Boolean).join(' ').toLowerCase();
+   return hay.includes(q);
+ }).slice(0,20);
+
+ const contactMatches=dedupeParentContacts(state.parentContacts||[]).filter(c=>{
+   const stu=state.students.find(s=>s.id===c.studentId);
+   const hay=[c.content,c.response,c.followUp,c.method,c.target,stu?.name,stu?.no].filter(Boolean).join(' ').toLowerCase();
+   return hay.includes(q);
+ }).slice(0,20);
+
+ const blocks=[];
+
+ if(studentMatches.length){
+   blocks.push(`<div class="section-title">學生</div>`+
+     studentMatches.slice(0,12).map(s=>`
+       <div class="profile-history-item" onclick="closeGlobalSearch();openStudentProfile('${s.id}')" style="cursor:pointer">
+         <b>班號 ${esc(s.no)}${s.name?'｜'+esc(s.name):''}</b>
+         <div class="note">第${s.group}組｜${s.absent?'缺席':'在席'}｜本課 ${s.todayScore}｜累積 ${s.score}</div>
+       </div>`).join(''));
+ }
+
+ if(historyMatches.length){
+   blocks.push(`<div class="section-title">學生紀錄</div>`+
+     historyMatches.map(h=>{
+       const p=h.payload||h.undoPayload||{};
+       const sid=p.id||p.studentId||'';
+       const s=state.students.find(x=>x.id===sid);
+       return `<div class="profile-history-item">
+         <b>${esc(h.text||p.eventLabel||'紀錄')}</b>
+         <div class="note">${s?`班號 ${esc(s.no)}${s.name?'｜'+esc(s.name):''}｜`:''}${esc(h.reason||'')}${h.time?'｜'+esc(h.time):''}</div>
+         ${s?`<button class="btn" style="margin-top:5px" onclick="closeGlobalSearch();openStudentProfile('${s.id}')">開學生 Profile</button>`:''}
+       </div>`;
+     }).join(''));
+ }
+
+ if(todoMatches.length){
+   blocks.push(`<div class="section-title">待辦</div>`+
+     todoMatches.map(t=>{
+       const s=state.students.find(x=>x.id===t.studentId);
+       return `<div class="profile-history-item">
+         <b>${esc(t.text)}</b>
+         <div class="note">${s?`班號 ${esc(s.no)}${s.name?'｜'+esc(s.name):''}｜`:''}${esc(todoStatusLabel(t))}</div>
+         ${t.followUpRemark?`<div class="note">跟進：${esc(t.followUpRemark)}</div>`:''}
+         <button class="btn" style="margin-top:5px" onclick="closeGlobalSearch();openTodoDetail('${t.id}')">開待辦詳情</button>
+       </div>`;
+     }).join(''));
+ }
+
+
+ if(contactMatches.length){
+   blocks.push(`<div class="section-title">家校聯絡</div>`+
+     contactMatches.map(c=>{
+       const s=state.students.find(x=>x.id===c.studentId);
+       return `<div class="profile-history-item">
+         <b>${esc(c.date||'')}｜${esc(c.method||'聯絡')}</b>
+         <div>${esc(c.content||'')}</div>
+         ${c.response?`<div class="note">家長回覆：${esc(c.response)}</div>`:''}
+         ${s?`<button class="btn" style="margin-top:5px" onclick="closeGlobalSearch();openStudentProfile('${s.id}')">開學生 Profile</button>`:''}
+       </div>`;
+     }).join(''));
+ }
+
+ w.innerHTML=blocks.length?blocks.join(''):'<div class="note">搵唔到相關資料。</div>';
+}
+
+function renderAll(){renderClassSwitcher();renderEventShortcuts();renderSeat();renderScores();renderHistory();renderSetup();renderDashboard();renderStudentsManager();renderEventSettings();const mt=document.getElementById('moreTodoList');if(mt)mt.innerHTML=renderTodoList(false);applyModes();const b=document.getElementById('eighthGroupBtn');if(b){b.textContent=state.enableEighthGroup?'關閉第8組':'開設第8組';b.classList.toggle('active',state.enableEighthGroup)}}function applyModes(){document.body.classList.toggle('projector-mode',!!state.settings.projector);document.body.classList.toggle('classroom-mode',!!state.settings.classroomMode);document.body.classList.toggle('hide-ranking',!!state.settings.hideRanking);document.getElementById('hideRankingChk').checked=!!state.settings.hideRanking}
+function renderSeat(){document.getElementById('pageTitle').textContent=(state.className?state.className+'｜':'')+'七組座位表＋課堂積分 Pro';document.getElementById('seatCountChip').textContent=state.students.length+'人';const room=document.getElementById('roomGrid');room.innerHTML='';const slots={};for(let i=1;i<=8;i++){const sl=document.createElement('div');sl.className='room-slot';sl.dataset.slot=i;sl.dataset.slotLabel='位置 '+i;enableSlotDrop(sl,i);slots[i]=sl;room.appendChild(sl)}for(let g=1;g<=activeGroupCount();g++){const c=document.createElement('div');c.className='group-cluster';c.dataset.group=g;c.innerHTML=`<div class="group-label"><span class="group-handle">⠿ <b>第${g}組</b></span><span class="score">${Number(state.groupToday[g])||0}/${groupTotal(g)}</span></div><div class="desks" data-group="${g}"></div>`;enableGroupDrag(c,g);c.addEventListener('click',e=>{if(e.target.closest('.group-handle')||dragId||groupDragId)return;openGroupBubble(g)});const desks=c.querySelector('.desks'),members=groupStudents(g),n=groupSeatSpaces(g);for(let i=0;i<n;i++){const s=members.find(x=>x.seat===i);if(s){const d=studentDesk(s);d.dataset.seat=i;desks.appendChild(d)}else{const d=document.createElement('div');d.className='desk empty-desk';d.textContent='空位';d.dataset.seat=i;enableSeatDrop(d,g,i);desks.appendChild(d)}}(slots[state.groupPositions[g]]||slots[g]).appendChild(c)}save()}
+function studentDesk(s){
+ const d=document.createElement('div');
+ d.className='desk'+(s.absent?' absent':'');
+ d.draggable=!s.locked;
+ d.dataset.id=s.id;
+ enableSeatDrop(d,s.group,s.seat);
+ d.innerHTML=`<span>${esc(s.no)}</span><span class="pts">${s.score}</span><span class="today">+${s.todayScore}</span>${s.locked?'<span class="lock">🔒</span>':''}${s.leader?'<span class="leader">⭐</span>':''}`;
+
+ d.onclick=e=>{
+   e.stopPropagation();
+   if(dragId||groupDragId)return;
+
+   if(swapMode){
+     handleSwapClick(s.id);
+     return;
+   }
+
+   if(state.continuousReason){
+     quickAwardStudent(s.id,1,state.continuousReason);
+     return;
+   }
+
+   openGroupBubble(s.group);
+ };
+
+ d.ondragstart=e=>{
+   if(s.locked){
+     e.preventDefault();
+     toast('此學生已鎖定');
+     return;
+   }
+   dragId=s.id;
+   d.classList.add('dragging');
+ };
+ d.ondragend=()=>{
+   dragId=null;
+   d.classList.remove('dragging');
+ };
+ return d;
+}
+function enableSeatDrop(el,g,seat){el.ondragover=e=>{if(dragId&&!groupDragId){e.preventDefault();el.classList.add('drop-hint')}};el.ondragleave=()=>el.classList.remove('drop-hint');el.ondrop=e=>{if(!dragId||groupDragId)return;e.preventDefault();e.stopPropagation();el.classList.remove('drop-hint');moveStudent(dragId,g,seat)}}function canPairSameGroup(a,b){return!state.noGroupPairs.some(p=>(p[0]===a&&p[1]===b)||(p[0]===b&&p[1]===a))}
+function moveStudent(id,g,targetSeat){const s=state.students.find(x=>x.id===id);if(!s||s.locked)return;g=+g;const members=groupStudents(g),cap=groupCap(g);if(targetSeat==null){if(s.group!==g&&members.length>=cap){toast(`第${g}組最多${cap}人`);return}const used=new Set(members.map(x=>x.seat));targetSeat=[0,1,2,3,4,5].find(i=>i<groupSeatSpaces(g)&&!used.has(i));if(targetSeat==null)return}const oldG=s.group,oldS=s.seat;if(oldG===g&&oldS===targetSeat)return;const occ=state.students.find(x=>x.group===g&&x.seat===targetSeat&&x.id!==id);if(oldG!==g&&!occ&&members.length>=cap){toast(`第${g}組最多${cap}人`);return}if(members.filter(x=>x.id!==occ?.id&&x.id!==s.id).some(x=>!canPairSameGroup(s.id,x.id))){toast('違反不可同組限制');return}pushUndo('學生調位');if(occ){occ.group=oldG;occ.seat=oldS}else{}s.group=g;s.seat=targetSeat;logAction(`班號 ${s.no} 調位`,'調位');save();renderAll()}
+function enableSlotDrop(slot,no){
+ slot.addEventListener('click',e=>{
+   if(!groupMoveMode||!selectedMoveGroup)return;
+   // avoid double-trigger when clicking directly on a group card
+   if(e.target.closest('.group-cluster'))return;
+   e.stopPropagation();
+   moveSelectedGroupToSlot(no);
+ });
+ slot.ondragover=e=>{
+   if(groupDragId){
+     e.preventDefault();
+     try{e.dataTransfer.dropEffect='move'}catch(_){}
+     slot.classList.add('slot-drop');
+   }
+ };
+ slot.ondragleave=()=>slot.classList.remove('slot-drop');
+ slot.ondrop=e=>{
+   if(!groupDragId)return;
+   e.preventDefault();
+   slot.classList.remove('slot-drop');
+   const moving=groupDragId;
+   groupDragId=null;
+   moveGroupToSlot(moving,no);
+ };
+}
+function enableGroupDrag(c,g){
+ const handle=c.querySelector('.group-handle');
+ if(!handle)return;
+
+ // Desktop / mouse: only the group-name handle is draggable.
+ c.draggable=false;
+ handle.draggable=true;
+ handle.title='拖拉整組到另一個位置';
+
+ handle.ondragstart=e=>{
+   groupDragId=g;
+   c.classList.add('group-dragging');
+   try{
+     e.dataTransfer.effectAllowed='move';
+     e.dataTransfer.setData('text/plain','group:'+g);
+   }catch(_){}
+ };
+ handle.ondragend=()=>{
+   groupDragId=null;
+   c.classList.remove('group-dragging');
+   document.querySelectorAll('.room-slot').forEach(x=>x.classList.remove('slot-drop'));
+ };
+
+ // Mobile / touch: long-press the handle, then move over a slot.
+ let timer=null,active=false,ghost=null,startX=0,startY=0;
+ handle.addEventListener('pointerdown',e=>{
+   if(e.pointerType==='mouse')return;
+   startX=e.clientX;startY=e.clientY;
+   timer=setTimeout(()=>{
+     active=true;
+     groupDragId=g;
+     c.classList.add('group-dragging');
+     ghost=document.createElement('div');
+     ghost.textContent='第'+g+'組';
+     ghost.style.cssText='position:fixed;z-index:999;pointer-events:none;background:#fff;border:2px solid #4f7cff;border-radius:999px;padding:7px 11px;font-weight:900;font-size:12px;box-shadow:0 6px 18px rgba(0,0,0,.18)';
+     document.body.appendChild(ghost);
+     moveGhost(e);
+   },260);
+ });
+ handle.addEventListener('pointermove',e=>{
+   if(timer&&!active&&(Math.abs(e.clientX-startX)>10||Math.abs(e.clientY-startY)>10)){
+     clearTimeout(timer);timer=null;
+   }
+   if(!active)return;
+   e.preventDefault();
+   moveGhost(e);
+   document.querySelectorAll('.room-slot').forEach(x=>x.classList.remove('slot-drop'));
+   const under=document.elementFromPoint(e.clientX,e.clientY);
+   const slot=under&&under.closest('.room-slot');
+   if(slot)slot.classList.add('slot-drop');
+ });
+ handle.addEventListener('pointerup',e=>{
+   if(timer)clearTimeout(timer);timer=null;
+   if(active){
+     const under=document.elementFromPoint(e.clientX,e.clientY);
+     const slot=under&&under.closest('.room-slot');
+     const moving=groupDragId;
+     active=false;groupDragId=null;
+     c.classList.remove('group-dragging');
+     document.querySelectorAll('.room-slot').forEach(x=>x.classList.remove('slot-drop'));
+     if(ghost){ghost.remove();ghost=null}
+     if(slot&&moving)moveGroupToSlot(moving,Number(slot.dataset.slot));
+   }
+ });
+ handle.addEventListener('pointercancel',()=>{
+   if(timer)clearTimeout(timer);timer=null;
+   active=false;groupDragId=null;
+   c.classList.remove('group-dragging');
+   document.querySelectorAll('.room-slot').forEach(x=>x.classList.remove('slot-drop'));
+   if(ghost){ghost.remove();ghost=null}
+ });
+ function moveGhost(e){
+   if(ghost){
+     ghost.style.left=(e.clientX-34)+'px';
+     ghost.style.top=(e.clientY-20)+'px';
+   }
+ }
+}
+function groupAtSlot(n){
+ const e=Object.entries(state.groupPositions).find(([g,s])=>+s===+n);
+ return e?+e[0]:null
+}
+function moveGroupToSlot(g,n){
+ g=Number(g);n=Number(n);
+ const old=Number(state.groupPositions[g]),occ=groupAtSlot(n);
+ if(old===n)return;
+ autoBackupSeat('整組調位');pushUndo('整組調位');
+ if(occ)state.groupPositions[occ]=old;
+ state.groupPositions[g]=n;
+ logAction(`第${g}組移到位置${n}`,'整組調位');
+ save();renderAll();
+}
+function randomizeWithinGroups(groups=[1,2,3,4,5,6,7]){autoBackupSeat('組內隨機');pushUndo('組內隨機');groups.forEach(g=>{const fixed=groupStudents(g).filter(s=>s.locked),mov=groupStudents(g).filter(s=>!s.locked),used=new Set(fixed.map(s=>s.seat)),avail=[0,1,2,3,4,5].filter(i=>i<groupSeatSpaces(g)&&!used.has(i)).sort(()=>Math.random()-.5);mov.sort(()=>Math.random()-.5).forEach((s,i)=>s.seat=avail[i])});logAction('組內隨機','調位');save();renderAll()}
+
+let pendingRandomPreview=null;
+function buildRandomCandidate(){
+ const candidate=JSON.parse(JSON.stringify(state));
+ const students=candidate.students;
+ const caps={};for(let g=1;g<=7;g++)caps[g]=candidate.fivePersonGroups.includes(g)?5:4;
+ if(students.length>Object.values(caps).reduce((a,b)=>a+b,0))return {error:'目前5人組設定容量不足'};
+ const locked=students.filter(s=>s.locked||s.absent);
+ const movable=students.filter(s=>!s.locked&&!s.absent);
+ const counts={1:0,2:0,3:0,4:0,5:0,6:0,7:0};
+ const assignment={};
+ locked.forEach(s=>{counts[s.group]++;assignment[s.id]=s.group});
+ function pairAllowed(aId,bId){return !candidate.noGroupPairs.some(([a,b])=>(a===aId&&b===bId)||(a===bId&&b===aId))}
+ for(let attempt=0;attempt<400;attempt++){
+   const c={...counts},assign={...assignment},arr=[...movable].sort(()=>Math.random()-.5);
+   let ok=true;
+   for(const s of arr){
+     let opts=[1,2,3,4,5,6,7].filter(g=>c[g]<caps[g]);
+     opts=opts.filter(g=>!students.some(x=>assign[x.id]===g&&!pairAllowed(s.id,x.id)));
+     if(s.front){const front=opts.filter(g=>Number(candidate.groupPositions[g])<=4);if(front.length)opts=front}
+     if(!opts.length){ok=false;break}
+     opts.sort((a,b)=>c[a]-c[b]);
+     const min=c[opts[0]],best=opts.filter(g=>c[g]===min);
+     const g=best[Math.floor(Math.random()*best.length)];
+     assign[s.id]=g;c[g]++;
+   }
+   if(!ok)continue;
+   movable.forEach(s=>s.group=assign[s.id]);
+   for(let g=1;g<=activeGroupCount();g++){
+     const members=students.filter(s=>s.group===g);
+     const fixed=members.filter(s=>s.locked||s.absent);
+     const used=new Set(fixed.map(s=>s.seat));
+     const spaces=candidate.fivePersonGroups.includes(g)?6:4;
+     const avail=[0,1,2,3,4,5].filter(i=>i<spaces&&!used.has(i)).sort(()=>Math.random()-.5);
+     members.filter(s=>!s.locked&&!s.absent).sort(()=>Math.random()-.5).forEach((s,i)=>s.seat=avail[i]);
+   }
+   return {state:candidate};
+ }
+ return {error:'目前限制太多，未能產生可用座位'};
+}
+function generateRandomPreview(){
+ const result=buildRandomCandidate();
+ if(result.error){alert(result.error);return}
+ pendingRandomPreview=result.state;
+ const lines=[];
+ for(let g=1;g<=7;g++){
+   const nos=pendingRandomPreview.students.filter(s=>s.group===g).sort((a,b)=>a.seat-b.seat).map(s=>`${s.no}${s.absent?'(缺)':''}`).join('、');
+   lines.push(`<div style="padding:6px 0;border-bottom:1px solid var(--line)"><b>第${g}組</b>：${esc(nos||'—')}</div>`);
+ }
+ document.getElementById('randomPreviewBody').innerHTML=lines.join('');
+ document.getElementById('randomPreviewModal').classList.add('show');
+}
+function closeRandomPreview(){document.getElementById('randomPreviewModal').classList.remove('show');pendingRandomPreview=null}
+function applyRandomPreview(){
+ if(!pendingRandomPreview)return;
+ autoBackupSeat('套用隨機預覽');
+ pushUndo('套用隨機預覽');
+ const preserved={history:state.history,versions:state.versions,groupScores:state.groupScores,groupToday:state.groupToday};
+ state=pendingRandomPreview;
+ state.history=preserved.history;state.versions=preserved.versions;state.groupScores=preserved.groupScores;state.groupToday=preserved.groupToday;
+ normalizeState();
+ logAction('已套用隨機調位預覽','調位');
+ pendingRandomPreview=null;
+ save();document.getElementById('randomPreviewModal').classList.remove('show');renderAll();toast('已套用預覽座位');
+}
+function randomizeSeats(){autoBackupSeat('隨機全部');pushUndo('隨機全部');const locked=state.students.filter(s=>s.locked||s.absent),mov=state.students.filter(s=>!s.locked&&!s.absent),caps={};for(let g=1;g<=7;g++)caps[g]=groupCap(g);if(state.students.length>Object.values(caps).reduce((a,b)=>a+b,0)){alert('目前5人組容量不足');undoStack.pop();return}const counts={1:0,2:0,3:0,4:0,5:0,6:0,7:0};locked.forEach(s=>counts[s.group]++);for(let t=0;t<300;t++){const arr=[...mov].sort(()=>Math.random()-.5),assign={},c={...counts};locked.forEach(s=>assign[s.id]=s.group);let ok=true;for(const s of arr){let opts=[1,2,3,4,5,6,7].filter(g=>c[g]<caps[g]&&!state.students.some(x=>assign[x.id]===g&&!canPairSameGroup(s.id,x.id)));if(s.front){const fo=opts.filter(g=>state.groupPositions[g]<=4);if(fo.length)opts=fo}if(!opts.length){ok=false;break}opts.sort((a,b)=>c[a]-c[b]);const g=opts[0];assign[s.id]=g;c[g]++}if(ok){mov.forEach(s=>s.group=assign[s.id]);for(let g=1;g<=7;g++){const fixedSeats=new Set(groupStudents(g).filter(s=>s.locked).map(s=>s.seat));let avail=[0,1,2,3,4,5].filter(i=>i<groupSeatSpaces(g)&&!fixedSeats.has(i));groupStudents(g).filter(s=>!s.locked).forEach((s,i)=>s.seat=avail[i])}logAction('隨機全部','調位');save();renderAll();return}}alert('限制太多，無法完成隨機調位');undoStack.pop()}
+function openPartialRandomModal(){tempPartialGroups=[];const w=document.getElementById('partialGroupChoices');w.innerHTML='';for(let g=1;g<=activeGroupCount();g++){const b=document.createElement('button');b.className='choice';b.textContent='第'+g+'組';b.onclick=()=>{tempPartialGroups.includes(g)?tempPartialGroups=tempPartialGroups.filter(x=>x!==g):tempPartialGroups.push(g);b.classList.toggle('active')};w.appendChild(b)}document.getElementById('partialRandomModal').classList.add('show')}function closePartialRandomModal(){document.getElementById('partialRandomModal').classList.remove('show')}function applyPartialRandom(){if(tempPartialGroups.length)randomizeWithinGroups(tempPartialGroups);closePartialRandomModal()}
+
+
+function slotLabel(slot){
+ const labels={1:'右上',2:'右下',3:'右中上',4:'右中下',5:'左中上',6:'左中下',7:'左上',8:'左下'};
+ return labels[slot]||('位置 '+slot);
+}
+
+function openMoveGroupModal(){
+ const groupSel=document.getElementById('moveGroupSelect');
+ groupSel.innerHTML=activeGroups().map(g=>`<option value="${g}">第${g}組</option>`).join('');
+ const slotSel=document.getElementById('moveSlotSelect');
+ slotSel.innerHTML='';
+ for(let i=1;i<=8;i++){
+   const occupying=groupAtSlot(i);
+   const opt=document.createElement('option');
+   opt.value=String(i);
+   opt.textContent=occupying?`${slotLabel(i)}（第${occupying}組）`:`${slotLabel(i)}（空位）`;
+   slotSel.appendChild(opt);
+ }
+ updateMoveGroupHint();
+ groupSel.onchange=updateMoveGroupHint;
+ slotSel.onchange=updateMoveGroupHint;
+ document.getElementById('moveGroupModal').classList.add('show');
+}
+function closeMoveGroupModal(){
+ document.getElementById('moveGroupModal').classList.remove('show');
+}
+function updateMoveGroupHint(){
+ const g=Number(document.getElementById('moveGroupSelect').value);
+ const slot=Number(document.getElementById('moveSlotSelect').value);
+ const current=Number(state.groupPositions[g]);
+ const occupying=groupAtSlot(slot);
+ let msg=`第${g}組目前在位置 ${current}。`;
+ if(slot===current) msg+=' 目標位置相同。';
+ else if(occupying) msg+=` 移到位置 ${slot} 會與第${occupying}組交換。`;
+ else msg+=` 移到位置 ${slot}。`;
+ document.getElementById('moveGroupHint').textContent=msg;
+}
+function applyMoveGroupFromModal(){
+ const g=Number(document.getElementById('moveGroupSelect').value);
+ const slot=Number(document.getElementById('moveSlotSelect').value);
+ if(Number(state.groupPositions[g])===slot){
+   toast('已經喺呢個位置');
+   return;
+ }
+ moveGroupToSlot(g,slot);
+ closeMoveGroupModal();
+}
+
+function toggleGroupMoveMode(){
+ groupMoveMode=!groupMoveMode;
+ selectedMoveGroup=null;
+ const btn=document.getElementById('groupMoveModeBtn');
+ btn.classList.toggle('active',groupMoveMode);
+
+ // avoid conflicting click modes
+ if(groupMoveMode && swapMode){
+   swapMode=false;
+   swapFirstId=null;
+   document.getElementById('swapModeBtn').classList.remove('active');
+ }
+
+ document.querySelectorAll('.group-cluster').forEach(x=>x.classList.remove('move-selected'));
+ document.querySelectorAll('.room-slot').forEach(x=>x.classList.toggle('move-target',groupMoveMode));
+ toast(groupMoveMode?'移動組別模式：先撳一組，再撳目標位置':'移動組別模式已關閉');
+}
+
+function selectGroupForMove(g){
+ if(!groupMoveMode)return;
+ g=Number(g);
+
+ // Second group click = move/swap into that group's current slot
+ if(selectedMoveGroup && selectedMoveGroup!==g){
+   const targetSlot=Number(state.groupPositions[g]);
+   const moving=selectedMoveGroup;
+   moveGroupToSlot(moving,targetSlot);
+   selectedMoveGroup=null;
+   document.querySelectorAll('.group-cluster').forEach(x=>x.classList.remove('move-selected'));
+   toast(`第${moving}組已與第${g}組交換位置`);
+   return;
+ }
+
+ selectedMoveGroup=(selectedMoveGroup===g)?null:g;
+ document.querySelectorAll('.group-cluster').forEach(x=>{
+   x.classList.toggle('move-selected',selectedMoveGroup&&Number(x.dataset.group)===selectedMoveGroup);
+ });
+ document.querySelectorAll('.room-slot').forEach(x=>x.classList.add('move-target'));
+ toast(selectedMoveGroup?`已選第${g}組，請再撳目標位置`:'已取消選擇');
+}
+
+function moveSelectedGroupToSlot(slotNo){
+ if(!groupMoveMode||!selectedMoveGroup)return;
+ const g=selectedMoveGroup;
+ moveGroupToSlot(g,Number(slotNo));
+ selectedMoveGroup=null;
+ document.querySelectorAll('.group-cluster').forEach(x=>x.classList.remove('move-selected'));
+ if(groupMoveMode)document.querySelectorAll('.room-slot').forEach(x=>x.classList.add('move-target'));
+ toast(`第${g}組已移動`);
+}
+
+function toggleSwapMode(){swapMode=!swapMode;swapFirstId=null;document.getElementById('swapModeBtn').classList.toggle('active',swapMode);toast(swapMode?'依次撳兩位學生交換':'交換模式已關閉')}function handleSwapClick(id){if(!swapFirstId){swapFirstId=id;toast('已選第一位');return}const a=state.students.find(s=>s.id===swapFirstId),b=state.students.find(s=>s.id===id);if(!a||!b||a.locked||b.locked){swapFirstId=null;return}pushUndo('交換座位');[a.group,b.group]=[b.group,a.group];[a.seat,b.seat]=[b.seat,a.seat];logAction(`班號 ${a.no} ↔ ${b.no}`,'交換');swapFirstId=null;save();renderAll()}
+
+function openStudentHistory(id){
+ const s=state.students.find(x=>x.id===id);
+ if(!s)return;
+ document.getElementById('studentHistoryTitle').textContent=`班號 ${s.no}${s.name?'｜'+s.name:''}`;
+ document.getElementById('studentHistorySummary').textContent=`本課 ${s.todayScore}｜累積 ${s.score}｜${s.absent?'缺席':'在席'}｜第${s.group}組`;
+ const items=state.history.filter(h=>{
+   const p=h.payload||{};
+   return p.id===id||(Array.isArray(p.ids)&&p.ids.includes(id));
+ }).slice(0,12);
+ document.getElementById('studentHistoryList').innerHTML=items.length?items.map(h=>`<div class="student-history-item"><b>${esc(h.action||'紀錄')}</b><div class="note">${esc(h.reason||'')}｜${esc(h.time||'')}</div></div>`).join(''):'<div class="note">暫時未有個人計分紀錄。</div>';
+ document.getElementById('studentHistoryModal').classList.add('show');
+}
+function closeStudentHistory(){document.getElementById('studentHistoryModal').classList.remove('show')}
+
+function openGroupBubble(g){
+ g=Number(g);
+ bubbleGroupId=g;
+ const bubble=document.getElementById('groupBubble');
+ bubble.dataset.group=String(g);
+
+ const members=groupStudents(g).sort((a,b)=>numSort(a.no,b.no));
+ document.getElementById('groupBubbleTitle').textContent=`第${g}組｜${members.length}人`;
+
+ const summary=document.getElementById('groupBubbleScoreSummary');
+ if(summary){
+   summary.textContent=`小組分：本課 ${Number(state.groupToday[g])||0}｜累積 ${Number(state.groupScores[g])||0}`;
+ }
+
+ document.getElementById('bubbleReasonButtons').innerHTML=state.reasons.map(r=>`<button class="reason-btn" onclick="setBubbleReason('${String(r).replace(/'/g,"\\'")}',this)">${esc(r)}</button>`).join('');
+ bubble.dataset.reason=state.reasons[0]||'課堂表現';
+
+ bubble.dataset.eventIndex='';
+
+ const eventButtons=document.getElementById('bubbleEventButtons');
+ const eventStudentButtons=document.getElementById('bubbleEventStudentButtons');
+ const eventHint=document.getElementById('bubbleEventHint');
+
+ if(eventButtons){
+   eventButtons.innerHTML=(state.eventShortcuts||[]).map((e,i)=>`
+     <button type="button" class="event-chip bubble-event-chip" onclick="selectBubbleEvent(${i},this)">
+       ${esc(e.label)}
+     </button>`).join('') || '<div class="note">未有課堂事件快捷鍵。</div>';
+ }
+
+ if(eventStudentButtons){
+   eventStudentButtons.innerHTML=members.map(s=>`
+     <button type="button"
+             class="bubble-student-event-btn${s.absent?' absent':''}"
+             ${s.absent?'disabled':''}
+             onclick="applyBubbleEventToStudent('${s.id}')">
+       ${esc(s.no)}${s.name?' '+esc(s.name):''}
+     </button>`).join('');
+ }
+
+ if(eventHint)eventHint.textContent='先揀事件，再撳學生班號。';
+
+
+ document.getElementById('bubbleStudents').innerHTML=members.map(s=>`<div class="compact-student"><div><b>${esc(s.no)}${s.leader?' ⭐':''}</b><div class="note">本課 ${s.todayScore}｜累積 ${s.score}${s.absent?'｜缺席':''}</div></div><div><button class="btn" onclick="toggleAbsent('${s.id}')">${s.absent?'到':'缺'}</button><button class="btn" onclick="quickAwardStudent('${s.id}',-1,currentBubbleReason())">−</button><button class="btn green" onclick="quickAwardStudent('${s.id}',1,currentBubbleReason())">＋</button></div></div>`).join('');
+
+ const leaderSel=document.getElementById('groupLeaderSelect');
+ if(leaderSel){
+   leaderSel.innerHTML='<option value="">未設定</option>'+members.map(s=>`<option value="${s.id}"${s.leader?' selected':''}>班號 ${esc(s.no)}${s.name?' '+esc(s.name):''}</option>`).join('');
+ }
+ bubble.classList.add('show');
+}
+
+
+function selectBubbleEvent(index,btn){
+ const bubble=document.getElementById('groupBubble');
+ const arr=state.eventShortcuts||[];
+ if(!bubble || !arr[index])return;
+
+ const current=bubble.dataset.eventIndex;
+ const next=(String(index)===current)?'':String(index);
+ bubble.dataset.eventIndex=next;
+
+ document.querySelectorAll('#bubbleEventButtons .event-chip').forEach((b,i)=>{
+   b.classList.toggle('active',String(i)===next);
+ });
+
+ const hint=document.getElementById('bubbleEventHint');
+ if(next===''){
+   if(hint)hint.textContent='先揀事件，再撳學生班號。';
+   return;
+ }
+
+ const e=arr[index];
+ if(hint)hint.textContent=`已選：${e.label}｜而家撳學生班號即可記錄。`;
+}
+
+function applyBubbleEventToStudent(id){
+ const bubble=document.getElementById('groupBubble');
+ if(!bubble)return;
+
+ const g=Number(bubble.dataset.group||0);
+ const indexText=bubble.dataset.eventIndex;
+
+ if(indexText==='' || indexText==null){
+   toast('請先揀課堂事件');
+   return;
+ }
+
+ const index=Number(indexText);
+ const e=(state.eventShortcuts||[])[index];
+ const s=state.students.find(x=>x.id===id);
+
+ if(!e || !s){
+   toast('未能套用課堂事件');
+   return;
+ }
+
+ if(s.absent){
+   toast('缺席學生不會套用課堂事件');
+   return;
+ }
+
+ // Reuse the established event logging / todo linkage logic.
+ selectedEventShortcut=index;
+ const ok=applySelectedEventToStudent(id);
+
+ // Keep event selection inside this group bubble for rapid repeated entry.
+ selectedEventShortcut=null;
+ document.body.classList.remove('event-select-mode');
+
+ if(ok){
+   openGroupBubble(g);
+   const reopened=document.getElementById('groupBubble');
+   if(reopened){
+     reopened.dataset.eventIndex=String(index);
+     document.querySelectorAll('#bubbleEventButtons .event-chip').forEach((b,i)=>{
+       b.classList.toggle('active',i===index);
+     });
+     const hint=document.getElementById('bubbleEventHint');
+     if(hint)hint.textContent=`已選：${e.label}｜可繼續撳其他學生。`;
+   }
+ }
+}
+
+
+function saveGroupLeader(){
+ const bubble=document.getElementById('groupBubble');
+ const g=Number(bubble?.dataset?.group||0);
+ if(!g)return;
+ const sel=document.getElementById('groupLeaderSelect');
+ const id=sel?sel.value:'';
+ pushUndo(`第${g}組組長設定`);
+ groupStudents(g).forEach(s=>s.leader=(s.id===id));
+ const chosen=state.students.find(s=>s.id===id);
+ logAction(chosen?`第${g}組組長：班號 ${chosen.no}`:`第${g}組取消組長`,'組長設定');
+ save();
+ renderAll();
+ openGroupBubble(g);
+ toast(chosen?`已設定班號 ${chosen.no} 為組長`:'已取消組長');
+}
+
+function closeGroupBubble(){
+ const bubble=document.getElementById('groupBubble');
+ bubble.classList.remove('show');
+ delete bubble.dataset.group;
+ bubbleGroupId=null;
+}
+
+function setBubbleReason(r,e){
+ const bubble=document.getElementById('groupBubble');
+ bubble.dataset.reason=r;
+ document.querySelectorAll('#bubbleReasonButtons .reason-btn').forEach(x=>x.classList.remove('active'));
+ e.classList.add('active');
+}
+
+function currentBubbleReason(){
+ return document.getElementById('groupBubble').dataset.reason||'課堂表現';
+}
+
+function quickAwardStudent(id,d,reason){
+ const s=state.students.find(x=>x.id===id);
+ if(!s||s.absent){
+   if(s?.absent)toast('缺席學生不會加減分');
+   return;
+ }
+ const bubble=document.getElementById('groupBubble');
+ const g=Number(bubble?.dataset?.group||s.group);
+ pushUndo('個人計分');
+ s.score+=d;
+ s.todayScore+=d;
+ s.lastReason=reason;
+ logAction(`班號 ${s.no} ${d>0?'+':''}${d}`,reason,{type:'student',id,studentNo:String(s.no),delta:d,eventDate:new Date().toLocaleDateString('zh-HK'),eventTime:new Date().toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'}),lessonContext:currentLessonContext()});
+ save();
+ renderAll();
+ openGroupBubble(g);
+}
+
+function bubbleGroupScore(d){
+ const bubble=document.getElementById('groupBubble');
+ const g=Number(bubble && bubble.dataset ? bubble.dataset.group : 0);
+ const delta=Number(d);
+ if(!g || !Number.isFinite(delta)){
+   toast('小組計分失敗，請重新開啟小組視窗');
+   return;
+ }
+
+ if(!state.groupScores)state.groupScores={};
+ if(!state.groupToday)state.groupToday={};
+ const beforeToday=Number(state.groupToday[g])||0;
+ const beforeTotal=Number(state.groupScores[g])||0;
+
+ pushUndo(`第${g}組小組分 ${delta>0?'+':''}${delta}`);
+
+ state.groupToday[g]=beforeToday+delta;
+ state.groupScores[g]=beforeTotal+delta;
+
+ const afterToday=state.groupToday[g];
+ const afterTotal=state.groupScores[g];
+
+ logAction(
+   `第${g}組小組分 ${delta>0?'+':''}${delta}`,
+   currentBubbleReason(),
+   {type:'group',group:g,delta:delta}
+ );
+
+ save();
+
+ const summary=document.getElementById('groupBubbleScoreSummary');
+ if(summary)summary.textContent=`小組分：本課 ${afterToday}｜累積 ${afterTotal}`;
+
+ renderAll();
+ openGroupBubble(g);
+ toast(`第${g}組 ${delta>0?'+':''}${delta}｜本課 ${afterToday}`);
+}
+
+function bubbleEveryone(){
+ const bubble=document.getElementById('groupBubble');
+ const g=Number(bubble?.dataset?.group||0);
+ if(!g){
+   toast('未能辨認目前小組');
+   return;
+ }
+ const reason=currentBubbleReason();
+ const targets=groupStudents(g).filter(s=>!s.absent);
+ if(!targets.length){
+   toast('此組沒有在席學生');
+   return;
+ }
+ pushUndo(`第${g}組全員+1`);
+ targets.forEach(s=>{
+   s.score++;
+   s.todayScore++;
+   s.lastReason=reason;
+ });
+ logAction(`第${g}組在席學生每人 +1`,reason,{type:'everyoneIds',ids:targets.map(s=>s.id),studentNos:targets.map(s=>String(s.no)),delta:1,eventDate:new Date().toLocaleDateString('zh-HK'),eventTime:new Date().toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'}),lessonContext:currentLessonContext()});
+ save();
+ renderAll();
+ openGroupBubble(g);
+ toast(`第${g}組在席學生每人 +1`);
+}
+
+function awardWholeClass(){
+ const reason=state.continuousReason||state.reasons[0]||'全班表現';
+ const targets=state.students.filter(s=>!s.absent);
+ if(!targets.length){
+   toast('沒有在席學生');
+   return;
+ }
+ pushUndo('全班+1');
+ targets.forEach(s=>{
+   s.score++;
+   s.todayScore++;
+   s.lastReason=reason;
+ });
+ logAction('全班在席學生每人 +1',reason,{type:'wholeclassIds',ids:targets.map(s=>s.id),studentNos:targets.map(s=>String(s.no)),delta:1,eventDate:new Date().toLocaleDateString('zh-HK'),eventTime:new Date().toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'}),lessonContext:currentLessonContext()});
+ save();
+ renderAll();
+}
+
+function renderScores(){const gl=document.getElementById('groupScoreList');gl.innerHTML='';for(let g=1;g<=activeGroupCount();g++)gl.innerHTML+=`<div class="score-row"><div class="circle-no">G${g}</div><div><b>第${g}組</b><div class="note">${groupStudents(g).length}人｜小組分 本課 ${Number(state.groupToday[g])||0}／累積 ${Number(state.groupScores[g])||0}｜學生分合計 ${groupStudentTodayTotal(g)}/${groupStudentTotal(g)}</div></div><div class="score-num">${groupTotal(g)}</div><button class="btn" onclick="openGroupBubble(${g})">計分</button></div>`;renderScoreList()}function renderScoreList(){const q=(document.getElementById('search')?.value||'').trim().toLowerCase(),mode=document.getElementById('scoreFilter')?.value||'all',w=document.getElementById('studentScoreList');let h='';for(let g=1;g<=activeGroupCount();g++){let arr=groupStudents(g).filter(s=>!q||s.no.toLowerCase().includes(q)||(s.name||'').toLowerCase().includes(q));if(mode==='desc')arr.sort((a,b)=>b.score-a.score);else arr.sort((a,b)=>numSort(a.no,b.no));h+=`<div class="score-group"><div class="score-group-head"><b>第${g}組</b><span class="chip">本課 ${arr.reduce((a,s)=>a+s.todayScore,0)}｜累積 ${arr.reduce((a,s)=>a+s.score,0)}</span></div><div class="score-group-body">${arr.map(s=>`<div class="student-row"><div class="circle-no">${esc(s.no)}</div><div><b>${s.name?esc(s.name):'班號 '+esc(s.no)}</b>${s.lastReason?`<div class="reason-tag">${esc(s.lastReason)}</div>`:''}</div><div class="score-num">${s.todayScore}/${s.score}</div><button class="btn" onclick="quickAwardStudent('${s.id}',1,state.reasons[0])">+1</button></div>`).join('')}</div></div>`}w.innerHTML=h}
+
+
+function openAttendance(){const w=document.getElementById('attendanceGrid');w.innerHTML=state.students.slice().sort((a,b)=>numSort(a.no,b.no)).map(s=>`<button class="btn attendance-btn ${s.absent?'absent':'present'}" onclick="toggleAbsent('${s.id}');openAttendance()">${esc(s.no)} ${s.absent?'缺':'到'}</button>`).join('');document.getElementById('attendanceModal').classList.add('show')}
+function closeAttendance(){document.getElementById('attendanceModal').classList.remove('show')}
+function toggleAbsent(id){const s=state.students.find(x=>x.id===id);if(!s)return;pushUndo(`班號${s.no}出席`);s.absent=!s.absent;logAction(`班號 ${s.no}：${s.absent?'缺席':'到課'}`,'點名');save();renderAll()}
+function openPicker(){document.getElementById('pickerResult').textContent='—';document.getElementById('pickerModal').classList.add('show')}
+function closePicker(){document.getElementById('pickerModal').classList.remove('show')}
+function pickStudent(){const a=state.students.filter(s=>!s.absent);document.getElementById('pickerResult').textContent=a.length?'班號 '+a[Math.floor(Math.random()*a.length)].no:'沒有可抽學生'}
+function pickGroup(){const a=activeGroups().filter(g=>groupStudents(g).some(s=>!s.absent));document.getElementById('pickerResult').textContent=a.length?'第 '+a[Math.floor(Math.random()*a.length)]+' 組':'沒有可抽小組'}
+
+function startClassSession(){
+ if(!confirm('開始新一課？會清空「本課積分」，但保留累積分及座位。'))return;
+ pushUndo('今日課堂開始');
+ state.students.forEach(s=>s.todayScore=0);
+ for(let g=1;g<=activeGroupCount();g++)state.groupToday[g]=0;
+ state.currentSessionDate=new Date().toLocaleDateString('zh-HK');
+ logAction(`開始課堂 ${state.currentSessionDate}`,'課堂');
+ save();renderAll();toast('已開始新一課');
+}
+
+
+function openSessionHistory(){
+ const arr=state.sessionHistory||[];
+ document.getElementById('sessionHistoryList').innerHTML=arr.length?arr.map(x=>{
+   const totalStudent=(x.studentScores||[]).reduce((a,s)=>a+(Number(s.todayScore)||0),0);
+   const totalGroup=Object.values(x.groupToday||{}).reduce((a,n)=>a+(Number(n)||0),0);
+   const absent=(x.studentScores||[]).filter(s=>s.absent).length;
+   return `<div class="session-card"><b>${esc(x.date||'未命名課堂')}</b><div class="note">${esc(x.endedAt||'')}</div><div class="note">學生分合計 ${totalStudent}｜小組分合計 ${totalGroup}｜缺席 ${absent}</div></div>`;
+ }).join(''):'<div class="note">暫時未有已封存課堂。</div>';
+ document.getElementById('sessionHistoryModal').classList.add('show');
+}
+function closeSessionHistory(){document.getElementById('sessionHistoryModal').classList.remove('show')}
+
+function endClassSession(){
+ if(!confirm('結束本課並封存本課積分？'))return;
+ const now=new Date();
+ const date=state.currentSessionDate||now.toLocaleDateString('zh-HK');
+ const endedAt=now.toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'});
+ const sessionId='sess_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+
+ state.sessionHistory=Array.isArray(state.sessionHistory)?state.sessionHistory:[];
+ const x={
+   id:sessionId,
+   date,
+   endedAt:now.toLocaleString('zh-HK'),
+   studentScores:state.students.map(s=>({id:s.id,no:s.no,todayScore:s.todayScore,absent:s.absent})),
+   groupToday:{...state.groupToday}
+ };
+ state.sessionHistory.unshift(x);
+ state.sessionHistory=state.sessionHistory.slice(0,50);
+
+ const present=state.students.filter(s=>!s.absent);
+ const absent=state.students.filter(s=>s.absent);
+ state.attendanceHistory=Array.isArray(state.attendanceHistory)?state.attendanceHistory:[];
+ state.attendanceHistory.unshift({
+   sessionId,
+   date,
+   endedAt,
+   presentIds:present.map(s=>s.id),
+   absentIds:absent.map(s=>s.id),
+   presentNos:present.map(s=>String(s.no)),
+   absentNos:absent.map(s=>String(s.no))
+ });
+ state.attendanceHistory=state.attendanceHistory.slice(0,100);
+
+ logAction(`結束課堂 ${date}`,'課堂');
+ save();renderAll();toast('本課及出勤紀錄已封存');
+}
+function resetTodayScores(){if(!confirm('清空本課積分？'))return;pushUndo('清本課分');state.students.forEach(s=>s.todayScore=0);for(let g=1;g<=activeGroupCount();g++)state.groupToday[g]=0;save();renderAll()}function resetAllScores(){if(!confirm('清空所有積分？'))return;pushUndo('清全部分');state.students.forEach(s=>{s.score=0;s.todayScore=0});for(let g=1;g<=activeGroupCount();g++){state.groupScores[g]=0;state.groupToday[g]=0}save();renderAll()}
+function renderHistory(){const w=document.getElementById('historyList');w.innerHTML=state.history.map(h=>`<div class="history-item"><div><div class="history-main">${esc(h.text)}</div><div class="history-meta">${esc(h.time)}${h.reason?'｜'+esc(h.reason):''}${h.undone?'｜已撤銷':''}</div></div>${h.undoPayload&&!h.undone?`<button class="btn" onclick="undoHistory('${h.id}')">撤銷</button>`:''}</div>`).join('')||'<div class="note">暫時未有紀錄</div>'}function undoHistory(id){const h=state.history.find(x=>x.id===id);if(!h||h.undone||!h.undoPayload)return;pushUndo('撤銷紀錄');const p=h.undoPayload;if(p.type==='student'){const s=state.students.find(x=>x.id===p.id);if(s){s.score-=p.delta;s.todayScore-=p.delta}}if(p.type==='group'){state.groupScores[p.group]-=p.delta;state.groupToday[p.group]-=p.delta}if(p.type==='everyone')groupStudents(p.group).forEach(s=>{s.score-=p.delta;s.todayScore-=p.delta});if(p.type==='wholeclass')state.students.forEach(s=>{s.score-=p.delta;s.todayScore-=p.delta});
+if(p.type==='everyoneIds'&&Array.isArray(p.ids))p.ids.forEach(id=>{const s=state.students.find(x=>x.id===id);if(s){s.score-=p.delta;s.todayScore-=p.delta}});
+if(p.type==='wholeclassIds'&&Array.isArray(p.ids))p.ids.forEach(id=>{const s=state.students.find(x=>x.id===id);if(s){s.score-=p.delta;s.todayScore-=p.delta}});
+h.undone=true;save();renderAll()}function clearHistory(){if(confirm('清除紀錄？')){state.history=[];save();renderHistory()}}
+function openFiveGroupModal(){tempFiveGroups=[...state.fivePersonGroups];renderFiveChoices();document.getElementById('fiveGroupModal').classList.add('show')}function closeFiveGroupModal(){document.getElementById('fiveGroupModal').classList.remove('show')}function renderFiveChoices(){const w=document.getElementById('fiveGroupChoices');w.innerHTML='';for(let g=1;g<=activeGroupCount();g++){const b=document.createElement('button');b.className='choice'+(tempFiveGroups.includes(g)?' active':'');b.textContent='第'+g+'組';b.onclick=()=>{tempFiveGroups.includes(g)?tempFiveGroups=tempFiveGroups.filter(x=>x!==g):tempFiveGroups.push(g);renderFiveChoices()};w.appendChild(b)}}function saveFiveGroupSetting(){for(let g=1;g<=activeGroupCount();g++){const cap=tempFiveGroups.includes(g)?5:4;if(groupStudents(g).length>cap){alert(`第${g}組現有${groupStudents(g).length}人`);return}}pushUndo('設定5人組');state.fivePersonGroups=[...tempFiveGroups];save();closeFiveGroupModal();renderAll()}function resetGroupLayout(){
+ pushUndo('重設位置');
+ state.groupPositions={1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:8};
+ save();
+ renderAll();
+ toast('已按右上開始、先上而下再由右而左排序');
+}
+function saveSeatVersion(){const name=prompt('版本名稱：',new Date().toLocaleDateString('zh-HK')+' 座位');if(!name)return;state.versions.unshift({id:'v'+Date.now(),name,time:new Date().toLocaleString('zh-HK'),students:state.students.map(s=>({id:s.id,group:s.group,seat:s.seat})),groupPositions:{...state.groupPositions},fivePersonGroups:[...state.fivePersonGroups]});state.versions=state.versions.slice(0,12);save();toast('已儲存版本')}function openVersionsModal(){document.getElementById('versionsList').innerHTML=state.versions.map(v=>`<div class="history-item"><div><div class="history-main">${esc(v.name)}</div><div class="history-meta">${esc(v.time)}</div></div><div><button class="btn" onclick="restoreVersion('${v.id}')">回復</button><button class="btn danger" onclick="deleteVersion('${v.id}')">刪除</button></div></div>`).join('')||'<div class="note">未有版本</div>';document.getElementById('versionsModal').classList.add('show')}function closeVersionsModal(){document.getElementById('versionsModal').classList.remove('show')}function restoreVersion(id){const v=state.versions.find(x=>x.id===id);if(!v)return;pushUndo('回復版本');v.students.forEach(vs=>{const s=state.students.find(x=>x.id===vs.id);if(s){s.group=vs.group;s.seat=vs.seat}});state.groupPositions={...v.groupPositions};state.fivePersonGroups=[...v.fivePersonGroups];save();closeVersionsModal();renderAll()}function deleteVersion(id){state.versions=state.versions.filter(v=>v.id!==id);save();openVersionsModal()}
+function openRestrictionsModal(){fillStudentSelects();renderRestrictions();document.getElementById('restrictionsModal').classList.add('show')}function closeRestrictionsModal(){document.getElementById('restrictionsModal').classList.remove('show')}function fillStudentSelects(){const o=state.students.slice().sort((a,b)=>numSort(a.no,b.no)).map(s=>`<option value="${s.id}">${esc(s.no)}${s.name?' '+esc(s.name):''}</option>`).join('');['lockStudentSelect','noGroupA','noGroupB','frontStudentSelect'].forEach(id=>document.getElementById(id).innerHTML=o)}function toggleLockSelected(){const s=state.students.find(x=>x.id===document.getElementById('lockStudentSelect').value);if(s){s.locked=!s.locked;save();renderAll();renderRestrictions()}}function toggleFrontSelected(){const s=state.students.find(x=>x.id===document.getElementById('frontStudentSelect').value);if(s){s.front=!s.front;save();renderRestrictions()}}function addNoGroupPair(){const a=document.getElementById('noGroupA').value,b=document.getElementById('noGroupB').value;if(a&&b&&a!==b&&!state.noGroupPairs.some(p=>p.includes(a)&&p.includes(b))){state.noGroupPairs.push([a,b]);save();renderRestrictions()}}function removeNoGroupPair(i){state.noGroupPairs.splice(i,1);save();renderRestrictions()}function renderRestrictions(){const locks=state.students.filter(s=>s.locked).map(s=>s.no).join('、')||'沒有',front=state.students.filter(s=>s.front).map(s=>s.no).join('、')||'沒有';document.getElementById('noGroupPairs').innerHTML=`<p class="note">已鎖定：${locks}<br>前排：${front}</p>`+state.noGroupPairs.map((p,i)=>{const a=state.students.find(s=>s.id===p[0]),b=state.students.find(s=>s.id===p[1]);return `<div class="history-item"><span>班號 ${a?.no||'?'} ＋ ${b?.no||'?'}</span><button class="btn danger" onclick="removeNoGroupPair(${i})">刪除</button></div>`}).join('')}
+function toggleProjectorMode(){state.settings.projector=!state.settings.projector;save();applyModes()}function toggleClassroomMode(){state.settings.classroomMode=!state.settings.classroomMode;save();applyModes()}function toggleRanking(){state.settings.hideRanking=document.getElementById('hideRankingChk').checked;save();applyModes()}
+function renderSetup(){document.getElementById('rosterText').value=state.students.slice().sort((a,b)=>numSort(a.no,b.no)).map(s=>s.no+(s.name?','+s.name:'')).join('\n');document.getElementById('stepInput').value=state.step;document.getElementById('classNameInput').value=state.className;document.getElementById('reasonsInput').value=state.reasons.join(',');document.getElementById('continuousReason').innerHTML='<option value="">關閉</option>'+state.reasons.map(r=>`<option value="${esc(r)}"${state.continuousReason===r?' selected':''}>${esc(r)} +1</option>`).join('')}
+function applyRoster(){
+ const lines=document.getElementById('rosterText').value.split(/\n+/).map(x=>x.trim()).filter(Boolean);
+ if(lines.length>32){
+   alert('學生名單最多只可加入32人。');
+   return;
+ }
+
+ const capacity=activeGroups().reduce((sum,g)=>sum+groupCap(g),0);
+ if(lines.length>capacity){
+   if(!state.enableEighthGroup && lines.length>25){
+     alert(`目前組別設定只可安排 ${capacity} 人。學生多於25人時，請先按「開設第8組」，或設定更多5人組。`);
+   }else{
+     alert(`目前組別／5人組設定只可安排 ${capacity} 人，請調整組別設定。`);
+   }
+   return;
+ }
+
+ pushUndo('套用名單');
+ const old=new Map(state.students.map(s=>[s.no,s]));
+ const counts={1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0};
+
+ state.students=lines.map((line,i)=>{
+   let [no,...rest]=line.split(',');
+   no=(no||String(i+1)).trim();
+   const prev=old.get(no),name=rest.join(',').trim();
+
+   let g=(prev?.group&&prev.group<=activeGroupCount())?prev.group:((i%activeGroupCount())+1);
+
+   if(counts[g]>=groupCap(g)){
+     g=activeGroups().find(x=>counts[x]<groupCap(x));
+   }
+   if(!g){
+     throw new Error('目前組別容量不足');
+   }
+
+   const seat=counts[g]++;
+   return{
+     id:prev?.id||('s'+Date.now()+'_'+i),
+     no,name,
+     score:prev?.score||0,
+     todayScore:prev?.todayScore||0,
+     group:g,seat,
+     lastReason:prev?.lastReason||'',
+     locked:prev?.locked||false,
+     front:prev?.front||false,
+     leader:prev?.leader||false,
+     absent:prev?.absent||false
+   };
+ });
+
+ save();
+ renderAll();
+ toast(`已套用 ${state.students.length} 名學生`);
+}function saveSettings(){state.step=Math.max(1,+document.getElementById('stepInput').value||1);state.className=document.getElementById('classNameInput').value.trim();manager.classes[manager.activeClassId].className=state.className;state.reasons=document.getElementById('reasonsInput').value.split(',').map(x=>x.trim()).filter(Boolean)||DEFAULT_REASONS;state.continuousReason=document.getElementById('continuousReason').value;save();renderAll()}function exportData(){const b=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=(state.className||'class')+'_seat_score_pro.json';a.click()}function importData(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{state=JSON.parse(r.result);save();renderAll()}catch(_){alert('格式錯誤')}};r.readAsText(f)}function clearAll(){if(confirm('清空目前班別的所有座位、積分及設定？')){const name=state.className;manager.classes[manager.activeClassId]=makeClassTemplate(name);state=manager.classes[manager.activeClassId];saveManager();undoStack=[];renderAll()}}
+document.querySelectorAll('.modal-back').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('show')}));
+function installModalUX(){
+ document.querySelectorAll('.modal-back').forEach(back=>{
+   const modal=back.querySelector(':scope > .modal');
+   if(!modal)return;
+
+   // Find the title row that already contains the close button and keep it visible.
+   const rows=[...modal.children].filter(el=>el.querySelector && el.querySelector('h3') && el.querySelector('button'));
+   if(rows.length)rows[0].classList.add('modal-sticky-head');
+
+   // Always reset the popup to the top when it opens.
+   const observer=new MutationObserver(()=>{
+     if(back.classList.contains('show'))modal.scrollTop=0;
+   });
+   observer.observe(back,{attributes:true,attributeFilter:['class']});
+ });
+}
+
+installModalUX();
+loadLessonContextFromUrl();
+renderAll();
+const initialPanel=document.querySelector('.panel.active')?.id||'dashboardPanel';switchMainPanel(initialPanel);
+</script>
+<script>
+(function(){
+  const INTEGRATION_VERSION='2.3.0';
+
+  function parentApi(){
+    try{
+      if(window.parent===window)return null;
+      return window.parent.__classCoreAPI||null;
+    }catch{return null}
+  }
+
+  function mapId(id,idMap){return idMap.get(String(id))||id}
+
+  function remapPayload(p,idMap){
+    if(!p||typeof p!=='object')return p;
+    const out={...p};
+    if(out.id && idMap.has(String(out.id)))out.id=mapId(out.id,idMap);
+    if(out.studentId)out.studentId=mapId(out.studentId,idMap);
+    if(Array.isArray(out.ids))out.ids=out.ids.map(x=>mapId(x,idMap));
+    if(Array.isArray(out.studentIds))out.studentIds=out.studentIds.map(x=>mapId(x,idMap));
+    return out;
+  }
+
+  function remapClassReferences(c,idMap){
+    c.todos=(c.todos||[]).map(t=>({...t,studentId:mapId(t.studentId,idMap)}));
+    c.parentContacts=(c.parentContacts||[]).map(x=>({...x,studentId:mapId(x.studentId,idMap)}));
+    c.noGroupPairs=(c.noGroupPairs||[]).map(pair=>Array.isArray(pair)?pair.map(x=>mapId(x,idMap)):pair);
+    c.attendanceHistory=(c.attendanceHistory||[]).map(a=>({
+      ...a,
+      presentIds:(a.presentIds||[]).map(x=>mapId(x,idMap)),
+      absentIds:(a.absentIds||[]).map(x=>mapId(x,idMap))
+    }));
+    c.history=(c.history||[]).map(h=>({
+      ...h,
+      payload:remapPayload(h.payload,idMap),
+      undoPayload:remapPayload(h.undoPayload,idMap)
+    }));
+    c.sessionHistory=(c.sessionHistory||[]).map(sess=>{
+      const next={...sess};
+      if(Array.isArray(next.history))next.history=next.history.map(h=>({...h,payload:remapPayload(h.payload,idMap),undoPayload:remapPayload(h.undoPayload,idMap)}));
+      return next;
+    });
+    const notes={};
+    Object.entries(c.studentNotes||{}).forEach(([k,v])=>{notes[mapId(k,idMap)]=v});
+    c.studentNotes=notes;
+  }
+
+  function starterFor(index){
+    const defaults=makeDefaultStudents();
+    if(defaults[index])return {...defaults[index]};
+    const g=(index%7)+1;
+    const seat=Math.floor(index/7);
+    return {id:'tmp_'+index,no:String(index+1),name:'',score:0,todayScore:0,group:g,seat,lastReason:'',locked:false,front:false,leader:false,absent:false};
+  }
+
+  function syncOne(core){
+    const classId=String(core.classId||core.id||'');
+    if(!classId)return;
+
+    let oldKey=Object.keys(manager.classes).find(k=>
+      k===classId ||
+      String(manager.classes[k]?.classId||'')===classId ||
+      String(manager.classes[k]?.className||'').trim().toUpperCase()===String(core.name||'').trim().toUpperCase()
+    );
+
+    let c=oldKey?manager.classes[oldKey]:makeClassTemplate(core.name||'班別');
+    c=normalizeClass(c);
+    c.classId=classId;
+    c.className=core.name||c.className;
+    c.integrationVersion=INTEGRATION_VERSION;
+
+    const existing=[...(c.students||[])];
+    const used=new Set();
+    const idMap=new Map();
+
+    const nextStudents=(core.students||[]).map((cs,i)=>{
+      const stableId=String(cs.studentId||cs.id||'');
+      const number=String(cs.number||i+1);
+      const name=String(cs.name||'');
+      let hitIndex=existing.findIndex((s,j)=>!used.has(j)&&String(s.id||s.studentId||'')===stableId);
+      if(hitIndex<0 && name)hitIndex=existing.findIndex((s,j)=>!used.has(j)&&String(s.name||'')===name);
+      if(hitIndex<0)hitIndex=existing.findIndex((s,j)=>!used.has(j)&&String(s.no||'')===number);
+      let old=hitIndex>=0?existing[hitIndex]:starterFor(i);
+      if(hitIndex>=0)used.add(hitIndex);
+      if(old.id && stableId && String(old.id)!==stableId)idMap.set(String(old.id),stableId);
+      return {
+        ...starterFor(i),
+        ...old,
+        id:stableId||old.id,
+        studentId:stableId||old.studentId||old.id,
+        no:number,
+        name
+      };
+    });
+
+    remapClassReferences(c,idMap);
+    c.students=nextStudents;
+    c=normalizeClass(c);
+    c.classId=classId;
+
+    if(oldKey && oldKey!==classId)delete manager.classes[oldKey];
+    manager.classes[classId]=c;
+  }
+
+  function syncFromParent(){
+    const api=parentApi();
+    if(!api?.getClasses)return false;
+    const classes=api.getClasses()||[];
+    classes.forEach(syncOne);
+
+    const activeName=api.getActiveClass?.()||'';
+    const active=classes.find(c=>String(c.name||'').trim().toUpperCase()===String(activeName).trim().toUpperCase())||classes[0];
+    if(active){
+      const id=String(active.classId||active.id||'');
+      if(manager.classes[id])manager.activeClassId=id;
+    }
+    state=manager.classes[manager.activeClassId]||state;
+    saveManager();
+    try{renderAll()}catch(e){console.warn('[seat integration] render',e)}
+    try{
+      window.parent.postMessage({type:'hk-seat-ready',className:state?.className||'',studentCount:state?.students?.length||0},location.origin);
+    }catch{}
+    return true;
+  }
+
+  function notifyActiveClass(){
+    try{window.parent.postMessage({type:'hk-seat-active-class',className:state?.className||''},location.origin)}catch{}
+  }
+
+  // Sync once after the original app has initialized.
+  window.addEventListener('load',()=>setTimeout(syncFromParent,0));
+  window.addEventListener('message',e=>{
+    if(e.origin!==location.origin)return;
+    if(e.data?.type==='hk-class-core-sync')syncFromParent();
+  });
+  try{
+    if(window.parent!==window){
+      window.parent.addEventListener('classCoreChanged',()=>syncFromParent());
+    }
+  }catch{}
+
+  // Watch class changes inside the seat module and mirror only active class selection.
+  let lastClass='';
+  setInterval(()=>{
+    const now=state?.className||'';
+    if(now!==lastClass){lastClass=now;notifyActiveClass()}
+  },800);
+})();
+</script>
+</body></html>

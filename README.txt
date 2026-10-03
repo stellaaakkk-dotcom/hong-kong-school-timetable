@@ -1,45 +1,38 @@
-香港教師教學日誌 v2.2.8 — 第三步：Stable Class ID + Student ID
+香港教師教學日誌 v2.3.0 — 座位／積分整合 Phase 1
 
-底層班級資料 schema 升級至 v2。
+基線：v2.2.8 + seat_score_v59_integration_ready_compact
 
-班別：
-- id / classId 為固定識別碼
-- 修改班名時 classId 不變
-- 新班別建立一次 ID 後持續沿用
+已整合：
+- More → 班級 → 座位／積分
+- 班級中心新增「座位／積分」tab
+- 教師工作台新增座位／積分入口
+- 座位系統以全頁 iframe 模組方式開啟，避免干擾主 React UI
 
-學生：
-- 每位學生由純文字改成：
-  {
-    id,
-    studentId,
-    name,
-    number
-  }
-- 舊純文字學生名單會自動遷移並補 studentId
-- 遷移 ID 使用穩定雜湊，避免本機／雲端同一批舊資料產生不同 ID
-- 重新排序：優先按姓名保留原 ID
-- 同長度名單修改姓名：同位置會保留原 studentId
-- 真正新增學生才會建立新 studentId
+資料整合：
+- 主系統 classCore v2 為班級／學生 source of truth
+- classId 直接成為座位系統班級 key
+- studentId 直接成為座位系統學生 id
+- 第一次同步會按舊 id／姓名／班號配對舊座位學生
+- 舊 student id → stable studentId 時，會同步搬移：
+  - 待辦 studentId
+  - 家校聯絡 studentId
+  - 學生私人備註
+  - 不可同組配對
+  - 出席紀錄 presentIds / absentIds
+  - 歷史紀錄 payload 內學生 id
 
-相容：
-- UI 繼續只顯示姓名，不要求老師處理 ID
-- 舊 classProfiles 自動遷移
-- Firestore snapshot 讀到舊 schema 時會自動轉 v2 並回寫
-- v2.2.7 追收三態完全保留
+保留：
+- 座位／移動／互換
+- 積分
+- 出席
+- 學生 Profile
+- 家校聯絡
+- 課堂事件（只紀錄，不直接加減分）
+- 座位模組原本 localStorage 歷史資料
 
-新增共用 API：
-window.__classCoreAPI
+目前 Phase 1 未做：
+- 主系統追收直接寫入學生 Profile timeline
+- 座位模組 todo 與主系統 Pending 完全雙向同步
+- 座位／積分資料搬入 Firestore
 
-包括：
-- getClasses()
-- getClassById()
-- getClassByName()
-- getStudents()
-- getStudent()
-- classIdForName()
-- studentIdFor()
-
-用途：
-之後座位表、積分、功課追收可以共用同一組 classId / studentId。
-
-Service Worker cache：v228
+Service Worker cache：v230

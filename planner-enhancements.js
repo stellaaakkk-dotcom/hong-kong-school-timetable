@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.2.8';
+  const VERSION = '2.3.0';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -3492,6 +3492,61 @@
     ensureSettingsManager().classList.add('open');
   }
 
+
+  function ensureSeatScoreModal(){
+    let m=document.getElementById('pe-seat-score-modal');
+    if(m)return m;
+    m=document.createElement('div');
+    m.id='pe-seat-score-modal';
+    m.className='pe-seat-score-modal';
+    m.innerHTML=`<div class="pe-seat-score-shell">
+      <div class="pe-seat-score-head">
+        <div><b>🪑 座位／積分</b><small id="pe-seat-score-status">共用班級及學生資料</small></div>
+        <button type="button" id="pe-seat-score-close">✕</button>
+      </div>
+      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=230"></iframe>
+    </div>`;
+    document.body.appendChild(m);
+    m.querySelector('#pe-seat-score-close').addEventListener('click',()=>closeSeatScore());
+    return m;
+  }
+
+  function openSeatScore(className=''){
+    if(className)setActiveClass(className);
+    const m=ensureSeatScoreModal();
+    m.classList.add('open');
+    document.body.style.overflow='hidden';
+    const frame=m.querySelector('#pe-seat-score-frame');
+    try{
+      frame?.contentWindow?.postMessage({type:'hk-class-core-sync'},location.origin);
+    }catch{}
+  }
+
+  function closeSeatScore(){
+    document.getElementById('pe-seat-score-modal')?.classList.remove('open');
+    document.body.style.overflow='';
+  }
+
+  function ensureSeatIntegrationStyles(){
+    if(document.getElementById('pe-seat-integration-styles'))return;
+    const s=document.createElement('style');
+    s.id='pe-seat-integration-styles';
+    s.textContent=`
+      .pe-seat-score-modal{display:none;position:fixed;inset:0;z-index:2147483450;background:#f4f7fb}
+      .pe-seat-score-modal.open{display:block}
+      .pe-seat-score-shell{position:absolute;inset:0;display:grid;grid-template-rows:auto 1fr;background:#f4f7fb}
+      .pe-seat-score-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;background:#fff;border-bottom:1px solid #dde4ec;box-shadow:0 2px 8px #0000000d}
+      .pe-seat-score-head>div{min-width:0;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+      .pe-seat-score-head b{font-size:15px}
+      .pe-seat-score-head small{font-size:10px;opacity:.68}
+      #pe-seat-score-close{border:1px solid #d9e0e8;background:#fff;border-radius:10px;width:36px;height:36px;font-size:18px;cursor:pointer}
+      #pe-seat-score-frame{width:100%;height:100%;border:0;background:#fff}
+      @media(max-width:700px){.pe-seat-score-head{padding:6px 8px}.pe-seat-score-head small{display:none}}
+    `;
+    document.head.appendChild(s);
+  }
+  ensureSeatIntegrationStyles();
+
   function ensureClassCenterModal(){
     let m=document.getElementById('pe-class-center-modal');
     if(m)return m;
@@ -3506,6 +3561,7 @@
         <button type="button" data-class-center-tab="students">學生</button>
         <button type="button" data-class-center-tab="homework">功課</button>
         <button type="button" data-class-center-tab="submission">追收</button>
+        <button type="button" data-class-center-tab="seat">座位／積分</button>
       </div>
       <div id="pe-class-center-content"></div>
       <div class="pe-actions"><button class="pe-btn" id="pe-class-center-close">關閉</button></div>
@@ -3547,6 +3603,18 @@
       const body=out.querySelector('#pe-class-center-body');
       if(!cls){body.innerHTML='<div class="pe-note">暫時未有班別資料。</div>';return}
       setActiveClass(cls);
+
+      if(tab==='seat'){
+        const rec=classProfileByName(cls);
+        const count=Array.isArray(rec?.students)?rec.students.length:0;
+        body.innerHTML=`<div class="pe-class-card">
+          <h4>🪑 ${esc(cls)} 座位／積分</h4>
+          <div class="pe-note">已連接班級核心資料：${count} 位學生。座位、積分、出席、學生 Profile、家校聯絡會喺座位模組內管理。</div>
+          <div class="pe-actions"><button class="pe-btn primary" id="pe-class-center-open-seat">開啟座位／積分</button></div>
+        </div>`;
+        body.querySelector('#pe-class-center-open-seat')?.addEventListener('click',()=>{closeModal(m);openSeatScore(cls)});
+        return;
+      }
 
       if(tab==='students'){
         const rec=classProfileByName(cls);
@@ -3645,7 +3713,9 @@
       studentIdFor:(classRef='',studentName='')=>{
         const s=window.__classCoreAPI.getStudents(classRef).find(x=>x.name===String(studentName));
         return s?.studentId||'';
-      }
+      },
+      getActiveClass:()=>getActiveClass(),
+      setActiveClass:(name='')=>setActiveClass(name)
     };
   }
 
@@ -4249,6 +4319,7 @@
       <div class="pe-more-group"><b>班級</b>
         <button id="pe-more-class-center">🏫 班級中心</button>
         <button id="pe-more-workflow">🧭 課堂工作流</button>
+        <button id="pe-more-seat">🪑 座位／積分</button>
       </div>
       <div class="pe-more-group"><b>管理</b>
         <button id="pe-more-workspace">🧰 教師工作台</button>
@@ -4262,11 +4333,25 @@
     sheet.querySelector('#pe-more-inbox').addEventListener('click',()=>{closeMobileMore();openInbox()});
     sheet.querySelector('#pe-more-class-center').addEventListener('click',()=>{closeMobileMore();openClassCenter()});
     sheet.querySelector('#pe-more-workflow').addEventListener('click',()=>{closeMobileMore();openWorkflow()});
+    sheet.querySelector('#pe-more-seat').addEventListener('click',()=>{closeMobileMore();openSeatScore(getActiveClass())});
     sheet.querySelector('#pe-more-workspace').addEventListener('click',()=>{closeMobileMore();openWorkspace()});
     sheet.querySelector('#pe-more-search').addEventListener('click',()=>{closeMobileMore();openJournalSearch()});
     sheet.querySelector('#pe-more-settings').addEventListener('click',()=>{closeMobileMore();openSettingsManager()});
     return sheet;
   }
+
+
+  window.addEventListener('message',e=>{
+    if(e.origin!==location.origin)return;
+    const d=e.data||{};
+    if(d.type==='hk-seat-ready'){
+      const status=document.getElementById('pe-seat-score-status');
+      if(status)status.textContent=d.className?`已連接：${d.className}・${d.studentCount||0} 人`:'已連接班級核心資料';
+    }
+    if(d.type==='hk-seat-active-class'&&d.className){
+      setActiveClass(d.className);
+    }
+  });
 
   function ensureIpadRail(){
     let rail=document.getElementById('pe-ipad-rail');if(rail)return rail;
