@@ -1,20 +1,11 @@
-香港教師教學日誌 v2.4.14 — 總課表 JS 實際縮放修正
+香港教師教學日誌 v2.4.15 — 教師／班級輸入框縮短
 
-之前 v2.4.12 / v2.4.13：
-- 用 CSS zoom / media query 嘗試縮總課表。
-- 某些瀏覽器 / PWA / 實際 DOM 尺寸下沒有生效。
+保留：
+- v2.4.14 已成功的總課表 JS 縮放。
+- 教學日誌 responsive 顯示。
 
-v2.4.14：
-- 不再依賴 CSS zoom 縮總課表。
-- JS 直接量度目前 viewport / preview-wrap 可用寬度。
-- 總課表固定用 760px 文件比例，再計算：
-  scale = availableWidth / 760
-- 使用 transform: scale(...) 真正縮整張總課表。
-- 手機 / iPad 都按實際可用寬度自動計算。
-- resize / 旋轉螢幕 / 切換主要頁面時會重新計算。
-- 不使用 document-wide MutationObserver。
-- 會補償 transform 後的容器高度，避免下方留大量空白。
-- >900px 桌面及列印會恢復原生尺寸。
-
-教學日誌：
-- 保留 v2.4.12 已成功的 responsive 顯示，不作更改。
+今次只改：
+- 手機／iPad 上方教師、班級等文字輸入框縮短。
+- 不再縮小整個 panel、標題、按鈕或 section 間距。
+- 兩欄資料區改為貼近內容寬度，不再把 input 撐滿整行。
+- 手機約 190–210px；大手機/平板約 220–240px。
