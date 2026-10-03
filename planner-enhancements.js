@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.3.6';
+  const VERSION = '2.3.7';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -1810,7 +1810,7 @@
     m.id='pe-inbox-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>📥 工作 Inbox</h3>
+      <h3>📥 待處理／追收</h3>
       <p class="pe-note">將未完成待辦、deadline 同功課追收集中處理。</p>
 
       <div class="pe-chip-row" id="pe-inbox-chips">
@@ -3518,7 +3518,7 @@
     m.id='pe-settings-manager-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>⚙ 設定與管理</h3>
+      <h3>⚙ 設定</h3>
       <p class="pe-note">集中放低頻管理功能，令「更多」選單保持簡潔。</p>
       <div class="pe-settings-grid">
         <button class="pe-btn" id="pe-settings-stats">📊 活動統計</button>
@@ -3692,7 +3692,7 @@
         <div><b>🪑 座位／積分</b><small id="pe-seat-score-status">共用班級及學生資料</small></div>
         <button type="button" id="pe-seat-score-close">✕</button>
       </div>
-      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=236"></iframe>
+      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=237"></iframe>
     </div>`;
     document.body.appendChild(m);
     m.querySelector('#pe-seat-score-close').addEventListener('click',()=>closeSeatScore());
@@ -3776,6 +3776,17 @@
       .pe-student-row-main b{font-size:11px;opacity:.65;min-width:24px}
       .pe-student-row-main span{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       .pe-student-profile-btn{flex:0 0 auto;padding:5px 9px!important;font-size:10px!important}
+
+      #pe-class-center-modal .pe-dialog{max-width:760px}
+      #pe-class-center-modal .pe-v2-tabs{gap:5px;flex-wrap:wrap}
+      #pe-class-center-modal .pe-v2-tabs button{padding:6px 9px;font-size:11px}
+      #pe-class-center-modal .pe-class-card{padding:10px}
+      #pe-class-center-modal .pe-class-overview-item{padding:7px 8px}
+      @media(max-width:600px){
+        #pe-class-center-modal .pe-dialog{width:calc(100vw - 16px);max-height:92vh;padding:10px}
+        #pe-class-center-modal .pe-v2-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+        #pe-class-center-modal .pe-v2-tabs button{width:100%;padding:7px 5px}
+      }
       .pe-class-core-profile-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
       .pe-core-student-profile-btn{justify-content:flex-start!important;text-align:left!important;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       @media(max-width:600px){.pe-class-core-profile-list{grid-template-columns:1fr 1fr}}
@@ -3822,7 +3833,7 @@
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
       <h3>🏫 班級中心 <small style="font-size:.62em;opacity:.55">v2.3.4</small></h3>
-      <p class="pe-note">將班別總覽與學生名單集中。之後座位表／積分亦可以直接加入呢度。</p>
+      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。</p>
       <div class="pe-v2-tabs">
         <button type="button" data-class-center-tab="overview" class="active">總覽</button>
         <button type="button" data-class-center-tab="students">學生</button>
@@ -3876,7 +3887,7 @@
         const count=Array.isArray(rec?.students)?rec.students.length:0;
         body.innerHTML=`<div class="pe-class-card">
           <h4>🪑 ${esc(cls)} 座位／積分</h4>
-          <div class="pe-note">已連接班級核心資料：${count} 位學生。座位、積分、出席、學生 Profile、家校聯絡會喺座位模組內管理。</div>
+          <div class="pe-note">已連接班級核心資料：${count} 位學生。可直接進入座位、積分、出席、學生 Profile 及家校聯絡。</div>
           <div class="pe-actions"><button class="pe-btn primary" id="pe-class-center-open-seat">開啟座位／積分</button></div>
         </div>`;
         body.querySelector('#pe-class-center-open-seat')?.addEventListener('click',()=>{closeModal(m);openSeatScore(cls)});
@@ -3896,7 +3907,7 @@
               </div>
               <button type="button" class="pe-btn pe-student-profile-btn" data-open-seat-student="${esc(s.studentId||s.id||'')}">開 Profile</button>
             </div>`).join(''):'<div class="pe-note">未建立學生名單</div>'}</div>
-          <div class="pe-note" style="margin-top:8px">Profile 會直接開啟同一位學生嘅座位／積分個人檔案，集中睇出席、積分、課堂紀錄、家校聯絡、追收及學生專屬待辦。</div>
+          <div class="pe-note" style="margin-top:8px">「開 Profile」會直接進入該學生個人檔案。</div>
           <div class="pe-actions"><button class="pe-btn primary" id="pe-class-center-edit-students">管理學生</button></div></div>`;
         body.querySelectorAll('[data-open-seat-student]').forEach(btn=>btn.addEventListener('click',()=>{
           const studentId=btn.dataset.openSeatStudent;
@@ -4571,13 +4582,13 @@
     m.id='pe-workspace-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>🧰 教師工作台</h3>
-      <p class="pe-note">由「班別／學生」做核心，將課堂、功課、追收同待辦串成同一個工作流。</p>
+      <h3>🧰 工作台</h3>
+      <p class="pe-note">集中處理班級、課堂、功課、追收與待辦。</p>
       <div class="pe-kpi-row" id="pe-v2-kpis"></div>
       <div class="pe-class-overview-grid">
-        <button class="pe-class-card" type="button" id="pe-v2-class-center"><h4>🏫 班級中心</h4><div class="pe-note">總覽、學生、功課、追收集中。</div></button>
+        <button class="pe-class-card" type="button" id="pe-v2-class-center"><h4>🏫 班級中心</h4><div class="pe-note">班級資料與學生入口集中。</div></button>
         <button class="pe-class-card" type="button" id="pe-v2-flow"><h4>🧭 課堂工作流</h4><div class="pe-note">一堂課集中睇上次進度、今堂功課及追收。</div></button>
-        <button class="pe-class-card" type="button" id="pe-v2-inbox"><h4>📥 工作 Inbox</h4><div class="pe-note">待辦、deadline、追收集中處理。</div></button>
+        <button class="pe-class-card" type="button" id="pe-v2-inbox"><h4>📥 待處理／追收</h4><div class="pe-note">待辦、deadline、追收一次睇。</div></button>
         <button class="pe-class-card" type="button" id="pe-v2-homework"><h4>📚 功課管理</h4><div class="pe-note">查看功課紀錄及追收狀態。</div></button>
       </div>
       <div class="pe-actions"><button class="pe-btn" id="pe-v2-close">關閉</button></div>
@@ -4626,7 +4637,7 @@
         <button id="pe-more-seat">🪑 座位／積分</button>
       </div>
       <div class="pe-more-group"><b>管理</b>
-        <button id="pe-more-workspace">🧰 教師工作台</button>
+        <button id="pe-more-workspace">🧰 工作台</button>
         <button id="pe-more-search">🔎 全站搜尋</button>
         <button id="pe-more-settings">⚙ 設定與管理</button>
       </div>`;

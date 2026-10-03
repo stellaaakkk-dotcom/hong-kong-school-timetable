@@ -1,20 +1,31 @@
-香港教師教學日誌 v2.3.6 — 學生 Profile 握手式導航修正
+香港教師教學日誌 v2.3.7 — 整合後 UI 精簡版
 
-v2.3.5 問題：
-- 為避免 Profile 關閉後重開，主系統太早清除 pending studentId。
-- 座位模組可能未完成班級／學生同步就收到 studentId。
-- 結果只開座位表主頁，Profile 沒有彈出。
+基於已確認穩定的 v2.3.6。
 
-v2.3.6：
-- 改成 parent/iframe 握手式導航。
-- 主系統保留 pending studentId，直到座位模組真正回覆「Profile 已開啟」。
-- 座位模組收到指令後：
-  1. 先同步 class core
-  2. 切換指定班別
-  3. 找指定 stable studentId
-  4. 若尚未找到，最多重試 8 次，每次 120ms
-  5. 真正開啟 Profile 後才回傳 hk-seat-student-profile-opened
-- 主系統收到 opened 才清除 pending navigation。
-- 關閉 Profile 會取消所有重試，確保不會自動重開。
+今次只整理 UI，不改核心資料及整合邏輯。
 
-其他 v2.3.5 關閉修正保留。
+調整：
+- 班級中心說明文字更新，移除「之後再加入座位／積分」等過時提示。
+- 學生頁說明縮短，「開 Profile」用途更直接。
+- 座位／積分頁說明改為現時已整合狀態。
+- More：
+  - 工作 Inbox → 待處理／追收
+  - 教師工作台 → 工作台
+  - 設定與管理 → 設定
+- 工作台卡片說明縮短。
+- 班級中心 tab、卡片、學生列表在手機畫面更緊湊。
+- 手機版班級中心 tab 改為 3 欄排列，減少橫向擠壓。
+
+未改動：
+- 追收資料
+- 學生專屬待辦
+- classId / studentId
+- Profile 握手導航
+- 座位／積分資料
+- 家校聯絡
+- Firebase / Firestore 結構
+
+版本：
+planner-enhancements 2.3.7
+seat integration 2.3.7
+Service Worker v237
