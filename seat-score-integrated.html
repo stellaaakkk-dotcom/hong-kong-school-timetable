@@ -993,7 +993,7 @@ body.event-select-mode #seatPanel .desk span{
   <div class="modal">
     <div class="student-profile-sticky-head">
       <h3 id="studentProfileTitle">學生個人檔案</h3>
-      <button class="btn" onclick="closeStudentProfile()">✕</button>
+      <button type="button" class="btn" id="studentProfileCloseBtn" onclick="event.preventDefault();event.stopPropagation();closeStudentProfile()">✕</button>
     </div>
     <div id="studentProfileSummary" class="note"></div>
     <div class="field">
@@ -1971,7 +1971,16 @@ function openStudentProfile(id){
 
  document.getElementById('studentProfileModal').classList.add('show');
 }
-function closeStudentProfile(){document.getElementById('studentProfileModal').classList.remove('show');currentProfileStudentId=null}
+function closeStudentProfile(){
+ const modal=document.getElementById('studentProfileModal');
+ if(modal)modal.classList.remove('show');
+ currentProfileStudentId=null;
+ try{
+   if(window.parent!==window){
+     window.parent.postMessage({type:'hk-seat-student-profile-closed'},location.origin);
+   }
+ }catch{}
+}
 function saveStudentPrivateNote(){
  if(!currentProfileStudentId)return;
  state.studentNotes[currentProfileStudentId]=document.getElementById('studentPrivateNote').value.trim();
@@ -3253,13 +3262,19 @@ function installModalUX(){
 }
 
 installModalUX();
+const studentProfileBackdrop=document.getElementById('studentProfileModal');
+if(studentProfileBackdrop){
+ studentProfileBackdrop.addEventListener('click',e=>{
+   if(e.target===studentProfileBackdrop)closeStudentProfile();
+ });
+}
 loadLessonContextFromUrl();
 renderAll();
 const initialPanel=document.querySelector('.panel.active')?.id||'dashboardPanel';switchMainPanel(initialPanel);
 </script>
 <script>
 (function(){
-  const INTEGRATION_VERSION='2.3.4';
+  const INTEGRATION_VERSION='2.3.5';
 
   function parentApi(){
     try{

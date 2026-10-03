@@ -1,17 +1,15 @@
-香港教師教學日誌 v2.3.4 — Profile 按鈕雙入口修正
+香港教師教學日誌 v2.3.5 — 直開學生 Profile 關閉修正
 
-原因：
-系統有兩個學生相關入口：
-1. 班級中心 → 學生
-2. 班別／學生中心
+修正內容：
+- 主系統直開學生 Profile 的 pending studentId 改成一次性使用。
+- 成功送出開啟指令後立即清除，避免 Profile 關閉後被外層再次自動打開。
+- hk-seat-ready 先消耗 pending 導航，再排程開啟，避免重複訊息。
+- 學生 Profile 關閉時會回報主系統 hk-seat-student-profile-closed，外層同步清除任何殘留導航。
+- Profile ✕ 改為 type=button，並 preventDefault / stopPropagation。
+- 點 Profile 背景亦可正常關閉。
+- 關閉 Profile 後仍留在座位／積分主畫面；外層右上角 ✕ 才返回主系統。
 
-v2.3.3 只喺「班級中心 → 學生」加入 Profile 按鈕，
-所以使用「班別／學生中心」時完全睇唔到。
-
-v2.3.4：
-- 班級中心 → 學生：保留「開 Profile」按鈕
-- 班別／學生中心：新增「學生 Profile 快捷」區
-- 每位學生都可直接開啟座位／積分內同一個 stable studentId 的 Profile
-- 兩個視窗標題都顯示 v2.3.4，方便確認新版已載入
-
-其他 Phase 2.1 / 2.2 功能保持不變。
+版本：
+planner-enhancements 2.3.5
+seat integration 2.3.5
+Service Worker v235
