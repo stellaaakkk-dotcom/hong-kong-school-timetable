@@ -1,24 +1,21 @@
-香港教師教學日誌 v2.4.16
+香港教師教學日誌 v2.4.17
 
-1. 教師／班級資料打字框
-- 今次唔再用泛用 .panel label input selector。
-- 直接喺 React markup 為四個欄位加 class：
-  identity-school
-  identity-class
-  identity-teacher
-  identity-term
-- 手機：約 150–165px
-- iPad／平板：約 200px
-- 所以唔會再被其他 input CSS 撐返滿闊。
+修正 1：教師／班級資料輸入框高度
+- 上一版誤將「縮短」理解為縮窄 width。
+- 今次直接強制四個 input 高度：
+  height/min-height/max-height = 38px
+- 學校名稱、任教班別、教師姓名、學年及學期全部變回正常單行文字框。
+- 手機 width 約 165–180px；iPad 約 210px。
 
-2. 浮動地台遮住底部
-- 手機 body 底部安全位增加至約 118px + safe-area。
-- workspace 額外加 92px 底部 padding。
-- 課表／月曆／日誌／今日課表主要內容再加底部 margin。
-- 捲到最底時，最後一行內容應該可以完整移到浮動導覽列上方。
-- iPad 亦加少量底部空白。
+修正 2：全站底部浮動地台安全位
+- 不再逐頁加 margin/padding。
+- 改用 body::after 全站共用 spacer。
+- 手機：150px + safe-area-inset-bottom。
+- iPad：72px。
+- 今日課表／月曆／總課表／日誌全部都會有同一個底部可捲空白位。
+- 浮動導覽列不再遮最後內容。
+- 列印時 spacer 自動隱藏。
 
-3. 保留
+保留：
 - v2.4.14 總課表 JS 自動縮放。
-- 教學日誌 responsive 縮放。
-- 教學模式同一裝置只自動顯示一次。
+- 日誌 responsive 顯示。
