@@ -1,29 +1,45 @@
-香港教師教學日誌 v2.2.7 — 追收三態硬修正版
+香港教師教學日誌 v2.2.8 — 第三步：Stable Class ID + Student ID
 
-修正 1：真正區分新三態資料
-- 新追收紀錄加入 statusVersion: 2
-- statusVersion 2：
-  missing=[] + submitted=[] = 全班白色未處理
-- 舊 statusVersion 1 才使用舊資料兼容規則
+底層班級資料 schema 升級至 v2。
 
-修正 2：紀錄列表不再誤寫「已交齊」
-- 有欠交 → 欠交 N
-- 無欠交但仍有白色 → 未處理 N
-- 全班綠色 → 已交齊
+班別：
+- id / classId 為固定識別碼
+- 修改班名時 classId 不變
+- 新班別建立一次 ID 後持續沿用
 
-修正 3：統計固定 4 欄
-- 全班
-- 已交
-- 欠交
-- 未處理
+學生：
+- 每位學生由純文字改成：
+  {
+    id,
+    studentId,
+    name,
+    number
+  }
+- 舊純文字學生名單會自動遷移並補 studentId
+- 遷移 ID 使用穩定雜湊，避免本機／雲端同一批舊資料產生不同 ID
+- 重新排序：優先按姓名保留原 ID
+- 同長度名單修改姓名：同位置會保留原 studentId
+- 真正新增學生才會建立新 studentId
 
-修正 4：欠交／已補交區固定 4 欄卡片
-- 直接在 HTML 使用 4-column grid
-- 不再依賴舊 .sub-missing-row 排版
-- 每卡保留：班號／原因／備註／已補交
-- 手機亦固定每行 4 卡
+相容：
+- UI 繼續只顯示姓名，不要求老師處理 ID
+- 舊 classProfiles 自動遷移
+- Firestore snapshot 讀到舊 schema 時會自動轉 v2 並回寫
+- v2.2.7 追收三態完全保留
 
-可視確認：
-新增回條／作業標題旁會顯示「v2.2.7 三態」。
+新增共用 API：
+window.__classCoreAPI
 
-Service Worker cache：v227
+包括：
+- getClasses()
+- getClassById()
+- getClassByName()
+- getStudents()
+- getStudent()
+- classIdForName()
+- studentIdFor()
+
+用途：
+之後座位表、積分、功課追收可以共用同一組 classId / studentId。
+
+Service Worker cache：v228

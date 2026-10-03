@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.2.7';
+  const VERSION = '2.2.8';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -588,6 +588,125 @@
     return cls;
   }
 
+
+  function stableHash(text=''){
+    let h=2166136261;
+    for(const ch of String(text)){
+      h^=ch.charCodeAt(0);
+      h=Math.imul(h,16777619);
+    }
+    return (h>>>0).toString(36);
+  }
+
+  function newClassStableId(name=''){
+    const base=normalizeClassId(name).toLowerCase().replace(/[^a-z0-9]+/g,'_')||'class';
+    return `class_${base}_${Date.now().toString(36)}`;
+  }
+
+  function migratedStudentId(classId,index,name=''){
+    return `student_${stableHash(`${classId}|${index}|${String(name).trim()}`)}`;
+  }
+
+  function newStudentId(classId=''){
+    const rand=Math.random().toString(36).slice(2,8);
+    return `student_${stableHash(classId)}_${Date.now().toString(36)}_${rand}`;
+  }
+
+  function normalizeStudentRecord(student,index,classId){
+    if(student && typeof student==='object' && !Array.isArray(student)){
+      const name=String(student.name||student.studentName||'').trim();
+      return {
+        id:String(student.id||student.studentId||migratedStudentId(classId,index,name)),
+        studentId:String(student.studentId||student.id||migratedStudentId(classId,index,name)),
+        name,
+        number:index+1
+      };
+    }
+
+    const name=String(student||'').trim();
+    const sid=migratedStudentId(classId,index,name);
+    return {id:sid,studentId:sid,name,number:index+1};
+  }
+
+  function normalizeClassProfile(rec={}){
+    const classId=String(rec.classId||rec.id||newClassStableId(rec.name||''));
+    const students=Array.isArray(rec.students)
+      ? rec.students.map((s,i)=>normalizeStudentRecord(s,i,classId)).filter(s=>s.name)
+      : [];
+
+    return {
+      ...rec,
+      id:classId,
+      classId,
+      schemaVersion:2,
+      name:normalizeClassId(rec.name||''),
+      students:students.map((s,i)=>({...s,number:i+1})),
+      createdAt:rec.createdAt||new Date().toISOString(),
+      updatedAt:rec.updatedAt||new Date().toISOString()
+    };
+  }
+
+  function studentName(student){
+    return typeof student==='string' ? student : String(student?.name||'');
+  }
+
+  function studentIdOf(student){
+    return typeof student==='object' && student
+      ? String(student.studentId||student.id||'')
+      : '';
+  }
+
+  function reconcileStudentNames(rec,names=[]){
+    const cls=normalizeClassProfile(rec);
+    const old=cls.students.map(x=>({...x}));
+    const used=new Set();
+    const result=new Array(names.length);
+
+    // 1. Preserve IDs by exact name first. This also survives reordering.
+    names.forEach((name,i)=>{
+      const hitIndex=old.findIndex((s,j)=>!used.has(j)&&s.name===name);
+      if(hitIndex>=0){
+        used.add(hitIndex);
+        result[i]={...old[hitIndex],name,number:i+1};
+      }
+    });
+
+    // 2. If list length is unchanged, unmatched same-position item is most likely a rename.
+    if(names.length===old.length){
+      names.forEach((name,i)=>{
+        if(result[i])return;
+        if(!used.has(i)){
+          used.add(i);
+          result[i]={...old[i],name,number:i+1};
+        }
+      });
+    }
+
+    // 3. Truly new students get a new stable ID.
+    names.forEach((name,i)=>{
+      if(result[i])return;
+      const sid=newStudentId(cls.classId);
+      result[i]={id:sid,studentId:sid,name,number:i+1};
+    });
+
+    return result;
+  }
+
+  function migrateClassCoreRecords(records=[]){
+    let changed=false;
+    const normalized=(Array.isArray(records)?records:[]).map(rec=>{
+      const next=normalizeClassProfile(rec);
+      if(
+        rec?.schemaVersion!==2 ||
+        !rec?.classId ||
+        !Array.isArray(rec?.students) ||
+        rec.students.some(s=>typeof s==='string'||!s?.studentId)
+      )changed=true;
+      return next;
+    });
+    return {records:normalized,changed};
+  }
+
   function classProfileByName(name=''){
     const cls=normalizeClassId(name);
     return state.classCore.find(x=>normalizeClassId(x.name)===cls)||null;
@@ -602,11 +721,15 @@
   }
 
   function loadClassCore(){
+    let migrated=false;
     try{
       const x=JSON.parse(localStorage.getItem(CLASS_CORE_LOCAL_KEY)||'[]');
-      state.classCore=Array.isArray(x)?x:[];
+      const result=migrateClassCoreRecords(Array.isArray(x)?x:[]);
+      state.classCore=result.records;
+      migrated=result.changed;
     }catch{state.classCore=[]}
     bootstrapClassCoreFromExisting();
+    if(migrated)saveClassCore();
   }
 
   function saveClassCore(){
@@ -626,8 +749,11 @@
     names.forEach(name=>{
       if(!name)return;
       if(!state.classCore.some(c=>normalizeClassId(c.name)===name)){
+        const classId=newClassStableId(name);
         state.classCore.push({
-          id:`class_${name.toLowerCase()}`,
+          id:classId,
+          classId,
+          schemaVersion:2,
           name,
           students:[],
           createdAt:new Date().toISOString(),
@@ -644,10 +770,13 @@
   }
 
   async function syncClassProfile(rec){
+    const normalized=normalizeClassProfile(rec);
+    const idx=state.classCore.findIndex(x=>x.id===rec.id);
+    if(idx>=0)state.classCore[idx]=normalized;
     saveClassCore();
     if(!state.firebaseReady||!state.user||!navigator.onLine)return;
     try{
-      await classCoreCollection().doc(rec.id).set(rec,{merge:true});
+      await classCoreCollection().doc(normalized.classId).set(normalized,{merge:true});
       setSync('ok');
     }catch(err){
       console.warn('[v2] class profile sync',err);
@@ -774,8 +903,14 @@
       state.unsubClassCore=classCoreCollection().onSnapshot(snap=>{
         const cloud=snap.docs.map(d=>({id:d.id,...d.data()}));
         if(cloud.length){
-          state.classCore=cloud;
+          const migrated=migrateClassCoreRecords(cloud);
+          state.classCore=migrated.records;
           saveClassCore();
+          if(migrated.changed && navigator.onLine){
+            Promise.all(state.classCore.map(rec=>
+              classCoreCollection().doc(rec.classId).set(rec,{merge:true}).catch(err=>console.warn('[v2] class migration sync',err))
+            )).catch(()=>{});
+          }
         }else{
           bootstrapClassCoreFromExisting();
         }
@@ -3476,6 +3611,46 @@
     renderClassCenter();
   }
 
+
+  function installClassCoreApi(){
+    window.__classCoreAPI={
+      version:2,
+      getClasses:()=>state.classCore.map(c=>({
+        ...normalizeClassProfile(c),
+        students:normalizeClassProfile(c).students.map(s=>({...s}))
+      })),
+      getClassById:(classId='')=>{
+        const rec=state.classCore.find(c=>String(c.classId||c.id)===String(classId));
+        return rec?normalizeClassProfile(rec):null;
+      },
+      getClassByName:(name='')=>{
+        const rec=classProfileByName(name);
+        return rec?normalizeClassProfile(rec):null;
+      },
+      getStudents:(classRef='')=>{
+        const rec=state.classCore.find(c=>
+          String(c.classId||c.id)===String(classRef) ||
+          normalizeClassId(c.name)===normalizeClassId(classRef)
+        );
+        return rec?normalizeClassProfile(rec).students.map(s=>({...s})):[];
+      },
+      getStudent:(classRef='',studentRef='')=>{
+        const students=window.__classCoreAPI.getStudents(classRef);
+        return students.find(s=>
+          String(s.studentId||s.id)===String(studentRef) ||
+          s.name===String(studentRef)
+        )||null;
+      },
+      classIdForName,
+      studentIdFor:(classRef='',studentName='')=>{
+        const s=window.__classCoreAPI.getStudents(classRef).find(x=>x.name===String(studentName));
+        return s?.studentId||'';
+      }
+    };
+  }
+
+  installClassCoreApi();
+
   function ensureClassCoreModal(){
     let m=document.getElementById('pe-class-core-modal');
     if(m)return m;
@@ -3484,7 +3659,7 @@
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
       <h3>🏫 班別／學生中心</h3>
-      <p class="pe-note">呢份學生資料會成為之後座位表、積分、追收及學生紀錄的共用核心。學生名單每行一位。</p>
+      <p class="pe-note">呢份學生資料係座位表、積分、追收及學生紀錄嘅共用核心。每個班別及學生而家都有固定 ID；改名唔會令資料斷開。學生名單每行一位。</p>
       <div class="pe-class-core-grid">
         <div>
           <div class="pe-class-core-list" id="pe-class-core-list"></div>
@@ -3560,7 +3735,7 @@
     const m=ensureClassCoreModal();
     const rec=state.classCore.find(x=>x.id===m.dataset.classId);
     m.querySelector('#pe-class-core-name').value=rec?.name||'';
-    m.querySelector('#pe-class-core-students').value=(rec?.students||[]).join('\n');
+    m.querySelector('#pe-class-core-students').value=(rec?.students||[]).map(studentName).join('\n');
     m.querySelector('#pe-class-core-count').value=(rec?.students||[]).length;
     m.querySelector('#pe-class-core-delete').style.display=rec?'':'none';
   }
@@ -3568,7 +3743,7 @@
   async function saveClassCoreEditor(){
     const m=ensureClassCoreModal();
     const name=normalizeClassId(m.querySelector('#pe-class-core-name').value);
-    const students=parseStudentLines(m.querySelector('#pe-class-core-students').value);
+    const names=parseStudentLines(m.querySelector('#pe-class-core-students').value);
     if(!name)return alert('請輸入班別。');
 
     let rec=state.classCore.find(x=>x.id===m.dataset.classId);
@@ -3576,11 +3751,33 @@
       const existing=state.classCore.find(x=>normalizeClassId(x.name)===name);
       if(existing)rec=existing;
     }
+
     if(!rec){
-      rec={id:`class_${name.toLowerCase().replace(/[^a-z0-9]/g,'_')}_${Date.now().toString(36)}`,createdAt:new Date().toISOString()};
+      const classId=newClassStableId(name);
+      rec={
+        id:classId,
+        classId,
+        schemaVersion:2,
+        name,
+        students:[],
+        createdAt:new Date().toISOString()
+      };
       state.classCore.push(rec);
+    }else{
+      rec=normalizeClassProfile(rec);
+      const idx=state.classCore.findIndex(x=>x.id===rec.id);
+      if(idx>=0)state.classCore[idx]=rec;
     }
-    Object.assign(rec,{name,students,updatedAt:new Date().toISOString()});
+
+    const students=reconcileStudentNames(rec,names);
+    Object.assign(rec,{
+      schemaVersion:2,
+      classId:rec.classId||rec.id,
+      name,
+      students,
+      updatedAt:new Date().toISOString()
+    });
+
     m.dataset.classId=rec.id;
     setActiveClass(name);
     await syncClassProfile(rec);
@@ -3627,6 +3824,7 @@
 
   function classOverviewClasses(){
     const set=new Set();
+    (state.classCore||[]).forEach(c=>c?.name&&set.add(c.name));
     homeworkHistoryRows().forEach(x=>x.className&&x.className!=='未分類'&&set.add(x.className));
     (state.submissions||[]).forEach(r=>r.className&&r.className!=='班別'&&set.add(r.className));
     return [...set].sort((a,b)=>a.localeCompare(b,'zh-HK'));
