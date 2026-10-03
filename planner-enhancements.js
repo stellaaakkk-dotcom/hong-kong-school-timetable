@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.3.3';
+  const VERSION = '2.3.4';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -3692,7 +3692,7 @@
         <div><b>🪑 座位／積分</b><small id="pe-seat-score-status">共用班級及學生資料</small></div>
         <button type="button" id="pe-seat-score-close">✕</button>
       </div>
-      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=233"></iframe>
+      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=234"></iframe>
     </div>`;
     document.body.appendChild(m);
     m.querySelector('#pe-seat-score-close').addEventListener('click',()=>closeSeatScore());
@@ -3772,6 +3772,9 @@
       .pe-student-row-main b{font-size:11px;opacity:.65;min-width:24px}
       .pe-student-row-main span{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       .pe-student-profile-btn{flex:0 0 auto;padding:5px 9px!important;font-size:10px!important}
+      .pe-class-core-profile-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+      .pe-core-student-profile-btn{justify-content:flex-start!important;text-align:left!important;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      @media(max-width:600px){.pe-class-core-profile-list{grid-template-columns:1fr 1fr}}
 
       @media(max-width:700px){.pe-seat-score-head{padding:6px 8px}.pe-seat-score-head small{display:none}}
     `;
@@ -3800,7 +3803,7 @@
     m.id='pe-class-center-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>🏫 班級中心</h3>
+      <h3>🏫 班級中心 <small style="font-size:.62em;opacity:.55">v2.3.4</small></h3>
       <p class="pe-note">將班別總覽與學生名單集中。之後座位表／積分亦可以直接加入呢度。</p>
       <div class="pe-v2-tabs">
         <button type="button" data-class-center-tab="overview" class="active">總覽</button>
@@ -3873,7 +3876,7 @@
                 <b>${String(s.number||i+1).padStart(2,'0')}</b>
                 <span>${esc(s.name||'')}</span>
               </div>
-              <button type="button" class="pe-btn pe-student-profile-btn" data-open-seat-student="${esc(s.studentId||s.id||'')}">Profile</button>
+              <button type="button" class="pe-btn pe-student-profile-btn" data-open-seat-student="${esc(s.studentId||s.id||'')}">開 Profile</button>
             </div>`).join(''):'<div class="pe-note">未建立學生名單</div>'}</div>
           <div class="pe-note" style="margin-top:8px">Profile 會直接開啟同一位學生嘅座位／積分個人檔案，集中睇出席、積分、課堂紀錄、家校聯絡、追收及學生專屬待辦。</div>
           <div class="pe-actions"><button class="pe-btn primary" id="pe-class-center-edit-students">管理學生</button></div></div>`;
@@ -3988,7 +3991,7 @@
     m.id='pe-class-core-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>🏫 班別／學生中心</h3>
+      <h3>🏫 班別／學生中心 <small style="font-size:.62em;opacity:.55">v2.3.4</small></h3>
       <p class="pe-note">呢份學生資料係座位表、積分、追收及學生紀錄嘅共用核心。每個班別及學生而家都有固定 ID；改名唔會令資料斷開。學生名單每行一位。</p>
       <div class="pe-class-core-grid">
         <div>
@@ -4002,6 +4005,10 @@
             <div class="pe-field"><label>班別</label><input id="pe-class-core-name" placeholder="例如：3C"></div>
             <div class="pe-field"><label>學生人數</label><input id="pe-class-core-count" disabled></div>
             <div class="pe-field pe-full"><label>學生名單（每行一位）</label><textarea id="pe-class-core-students" placeholder="陳大文&#10;李小明&#10;張美玲"></textarea></div>
+            <div class="pe-field pe-full" id="pe-class-core-profile-field">
+              <label>學生 Profile 快捷</label>
+              <div id="pe-class-core-profile-list" class="pe-class-core-profile-list"></div>
+            </div>
           </div>
           <div class="pe-actions">
             <button class="pe-btn danger" id="pe-class-core-delete">刪除班別</button>
@@ -4064,10 +4071,29 @@
   function renderClassCoreEditor(){
     const m=ensureClassCoreModal();
     const rec=state.classCore.find(x=>x.id===m.dataset.classId);
+    const normalized=rec?normalizeClassProfile(rec):null;
+    const students=Array.isArray(normalized?.students)?normalized.students:[];
     m.querySelector('#pe-class-core-name').value=rec?.name||'';
-    m.querySelector('#pe-class-core-students').value=(rec?.students||[]).map(studentName).join('\n');
-    m.querySelector('#pe-class-core-count').value=(rec?.students||[]).length;
+    m.querySelector('#pe-class-core-students').value=students.map(studentName).join('\n');
+    m.querySelector('#pe-class-core-count').value=students.length;
     m.querySelector('#pe-class-core-delete').style.display=rec?'':'none';
+
+    const profileList=m.querySelector('#pe-class-core-profile-list');
+    const profileField=m.querySelector('#pe-class-core-profile-field');
+    if(profileList&&profileField){
+      profileField.style.display=rec?'':'none';
+      profileList.innerHTML=students.length?students.map((s,i)=>`
+        <button type="button" class="pe-btn pe-core-student-profile-btn" data-core-student-profile="${esc(s.studentId||s.id||'')}">
+          ${String(s.number||i+1).padStart(2,'0')}　${esc(s.name||'')}　↗
+        </button>`).join(''):'<div class="pe-note">未建立學生名單。</div>';
+
+      profileList.querySelectorAll('[data-core-student-profile]').forEach(btn=>btn.addEventListener('click',()=>{
+        const sid=btn.dataset.coreStudentProfile;
+        const cls=normalized?.name||rec?.name||'';
+        closeModal(m);
+        openSeatStudentProfile(cls,sid);
+      }));
+    }
   }
 
   async function saveClassCoreEditor(){
