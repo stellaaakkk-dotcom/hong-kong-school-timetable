@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.3.1';
+  const VERSION = '2.3.2';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -2056,6 +2056,10 @@
         <div class="pe-field"><label>優先級</label><select id="pe-pending-priority"><option value="high">高</option><option value="medium" selected>中</option><option value="low">低</option></select></div>
         <div class="pe-field"><label>重複</label><select id="pe-pending-repeat"><option value="none">不重複</option><option value="weekly">每週</option><option value="biweekly">隔週</option><option value="monthly">每月</option></select></div>
         <div class="pe-field"><label>提前提醒</label><select id="pe-pending-remind"><option value="0">到期日</option><option value="1" selected>1日前</option><option value="3">3日前</option><option value="7">7日前</option></select></div>
+        <div class="pe-field pe-full" id="pe-pending-student-field" style="display:none">
+          <label>學生</label>
+          <div id="pe-pending-student-label" class="pe-note" style="margin:0;padding:8px 10px;border:1px solid #dde4ec;border-radius:10px;background:#f8fbff"></div>
+        </div>
         <div class="pe-field pe-full"><label>備註（可留空）</label><textarea id="pe-pending-note"></textarea></div>
       </div>
       <div class="pe-actions"><button class="pe-btn primary" id="pe-pending-add">＋ 加入待辦</button></div>
@@ -2078,6 +2082,24 @@
   }
 
 
+
+  function pendingStudentText(item={}){
+    if(!item.studentId && !item.studentName && !item.studentNo)return '';
+    const parts=[];
+    if(item.studentNo)parts.push(`班號 ${String(item.studentNo).padStart(2,'0')}`);
+    if(item.studentName)parts.push(item.studentName);
+    return parts.join('｜') || '已連結學生';
+  }
+
+  function renderPendingStudentLink(modalPrefix,item={}){
+    const field=document.getElementById(`${modalPrefix}-student-field`);
+    const label=document.getElementById(`${modalPrefix}-student-label`);
+    if(!field||!label)return;
+    const txt=pendingStudentText(item);
+    field.style.display=txt?'':'none';
+    label.textContent=txt?`👤 ${txt}（學生專屬待辦）`:'';
+  }
+
   function openPendingPrefill(title='',date='',note='',meta={}){
     const m=ensurePendingModal();
     document.getElementById('pe-pending-date').value=date||hkToday();
@@ -2086,6 +2108,10 @@
     document.getElementById('pe-pending-repeat').value='none';
     document.getElementById('pe-pending-remind').value='1';
     m.dataset.prefillMeta=JSON.stringify(meta||{});
+    m.dataset.studentId=String(meta.studentId||'');
+    m.dataset.studentName=String(meta.studentName||'');
+    m.dataset.studentNo=String(meta.studentNo||'');
+    renderPendingStudentLink('pe-pending',meta);
     const preScope={type:meta.scopeType||(meta.className||meta.classId?'class':'personal'),name:meta.scopeName||meta.className||'',id:meta.scopeId||meta.classId||''};
     document.getElementById('pe-pending-scope-type').value=preScope.type;
     refreshScopeEditor('pe-pending',preScope);
@@ -2101,6 +2127,10 @@
     document.getElementById('pe-pending-repeat').value='none';
     document.getElementById('pe-pending-remind').value='1';
     m.dataset.prefillMeta='';
+    m.dataset.studentId='';
+    m.dataset.studentName='';
+    m.dataset.studentNo='';
+    renderPendingStudentLink('pe-pending',{});
     document.getElementById('pe-pending-scope-type').value='personal';
     refreshScopeEditor('pe-pending',{type:'personal',name:'個人'});
     m.classList.add('open');
@@ -2131,13 +2161,20 @@
       lessonId:meta.lessonId||'',
       homeworkId:meta.homeworkId||'',
       sourceType:meta.sourceType||'manual',
-      studentId:meta.studentId||'',
-      studentName:meta.studentName||'',
-      studentNo:meta.studentNo||'',
+      studentId:meta.studentId||document.getElementById('pe-pending-modal')?.dataset.studentId||'',
+      studentName:meta.studentName||document.getElementById('pe-pending-modal')?.dataset.studentName||'',
+      studentNo:meta.studentNo||document.getElementById('pe-pending-modal')?.dataset.studentNo||'',
       completed:false,completedAt:'',
       createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()
     };
-    try{document.getElementById('pe-pending-modal').dataset.prefillMeta=''}catch{}
+    try{
+      const pm=document.getElementById('pe-pending-modal');
+      pm.dataset.prefillMeta='';
+      pm.dataset.studentId='';
+      pm.dataset.studentName='';
+      pm.dataset.studentNo='';
+      renderPendingStudentLink('pe-pending',{});
+    }catch{}
     state.pendingItems.unshift(rec);saveLocalPending();renderPendingList();renderDashboard();
 
     if(state.firebaseReady&&navigator.onLine){
@@ -2207,14 +2244,14 @@
     let arr=state.pendingItems.filter(x=>{
       if(mode==='open'&&x.completed)return false;
       if(mode==='done'&&!x.completed)return false;
-      return !q||`${x.title||''} ${x.note||''} ${pendingScopeText(x)}`.toLowerCase().includes(q);
+      return !q||`${x.title||''} ${x.note||''} ${pendingScopeText(x)} ${x.studentName||''} ${x.studentNo||''}`.toLowerCase().includes(q);
     }).sort((a,b)=>a.completed!==b.completed?(a.completed?1:-1):(a.dueDate||'').localeCompare(b.dueDate||''));
 
     const open=state.pendingItems.filter(x=>!x.completed);
     const today=open.filter(x=>pendingStatus(x)==='today').length;
     const overdue=open.filter(x=>pendingStatus(x)==='overdue').length;
     out.innerHTML=`<div class="pe-pending-summary"><span class="pe-pending-badge">未完成 ${open.length}</span><span class="pe-pending-badge today">今日到期 ${today}</span><span class="pe-pending-badge overdue">已逾期 ${overdue}</span></div>`+
-      (arr.length?arr.map(x=>{const st=pendingStatus(x);return `<div class="pe-pending-item ${st}"><div class="pe-pending-title">${x.completed?'✓ ':''}${esc(x.title)}</div><div class="pe-pending-meta"><span class="pe-scope-tag ${normalizedPendingScope(x).type}">${esc(pendingScopeText(x))}</span> Deadline：${fmt(x.dueDate)}｜優先：${pendingPriorityLabel(x.priority)}｜${repeatLabel(x.repeat||'none')}｜提醒：${Number(x.remindDays??0)}日前${pendingReminderText(x)?`<br><span class="pe-reminder-soon">${pendingReminderText(x)}</span>`:''}${x.note?`<br>${esc(x.note)}`:''}</div><div class="pe-pending-actions"><button class="${x.completed?'':'primary'}" data-pending-toggle="${esc(x.id)}">${x.completed?'設為未完成':'✓ 完成'}</button><button data-pending-delete="${esc(x.id)}">刪除</button></div></div>`}).join(''):'<div class="pe-note">暫時未有符合條件的待處理事項。</div>');
+      (arr.length?arr.map(x=>{const st=pendingStatus(x);return `<div class="pe-pending-item ${st}"><div class="pe-pending-title">${x.completed?'✓ ':''}${esc(x.title)}</div><div class="pe-pending-meta"><span class="pe-scope-tag ${normalizedPendingScope(x).type}">${esc(pendingScopeText(x))}</span>${pendingStudentText(x)?` <span class="pe-scope-tag" style="background:#eef4ff;border-color:#c8d6ff;color:#3856a6">👤 ${esc(pendingStudentText(x))}</span>`:''} Deadline：${fmt(x.dueDate)}｜優先：${pendingPriorityLabel(x.priority)}｜${repeatLabel(x.repeat||'none')}｜提醒：${Number(x.remindDays??0)}日前${pendingReminderText(x)?`<br><span class="pe-reminder-soon">${pendingReminderText(x)}</span>`:''}${x.note?`<br>${esc(x.note)}`:''}</div><div class="pe-pending-actions"><button class="${x.completed?'':'primary'}" data-pending-toggle="${esc(x.id)}">${x.completed?'設為未完成':'✓ 完成'}</button><button data-pending-delete="${esc(x.id)}">刪除</button></div></div>`}).join(''):'<div class="pe-note">暫時未有符合條件的待處理事項。</div>');
     out.querySelectorAll('[data-pending-toggle]').forEach(b=>b.addEventListener('click',()=>togglePendingComplete(b.dataset.pendingToggle)));
     out.querySelectorAll('[data-pending-delete]').forEach(b=>b.addEventListener('click',()=>deletePendingItem(b.dataset.pendingDelete)));
   }
@@ -2241,6 +2278,10 @@
         <div class="pe-field"><label>優先級</label><select id="pe-edit-pending-priority"><option value="high">高</option><option value="medium">中</option><option value="low">低</option></select></div>
         <div class="pe-field"><label>重複</label><select id="pe-edit-pending-repeat"><option value="none">不重複</option><option value="weekly">每週</option><option value="biweekly">隔週</option><option value="monthly">每月</option></select></div>
         <div class="pe-field"><label>提前提醒</label><select id="pe-edit-pending-remind"><option value="0">到期日</option><option value="1">1日前</option><option value="3">3日前</option><option value="7">7日前</option></select></div>
+        <div class="pe-field pe-full" id="pe-edit-pending-student-field" style="display:none">
+          <label>學生</label>
+          <div id="pe-edit-pending-student-label" class="pe-note" style="margin:0;padding:8px 10px;border:1px solid #dde4ec;border-radius:10px;background:#f8fbff"></div>
+        </div>
         <div class="pe-field pe-full"><label>備註</label><textarea id="pe-edit-pending-note"></textarea></div>
       </div>
       <div class="pe-actions">
@@ -2287,6 +2328,7 @@
     document.getElementById('pe-edit-pending-repeat').value=rec.repeat||'none';
     document.getElementById('pe-edit-pending-remind').value=String(rec.remindDays??0);
     document.getElementById('pe-edit-pending-note').value=rec.note||'';
+    renderPendingStudentLink('pe-edit-pending',rec);
     const scope=normalizedPendingScope(rec);
     document.getElementById('pe-edit-pending-scope-type').value=scope.type;
     refreshScopeEditor('pe-edit-pending',scope);
@@ -2313,6 +2355,9 @@
       scopeId:scope.scopeId,
       classId:scope.scopeType==='class'?scope.scopeId:'',
       className:scope.scopeType==='class'?scope.scopeName:'',
+      studentId:rec.studentId||'',
+      studentName:rec.studentName||'',
+      studentNo:rec.studentNo||'',
       updatedAt:new Date().toISOString()
     });
     saveLocalPending();renderPendingList();renderDashboard();closeModal(m);
@@ -3547,12 +3592,15 @@
     const pending=(state.pendingItems||[])
       .filter(x=>{
         if(x.completed)return false;
-        if(x.studentId && String(x.studentId)===String(student.studentId))return true;
-        if(x.studentName && String(x.studentName).trim()===String(student.name).trim()){
+        if(x.studentId){
+          return String(x.studentId)===String(student.studentId);
+        }
+        // Legacy fallback only for older student-linked records without studentId.
+        if(x.sourceType==='studentProfile' && x.studentName && String(x.studentName).trim()===String(student.name).trim()){
           const s=normalizedPendingScope(x);
           return s.type!=='class' || normalizeClassId(s.name)===className;
         }
-        if(x.studentNo && Number(x.studentNo)===studentNo){
+        if(x.sourceType==='studentProfile' && x.studentNo && Number(x.studentNo)===studentNo){
           const s=normalizedPendingScope(x);
           return s.type!=='class' || normalizeClassId(s.name)===className;
         }
@@ -3644,7 +3692,7 @@
         <div><b>🪑 座位／積分</b><small id="pe-seat-score-status">共用班級及學生資料</small></div>
         <button type="button" id="pe-seat-score-close">✕</button>
       </div>
-      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=231"></iframe>
+      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=232"></iframe>
     </div>`;
     document.body.appendChild(m);
     m.querySelector('#pe-seat-score-close').addEventListener('click',()=>closeSeatScore());

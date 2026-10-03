@@ -1021,7 +1021,7 @@ body.event-select-mode #seatPanel .desk span{
     <div class="section-title">主系統追收</div>
     <div id="studentMainSubmissions"></div>
     <div class="section-title" style="display:flex;justify-content:space-between;align-items:center">
-      <span>主系統待辦</span>
+      <span>主系統待辦（學生專屬）</span>
       <button class="btn" onclick="openMainPendingForStudent()">＋ 新增</button>
     </div>
     <div id="studentMainPending"></div>
@@ -3259,7 +3259,7 @@ const initialPanel=document.querySelector('.panel.active')?.id||'dashboardPanel'
 </script>
 <script>
 (function(){
-  const INTEGRATION_VERSION='2.3.1';
+  const INTEGRATION_VERSION='2.3.2';
 
   function parentApi(){
     try{
