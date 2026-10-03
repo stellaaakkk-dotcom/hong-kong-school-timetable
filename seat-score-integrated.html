@@ -3259,7 +3259,7 @@ const initialPanel=document.querySelector('.panel.active')?.id||'dashboardPanel'
 </script>
 <script>
 (function(){
-  const INTEGRATION_VERSION='2.3.2';
+  const INTEGRATION_VERSION='2.3.3';
 
   function parentApi(){
     try{
@@ -3390,7 +3390,34 @@ const initialPanel=document.querySelector('.panel.active')?.id||'dashboardPanel'
   window.addEventListener('load',()=>setTimeout(syncFromParent,0));
   window.addEventListener('message',e=>{
     if(e.origin!==location.origin)return;
-    if(e.data?.type==='hk-class-core-sync')syncFromParent();
+    if(e.data?.type==='hk-class-core-sync'){
+      syncFromParent();
+      return;
+    }
+    if(e.data?.type==='hk-open-student-profile'){
+      const targetClass=String(e.data.className||'').trim().toUpperCase();
+      const studentId=String(e.data.studentId||'');
+      syncFromParent();
+
+      if(targetClass){
+        const found=Object.entries(manager.classes||{}).find(([id,c])=>
+          String(c.className||'').trim().toUpperCase()===targetClass
+        );
+        if(found){
+          manager.activeClassId=found[0];
+          state=normalizeClass(found[1]);
+          saveManager();
+          try{renderAll()}catch(err){console.warn('[phase2.2] render target class',err)}
+        }
+      }
+
+      const student=(state.students||[]).find(s=>String(s.id)===studentId);
+      if(student){
+        setTimeout(()=>openStudentProfile(student.id),20);
+      }else{
+        console.warn('[phase2.2] student not found',targetClass,studentId);
+      }
+    }
   });
   try{
     if(window.parent!==window){

@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.3.2';
+  const VERSION = '2.3.3';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -3692,7 +3692,7 @@
         <div><b>🪑 座位／積分</b><small id="pe-seat-score-status">共用班級及學生資料</small></div>
         <button type="button" id="pe-seat-score-close">✕</button>
       </div>
-      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=232"></iframe>
+      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=233"></iframe>
     </div>`;
     document.body.appendChild(m);
     m.querySelector('#pe-seat-score-close').addEventListener('click',()=>closeSeatScore());
@@ -3715,6 +3715,44 @@
     document.body.style.overflow='';
   }
 
+  function postSeatStudentProfile(className='',studentId=''){
+    const m=ensureSeatScoreModal();
+    const frame=m.querySelector('#pe-seat-score-frame');
+    if(!frame||!studentId)return;
+    try{
+      frame.contentWindow?.postMessage({
+        type:'hk-open-student-profile',
+        className:className||getActiveClass()||'',
+        studentId:String(studentId)
+      },location.origin);
+    }catch(err){
+      console.warn('[phase2.2] open student profile',err);
+    }
+  }
+
+  function openSeatStudentProfile(className='',studentId=''){
+    if(!studentId)return;
+    if(className)setActiveClass(className);
+    const m=ensureSeatScoreModal();
+    m.classList.add('open');
+    document.body.style.overflow='hidden';
+    m.dataset.pendingStudentId=String(studentId);
+    m.dataset.pendingClassName=className||getActiveClass()||'';
+    const frame=m.querySelector('#pe-seat-score-frame');
+
+    const send=()=>{
+      try{frame?.contentWindow?.postMessage({type:'hk-class-core-sync'},location.origin)}catch{}
+      setTimeout(()=>postSeatStudentProfile(m.dataset.pendingClassName,m.dataset.pendingStudentId),80);
+    };
+
+    if(frame){
+      if(frame.contentDocument?.readyState==='complete')send();
+      else frame.addEventListener('load',send,{once:true});
+    }
+  }
+
+
+
   function ensureSeatIntegrationStyles(){
     if(document.getElementById('pe-seat-integration-styles'))return;
     const s=document.createElement('style');
@@ -3729,11 +3767,31 @@
       .pe-seat-score-head small{font-size:10px;opacity:.68}
       #pe-seat-score-close{border:1px solid #d9e0e8;background:#fff;border-radius:10px;width:36px;height:36px;font-size:18px;cursor:pointer}
       #pe-seat-score-frame{width:100%;height:100%;border:0;background:#fff}
+      .pe-student-row{display:flex!important;align-items:center;justify-content:space-between;gap:8px}
+      .pe-student-row-main{display:flex;align-items:center;gap:10px;min-width:0}
+      .pe-student-row-main b{font-size:11px;opacity:.65;min-width:24px}
+      .pe-student-row-main span{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .pe-student-profile-btn{flex:0 0 auto;padding:5px 9px!important;font-size:10px!important}
+
       @media(max-width:700px){.pe-seat-score-head{padding:6px 8px}.pe-seat-score-head small{display:none}}
     `;
     document.head.appendChild(s);
   }
   ensureSeatIntegrationStyles();
+
+  window.addEventListener('message',e=>{
+    if(e.origin!==location.origin)return;
+    if(e.data?.type==='hk-seat-ready'){
+      const m=document.getElementById('pe-seat-score-modal');
+      if(m?.classList.contains('open')&&m.dataset.pendingStudentId){
+        const sid=m.dataset.pendingStudentId;
+        const cls=m.dataset.pendingClassName||getActiveClass()||'';
+        setTimeout(()=>postSeatStudentProfile(cls,sid),40);
+      }
+    }
+  });
+
+
 
   function ensureClassCenterModal(){
     let m=document.getElementById('pe-class-center-modal');
@@ -3806,10 +3864,24 @@
 
       if(tab==='students'){
         const rec=classProfileByName(cls);
-        const students=Array.isArray(rec?.students)?rec.students:[];
+        const normalized=rec?normalizeClassProfile(rec):null;
+        const students=Array.isArray(normalized?.students)?normalized.students:[];
         body.innerHTML=`<div class="pe-class-card"><h4>👥 學生名單・${students.length} 人</h4>
-          <div class="pe-class-overview-list">${students.length?students.map((s,i)=>`<div class="pe-class-overview-item">${String(i+1).padStart(2,'0')}　${esc(typeof s==='string'?s:(s?.name||''))}</div>`).join(''):'<div class="pe-note">未建立學生名單</div>'}</div>
+          <div class="pe-class-overview-list">${students.length?students.map((s,i)=>`
+            <div class="pe-class-overview-item pe-student-row">
+              <div class="pe-student-row-main">
+                <b>${String(s.number||i+1).padStart(2,'0')}</b>
+                <span>${esc(s.name||'')}</span>
+              </div>
+              <button type="button" class="pe-btn pe-student-profile-btn" data-open-seat-student="${esc(s.studentId||s.id||'')}">Profile</button>
+            </div>`).join(''):'<div class="pe-note">未建立學生名單</div>'}</div>
+          <div class="pe-note" style="margin-top:8px">Profile 會直接開啟同一位學生嘅座位／積分個人檔案，集中睇出席、積分、課堂紀錄、家校聯絡、追收及學生專屬待辦。</div>
           <div class="pe-actions"><button class="pe-btn primary" id="pe-class-center-edit-students">管理學生</button></div></div>`;
+        body.querySelectorAll('[data-open-seat-student]').forEach(btn=>btn.addEventListener('click',()=>{
+          const studentId=btn.dataset.openSeatStudent;
+          closeModal(m);
+          openSeatStudentProfile(cls,studentId);
+        }));
         body.querySelector('#pe-class-center-edit-students')?.addEventListener('click',()=>{closeModal(m);openClassCore()});
         return;
       }
