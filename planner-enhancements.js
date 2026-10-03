@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.3.7';
+  const VERSION = '2.3.8';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -3692,7 +3692,7 @@
         <div><b>🪑 座位／積分</b><small id="pe-seat-score-status">共用班級及學生資料</small></div>
         <button type="button" id="pe-seat-score-close">✕</button>
       </div>
-      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=237"></iframe>
+      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=238"></iframe>
     </div>`;
     document.body.appendChild(m);
     m.querySelector('#pe-seat-score-close').addEventListener('click',()=>closeSeatScore());
@@ -3776,6 +3776,20 @@
       .pe-student-row-main b{font-size:11px;opacity:.65;min-width:24px}
       .pe-student-row-main span{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       .pe-student-profile-btn{flex:0 0 auto;padding:5px 9px!important;font-size:10px!important}
+      .pe-student-grid-note{margin:2px 0 8px!important;font-size:10px!important}
+      .pe-student-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+      .pe-student-grid-item{display:flex;align-items:center;justify-content:space-between;gap:5px;border:1px solid #e1e6ed;border-radius:10px;background:#fff;padding:6px 6px 6px 8px;min-width:0}
+      .pe-student-grid-text{display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden}
+      .pe-student-grid-text b{font-size:10px;opacity:.62;flex:0 0 auto}
+      .pe-student-grid-text span{font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+      .pe-student-profile-plus{flex:0 0 auto;width:25px;height:25px;border:1px solid #ccd6e2;background:#f7faff;border-radius:8px;font-size:16px;line-height:1;cursor:pointer;padding:0}
+      .pe-student-profile-plus:active{transform:scale(.96)}
+      @media(max-width:700px){
+        .pe-student-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+        .pe-student-grid-item{padding:5px 5px 5px 7px}
+        .pe-student-grid-text span{font-size:10px}
+        .pe-student-profile-plus{width:24px;height:24px}
+      }
 
       #pe-class-center-modal .pe-dialog{max-width:760px}
       #pe-class-center-modal .pe-v2-tabs{gap:5px;flex-wrap:wrap}
@@ -3898,17 +3912,19 @@
         const rec=classProfileByName(cls);
         const normalized=rec?normalizeClassProfile(rec):null;
         const students=Array.isArray(normalized?.students)?normalized.students:[];
-        body.innerHTML=`<div class="pe-class-card"><h4>👥 學生名單・${students.length} 人</h4>
-          <div class="pe-class-overview-list">${students.length?students.map((s,i)=>`
-            <div class="pe-class-overview-item pe-student-row">
-              <div class="pe-student-row-main">
+        body.innerHTML=`<div class="pe-class-card">
+          <h4>👥 學生名單・${students.length} 人</h4>
+          <div class="pe-note pe-student-grid-note">按學生右邊「＋」可開啟個人 Profile。</div>
+          <div class="pe-student-grid">${students.length?students.map((s,i)=>`
+            <div class="pe-student-grid-item">
+              <div class="pe-student-grid-text">
                 <b>${String(s.number||i+1).padStart(2,'0')}</b>
                 <span>${esc(s.name||'')}</span>
               </div>
-              <button type="button" class="pe-btn pe-student-profile-btn" data-open-seat-student="${esc(s.studentId||s.id||'')}">開 Profile</button>
+              <button type="button" class="pe-student-profile-plus" data-open-seat-student="${esc(s.studentId||s.id||'')}" aria-label="開啟 ${esc(s.name||'學生')} Profile">＋</button>
             </div>`).join(''):'<div class="pe-note">未建立學生名單</div>'}</div>
-          <div class="pe-note" style="margin-top:8px">「開 Profile」會直接進入該學生個人檔案。</div>
-          <div class="pe-actions"><button class="pe-btn primary" id="pe-class-center-edit-students">管理學生</button></div></div>`;
+          <div class="pe-actions"><button class="pe-btn primary" id="pe-class-center-edit-students">管理學生</button></div>
+        </div>`;
         body.querySelectorAll('[data-open-seat-student]').forEach(btn=>btn.addEventListener('click',()=>{
           const studentId=btn.dataset.openSeatStudent;
           closeModal(m);
