@@ -1,4 +1,4 @@
-const CACHE = "hk-teacher-journal-pwa-v241";
+const CACHE = "hk-teacher-journal-pwa-v242";
 const ROOT = new URL("./", self.registration.scope).href;
 const CORE = ["./", "./manifest.webmanifest", "./app-icon-192.png", "./app-icon-512.png", "./pdf.worker.min.mjs"];
 
@@ -31,6 +31,7 @@ self.addEventListener("fetch", event => {
     url.pathname.endsWith("/planner-enhancements-v239.js") ||
     url.pathname.endsWith("/planner-enhancements-v240.js") ||
     url.pathname.endsWith("/planner-enhancements-v241.js") ||
+    url.pathname.endsWith("/planner-enhancements-v242.js") ||
     url.pathname.endsWith("/submission-module.js") ||
     url.pathname.endsWith("/submission-module-v224.js") ||
     url.pathname.endsWith("/submission-module-v225.js") ||
@@ -40,7 +41,8 @@ self.addEventListener("fetch", event => {
     url.pathname.endsWith("/seat-score-integrated.html") ||
     url.pathname.endsWith("/seat-score-integrated-v239.html") ||
     url.pathname.endsWith("/seat-score-integrated-v240.html") ||
-    url.pathname.endsWith("/seat-score-integrated-v241.html");
+    url.pathname.endsWith("/seat-score-integrated-v241.html") ||
+    url.pathname.endsWith("/seat-score-integrated-v242.html");
 
   if (isLiveModule) {
     event.respondWith(
