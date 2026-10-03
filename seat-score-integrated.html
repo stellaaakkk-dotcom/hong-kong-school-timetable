@@ -1975,6 +1975,11 @@ function closeStudentProfile(){
  const modal=document.getElementById('studentProfileModal');
  if(modal)modal.classList.remove('show');
  currentProfileStudentId=null;
+ pendingMainProfileTarget=null;
+ if(pendingMainProfileTimer){
+   clearTimeout(pendingMainProfileTimer);
+   pendingMainProfileTimer=null;
+ }
  try{
    if(window.parent!==window){
      window.parent.postMessage({type:'hk-seat-student-profile-closed'},location.origin);
@@ -3274,7 +3279,7 @@ const initialPanel=document.querySelector('.panel.active')?.id||'dashboardPanel'
 </script>
 <script>
 (function(){
-  const INTEGRATION_VERSION='2.3.5';
+  const INTEGRATION_VERSION='2.3.6';
 
   function parentApi(){
     try{
@@ -3403,6 +3408,60 @@ const initialPanel=document.querySelector('.panel.active')?.id||'dashboardPanel'
 
   // Sync once after the original app has initialized.
   window.addEventListener('load',()=>setTimeout(syncFromParent,0));
+
+  let pendingMainProfileTarget=null;
+  let pendingMainProfileTimer=null;
+
+  function openMainRequestedStudentProfile(className='',studentId='',attempt=0){
+    const targetClass=String(className||'').trim().toUpperCase();
+    const sid=String(studentId||'');
+    if(!sid)return false;
+
+    if(targetClass){
+      const found=Object.entries(manager.classes||{}).find(([id,c])=>
+        String(c.className||'').trim().toUpperCase()===targetClass
+      );
+      if(found){
+        manager.activeClassId=found[0];
+        state=normalizeClass(found[1]);
+        saveManager();
+        try{renderAll()}catch(err){console.warn('[phase2.2] render target class',err)}
+      }
+    }
+
+    const student=(state.students||[]).find(s=>String(s.id)===sid);
+    if(student){
+      pendingMainProfileTarget=null;
+      if(pendingMainProfileTimer){
+        clearTimeout(pendingMainProfileTimer);
+        pendingMainProfileTimer=null;
+      }
+      openStudentProfile(student.id);
+      try{
+        window.parent.postMessage({
+          type:'hk-seat-student-profile-opened',
+          className:state?.className||'',
+          studentId:student.id
+        },location.origin);
+      }catch{}
+      return true;
+    }
+
+    if(attempt>=8){
+      console.warn('[phase2.2] student not found after sync',targetClass,sid);
+      pendingMainProfileTarget=null;
+      return false;
+    }
+
+    pendingMainProfileTarget={className:targetClass,studentId:sid,attempt:attempt+1};
+    try{syncFromParent()}catch{}
+    pendingMainProfileTimer=setTimeout(()=>{
+      const t=pendingMainProfileTarget;
+      if(t)openMainRequestedStudentProfile(t.className,t.studentId,t.attempt);
+    },120);
+    return false;
+  }
+
   window.addEventListener('message',e=>{
     if(e.origin!==location.origin)return;
     if(e.data?.type==='hk-class-core-sync'){
@@ -3412,26 +3471,9 @@ const initialPanel=document.querySelector('.panel.active')?.id||'dashboardPanel'
     if(e.data?.type==='hk-open-student-profile'){
       const targetClass=String(e.data.className||'').trim().toUpperCase();
       const studentId=String(e.data.studentId||'');
-      syncFromParent();
-
-      if(targetClass){
-        const found=Object.entries(manager.classes||{}).find(([id,c])=>
-          String(c.className||'').trim().toUpperCase()===targetClass
-        );
-        if(found){
-          manager.activeClassId=found[0];
-          state=normalizeClass(found[1]);
-          saveManager();
-          try{renderAll()}catch(err){console.warn('[phase2.2] render target class',err)}
-        }
-      }
-
-      const student=(state.students||[]).find(s=>String(s.id)===studentId);
-      if(student){
-        setTimeout(()=>openStudentProfile(student.id),20);
-      }else{
-        console.warn('[phase2.2] student not found',targetClass,studentId);
-      }
+      pendingMainProfileTarget={className:targetClass,studentId,attempt:0};
+      try{syncFromParent()}catch{}
+      setTimeout(()=>openMainRequestedStudentProfile(targetClass,studentId,0),30);
     }
   });
   try{

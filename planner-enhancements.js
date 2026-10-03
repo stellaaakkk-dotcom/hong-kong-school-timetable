@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.3.5';
+  const VERSION = '2.3.6';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -3692,7 +3692,7 @@
         <div><b>🪑 座位／積分</b><small id="pe-seat-score-status">共用班級及學生資料</small></div>
         <button type="button" id="pe-seat-score-close">✕</button>
       </div>
-      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=235"></iframe>
+      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=236"></iframe>
     </div>`;
     document.body.appendChild(m);
     m.querySelector('#pe-seat-score-close').addEventListener('click',()=>closeSeatScore());
@@ -3725,9 +3725,6 @@
         className:className||getActiveClass()||'',
         studentId:String(studentId)
       },location.origin);
-      // One-shot navigation: once dispatched, never auto-reopen after the user closes Profile.
-      m.dataset.pendingStudentId='';
-      m.dataset.pendingClassName='';
     }catch(err){
       console.warn('[phase2.2] open student profile',err);
     }
@@ -3745,7 +3742,11 @@
 
     const send=()=>{
       try{frame?.contentWindow?.postMessage({type:'hk-class-core-sync'},location.origin)}catch{}
-      setTimeout(()=>postSeatStudentProfile(m.dataset.pendingClassName,m.dataset.pendingStudentId),80);
+      setTimeout(()=>{
+        if(m.dataset.pendingStudentId){
+          postSeatStudentProfile(m.dataset.pendingClassName,m.dataset.pendingStudentId);
+        }
+      },120);
     };
 
     if(frame){
@@ -3792,10 +3793,14 @@
       if(m?.classList.contains('open')&&m.dataset.pendingStudentId){
         const sid=m.dataset.pendingStudentId;
         const cls=m.dataset.pendingClassName||getActiveClass()||'';
-        // Consume the pending navigation before scheduling, so hk-seat-ready cannot queue duplicates.
+        setTimeout(()=>postSeatStudentProfile(cls,sid),80);
+      }
+    }
+    if(e.data?.type==='hk-seat-student-profile-opened'){
+      const m=document.getElementById('pe-seat-score-modal');
+      if(m){
         m.dataset.pendingStudentId='';
         m.dataset.pendingClassName='';
-        setTimeout(()=>postSeatStudentProfile(cls,sid),40);
       }
     }
     if(e.data?.type==='hk-seat-student-profile-closed'){

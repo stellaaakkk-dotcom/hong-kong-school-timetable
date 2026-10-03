@@ -1,15 +1,20 @@
-香港教師教學日誌 v2.3.5 — 直開學生 Profile 關閉修正
+香港教師教學日誌 v2.3.6 — 學生 Profile 握手式導航修正
 
-修正內容：
-- 主系統直開學生 Profile 的 pending studentId 改成一次性使用。
-- 成功送出開啟指令後立即清除，避免 Profile 關閉後被外層再次自動打開。
-- hk-seat-ready 先消耗 pending 導航，再排程開啟，避免重複訊息。
-- 學生 Profile 關閉時會回報主系統 hk-seat-student-profile-closed，外層同步清除任何殘留導航。
-- Profile ✕ 改為 type=button，並 preventDefault / stopPropagation。
-- 點 Profile 背景亦可正常關閉。
-- 關閉 Profile 後仍留在座位／積分主畫面；外層右上角 ✕ 才返回主系統。
+v2.3.5 問題：
+- 為避免 Profile 關閉後重開，主系統太早清除 pending studentId。
+- 座位模組可能未完成班級／學生同步就收到 studentId。
+- 結果只開座位表主頁，Profile 沒有彈出。
 
-版本：
-planner-enhancements 2.3.5
-seat integration 2.3.5
-Service Worker v235
+v2.3.6：
+- 改成 parent/iframe 握手式導航。
+- 主系統保留 pending studentId，直到座位模組真正回覆「Profile 已開啟」。
+- 座位模組收到指令後：
+  1. 先同步 class core
+  2. 切換指定班別
+  3. 找指定 stable studentId
+  4. 若尚未找到，最多重試 8 次，每次 120ms
+  5. 真正開啟 Profile 後才回傳 hk-seat-student-profile-opened
+- 主系統收到 opened 才清除 pending navigation。
+- 關閉 Profile 會取消所有重試，確保不會自動重開。
+
+其他 v2.3.5 關閉修正保留。
