@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.6.0';
+  const VERSION = '2.6.1';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -2877,13 +2877,9 @@
       pm.dataset.studentNo='';
       renderPendingStudentLink('pe-pending',{});
     }catch{}
-    state.pendingItems.unshift(rec);saveLocalPending();renderPendingList();renderDashboard();
-
-    if(state.firebaseReady&&navigator.onLine){
-      setSync('syncing');
-      try{await pendingCollection().doc(rec.id).set(rec);savePendingQueue(loadPendingQueue().filter(x=>x.id!==rec.id));updateSyncDisplay()}
-      catch{queuePendingOp({op:'set',id:rec.id,data:rec})}
-    }else queuePendingOp({op:'set',id:rec.id,data:rec});
+    await dataServiceSavePending(rec);
+    renderPendingList();
+    renderDashboard();
   }
 
   async function syncPendingSet(rec){
@@ -2905,16 +2901,15 @@
       const history={...item,id:`${item.id}_done_${Date.now()}`,completed:true,completedAt:now,updatedAt:now,occurrenceOf:item.id,repeat:'none'};
       item.dueDate=nextRepeatDate(item.dueDate,item.repeat);
       item.completed=false;item.completedAt='';item.updatedAt=now;
-      state.pendingItems.unshift(history);
-      saveLocalPending();renderPendingList();renderDashboard();
-      await syncPendingSet(history);
-      await syncPendingSet(item);
+      await dataServiceSavePending(history);
+      await dataServiceSavePending(item);
+      renderPendingList();renderDashboard();
       return;
     }
 
     item.completed=!item.completed;item.completedAt=item.completed?now:'';item.updatedAt=now;
-    saveLocalPending();renderPendingList();renderDashboard();
-    await syncPendingSet(item);
+    await dataServiceSavePending(item);
+    renderPendingList();renderDashboard();
   }
 
   async function deletePendingItem(id,skipConfirm=false){
@@ -2939,6 +2934,15 @@
     }else queuePendingOp({op:'delete',id});
   }
 
+  async function deletePendingViaDataService(id,skipConfirm=false){
+    const item=state.pendingItems.find(x=>x.id===id);
+    if(!item)return;
+    if(!skipConfirm && !confirm(`確定要刪除「${item.title||'這項待辦'}」？\n刪除後月曆及 Deadline 提醒都會同步移除。`))return;
+    await dataServiceRemovePending(id);
+    renderPendingList();
+    renderDashboard();
+  }
+
   function renderPendingList(){
     const out=document.getElementById('pe-pending-list');if(!out)return;
     const mode=document.getElementById('pe-pending-filter')?.value||'open';
@@ -2955,7 +2959,7 @@
     out.innerHTML=`<div class="pe-pending-summary"><span class="pe-pending-badge">未完成 ${open.length}</span><span class="pe-pending-badge today">今日到期 ${today}</span><span class="pe-pending-badge overdue">已逾期 ${overdue}</span></div>`+
       (arr.length?arr.map(x=>{const st=pendingStatus(x);return `<div class="pe-pending-item ${st}"><div class="pe-pending-title">${x.completed?'✓ ':''}${esc(x.title)}</div><div class="pe-pending-meta"><span class="pe-scope-tag ${normalizedPendingScope(x).type}">${esc(pendingScopeText(x))}</span>${pendingStudentText(x)?` <span class="pe-scope-tag" style="background:#eef4ff;border-color:#c8d6ff;color:#3856a6">👤 ${esc(pendingStudentText(x))}</span>`:''} Deadline：${fmt(x.dueDate)}｜優先：${pendingPriorityLabel(x.priority)}｜${repeatLabel(x.repeat||'none')}｜提醒：${Number(x.remindDays??0)}日前${pendingReminderText(x)?`<br><span class="pe-reminder-soon">${pendingReminderText(x)}</span>`:''}${x.note?`<br>${esc(x.note)}`:''}</div><div class="pe-pending-actions"><button class="${x.completed?'':'primary'}" data-pending-toggle="${esc(x.id)}">${x.completed?'設為未完成':'✓ 完成'}</button><button data-pending-delete="${esc(x.id)}">刪除</button></div></div>`}).join(''):'<div class="pe-note">暫時未有符合條件的待處理事項。</div>');
     out.querySelectorAll('[data-pending-toggle]').forEach(b=>b.addEventListener('click',()=>togglePendingComplete(b.dataset.pendingToggle)));
-    out.querySelectorAll('[data-pending-delete]').forEach(b=>b.addEventListener('click',()=>deletePendingItem(b.dataset.pendingDelete)));
+    out.querySelectorAll('[data-pending-delete]').forEach(b=>b.addEventListener('click',()=>deletePendingViaDataService(b.dataset.pendingDelete)));
   }
 
   function urgentPendingItems(){
@@ -3007,7 +3011,7 @@
       if(!rec)return;
       if(!confirm(`確定要刪除「${rec.title||'這項待辦'}」？\n刪除後月曆及 Deadline 提醒都會同步移除。`))return;
       closeModal(modal);
-      await deletePendingItem(id,true);
+      await deletePendingViaDataService(id,true);
     });
     modal.querySelector('#pe-edit-pending-scope-type').addEventListener('change',()=>refreshScopeEditor('pe-edit-pending'));
     modal.querySelector('#pe-edit-pending-scope-class').addEventListener('change',()=>refreshScopeEditor('pe-edit-pending'));
@@ -3062,8 +3066,8 @@
       studentNo:rec.studentNo||'',
       updatedAt:new Date().toISOString()
     });
-    saveLocalPending();renderPendingList();renderDashboard();closeModal(m);
-    await syncPendingSet(rec);
+    await dataServiceSavePending(rec);
+    renderPendingList();renderDashboard();closeModal(m);
   }
 
   async function delayPendingEdit(days){
@@ -3073,8 +3077,8 @@
     const next=addDateDays(base,days);
     document.getElementById('pe-edit-pending-date').value=next;
     rec.dueDate=next;rec.updatedAt=new Date().toISOString();
-    saveLocalPending();renderPendingList();renderDashboard();
-    await syncPendingSet(rec);
+    await dataServiceSavePending(rec);
+    renderPendingList();renderDashboard();
   }
 
   function ensureDoneModal(){
@@ -4522,7 +4526,7 @@
         <div><b>🪑 座位／積分</b><small id="pe-seat-score-status">共用班級及學生資料</small></div>
         <button type="button" id="pe-seat-score-close">✕</button>
       </div>
-      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=2600"></iframe>
+      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=2610"></iframe>
     </div>`;
     document.body.appendChild(m);
     m.querySelector('#pe-seat-score-close').addEventListener('click',()=>closeSeatScore());
@@ -4683,8 +4687,8 @@
     m.id='pe-class-center-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>🏫 班級中心 <small style="font-size:.62em;opacity:.55">v2.6.0</small></h3>
-      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.6.0</span></p>
+      <h3>🏫 班級中心 <small style="font-size:.62em;opacity:.55">v2.6.1</small></h3>
+      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.6.1</span></p>
       <div class="pe-v2-tabs">
         <button type="button" data-class-center-tab="overview" class="active">總覽</button>
         <button type="button" data-class-center-tab="students">學生</button>
@@ -4842,7 +4846,7 @@
     };
 
     const svc={
-      version:1,
+      version:2,
       schemaVersion:1,
       getStatus:()=>({
         ready:true,
@@ -4853,7 +4857,8 @@
         classCount:(state.classCore||[]).length,
         pendingCount:(state.pendingItems||[]).length,
         permanentStudentCount:Object.keys(syncIdentityV1FromClassCore().students||{}).length,
-        enrollmentCount:Object.keys(syncIdentityV1FromClassCore().enrollments||{}).length
+        enrollmentCount:Object.keys(syncIdentityV1FromClassCore().enrollments||{}).length,
+        writePaths:{classes:true,pending:true}
       }),
       snapshot:()=>({
         schoolYear:currentSchoolYear(),
@@ -4912,9 +4917,48 @@
     return svc;
   }
 
+  async function dataServiceSaveClass(rec){
+    const svc=window.__schoolDataService;
+    if(svc?.classes?.save){
+      try{return await svc.classes.save(rec)}catch(err){console.warn('[data service] class save fallback',err)}
+    }
+    await syncClassProfile(rec);
+    return rec;
+  }
+
+  async function dataServiceRemoveClass(id){
+    const svc=window.__schoolDataService;
+    if(svc?.classes?.remove){
+      try{return await svc.classes.remove(id)}catch(err){console.warn('[data service] class remove fallback',err)}
+    }
+    await deleteClassProfile(id);
+    return true;
+  }
+
+  async function dataServiceSavePending(rec){
+    const svc=window.__schoolDataService;
+    if(svc?.pending?.save){
+      try{return await svc.pending.save(rec)}catch(err){console.warn('[data service] pending save fallback',err)}
+    }
+    const idx=state.pendingItems.findIndex(x=>String(x.id)===String(rec.id));
+    if(idx>=0)state.pendingItems[idx]=rec;else state.pendingItems.unshift(rec);
+    saveLocalPending();
+    await syncPendingSet(rec);
+    return rec;
+  }
+
+  async function dataServiceRemovePending(id){
+    const svc=window.__schoolDataService;
+    if(svc?.pending?.remove){
+      try{return await svc.pending.remove(id)}catch(err){console.warn('[data service] pending remove fallback',err)}
+    }
+    await deletePendingItem(id,true);
+    return true;
+  }
+
   function installClassCoreApi(){
     window.__classCoreAPI={
-      version:6,
+      version:7,
       getClasses:()=>window.__schoolDataService.classes.list(),
       getClassById:(classId='')=>window.__schoolDataService.classes.getById(classId),
       getClassByName:(name='')=>window.__schoolDataService.classes.getByName(name),
@@ -5159,7 +5203,7 @@
     }
     saveClassCore();
     for(const cls of changed){
-      try{await syncClassProfile(cls)}catch{}
+      try{await dataServiceSaveClass(cls)}catch{}
     }
 
     // 2) Student-linked pending items.
@@ -5172,9 +5216,8 @@
       pendingChanged.push({...item});
     });
     if(pendingChanged.length){
-      saveLocalPending();
       for(const item of pendingChanged){
-        try{await syncPendingSet(item)}catch{}
+        try{await dataServiceSavePending(item)}catch{}
       }
     }
 
@@ -5226,7 +5269,7 @@
     m.id='pe-identity-v1-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog" style="width:min(900px,calc(100vw - 24px))">
-      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.6.0</small></h3>
+      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.6.1</small></h3>
       <p class="pe-note">studentId 永久跟學生；classId 代表某一學年嘅班級實體。01／02 等暫時班號唔會進入永久學生庫；改成真實姓名後會沿用原 studentId 自動升格。</p>
       <div class="pe-grid">
         <div class="pe-field">
@@ -5356,7 +5399,7 @@
     rec.updatedAt=new Date().toISOString();
     const idx=state.classCore.findIndex(c=>String(c.classId||c.id)===String(rec.classId));
     if(idx>=0)state.classCore[idx]=rec;
-    await syncClassProfile(rec);
+    await dataServiceSaveClass(rec);
     syncIdentityV1FromClassCore();
     renderClassCoreList();
     renderClassCoreEditor();
@@ -5367,7 +5410,7 @@
     const m=ensureIdentityV1Modal();
     const store=syncIdentityV1FromClassCore();
     const audit=identityAudit();
-    setTimeout(()=>{const el=document.getElementById('pe-data-service-status');if(el){const s=window.__schoolDataService?.getStatus?.();el.textContent=s?.ready?'🧩 V2 共用資料服務：✓ 已啟用':'🧩 V2 共用資料服務：未啟用'}},0);
+    setTimeout(()=>{const el=document.getElementById('pe-data-service-status');if(el){const s=window.__schoolDataService?.getStatus?.();el.textContent=s?.ready?`🧩 V2 共用資料服務：✓ 已啟用｜寫入：班別 ✓・待辦 ✓`:'🧩 V2 共用資料服務：未啟用'}},0);
     m.querySelector('#pe-idv1-year').value=currentSchoolYear();
 
     const classes=activeIdentityClasses();
@@ -5412,7 +5455,7 @@
     m.id='pe-class-core-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>🏫 班別／學生中心 <small style="font-size:.62em;opacity:.55">v2.6.0</small></h3>
+      <h3>🏫 班別／學生中心 <small style="font-size:.62em;opacity:.55">v2.6.1</small></h3>
       <p class="pe-note">呢份學生資料係座位表、積分、追收及學生紀錄嘅共用核心。每個班別及學生而家都有固定 ID；改名唔會令資料斷開。學生名單每行一位。</p>
       <div class="pe-class-core-grid">
         <div>
@@ -5532,7 +5575,7 @@
       const rec=state.classCore.find(x=>x.id===id);
       if(!rec)return;
       if(!confirm(`確定刪除班別「${rec.name}」？\n學生核心資料會被刪除，但現有功課／追收紀錄不會刪除。`))return;
-      await deleteClassProfile(id);
+      await dataServiceRemoveClass(id);
       m.dataset.classId='';
       renderClassCoreList();
       renderClassCoreEditor();
@@ -5679,7 +5722,7 @@
 
     m.dataset.classId=rec.id;
     setActiveClass(name);
-    await syncClassProfile(rec);
+    await dataServiceSaveClass(rec);
     renderClassCoreList();
     renderClassCoreEditor();
     renderClassOverview();

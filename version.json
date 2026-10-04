@@ -1,6 +1,11 @@
 {
-  "build": "2.6.0",
-  "cacheTag": "2600",
+  "build": "2.6.1",
+  "cacheTag": "2610",
   "released": "2026-10-04",
-  "purpose": "v2-shared-data-service-foundation"
+  "purpose": "v2.1-shared-data-service-first-write-paths",
+  "dataServiceVersion": 2,
+  "writePaths": [
+    "classes",
+    "pending"
+  ]
 }
