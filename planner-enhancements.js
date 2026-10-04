@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.5.3';
+  const VERSION = '2.5.4';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -1032,7 +1032,98 @@
     });
 
     saveIdentityV1();
+    try{dedupeIdentityEnrollments()}catch{}
     return store;
+  }
+
+  function identityLiveClassIds(){
+    return new Set((state.classCore||[]).map(c=>String(c.classId||c.id||'')).filter(Boolean));
+  }
+
+  function identityLiveRosterStudentIds(){
+    const ids=new Set();
+    (state.classCore||[]).forEach(c=>{
+      normalizeClassProfile(c).students.forEach(s=>{
+        const sid=String(s.studentId||s.id||'');
+        if(sid)ids.add(sid);
+      });
+    });
+    return ids;
+  }
+
+  function isTestLikeClassName(name=''){
+    return /(test|測試|臨時|temporary|demo)/i.test(String(name||'').trim());
+  }
+
+  function dedupeIdentityEnrollments(){
+    const store=loadIdentityV1();
+    const liveClassIds=identityLiveClassIds();
+    const groups={};
+    Object.entries(store.enrollments||{}).forEach(([id,e])=>{
+      const sig=[
+        String(e.studentId||''),
+        normalizeSchoolYear(e.schoolYear||''),
+        String(e.className||'').trim(),
+        Number(e.studentNo)||0
+      ].join('|');
+      (groups[sig]||(groups[sig]=[])).push([id,e]);
+    });
+
+    let removed=0;
+    Object.values(groups).forEach(rows=>{
+      if(rows.length<2)return;
+      rows.sort((a,b)=>{
+        const aLive=liveClassIds.has(String(a[1].classId||''))?1:0;
+        const bLive=liveClassIds.has(String(b[1].classId||''))?1:0;
+        if(aLive!==bLive)return bLive-aLive;
+        return String(b[1].updatedAt||'').localeCompare(String(a[1].updatedAt||''));
+      });
+      const keep=rows[0][0];
+      rows.slice(1).forEach(([id,e])=>{
+        // Never collapse two distinct live class instances automatically.
+        const bothLive=liveClassIds.has(String(rows[0][1].classId||''))&&liveClassIds.has(String(e.classId||''));
+        if(bothLive)return;
+        if(id!==keep && store.enrollments[id]){
+          delete store.enrollments[id];
+          removed++;
+        }
+      });
+    });
+    if(removed)saveIdentityV1();
+    return removed;
+  }
+
+  function studentIdentityUsage(studentId=''){
+    const sid=String(studentId||'');
+    const liveClasses=[];
+    (state.classCore||[]).forEach(c=>{
+      const cls=normalizeClassProfile(c);
+      if(cls.students.some(s=>String(s.studentId||s.id)===sid))liveClasses.push(cls);
+    });
+    const history=Object.values(loadIdentityV1().enrollments||{})
+      .filter(e=>String(e.studentId)===sid);
+    const orphanHistory=history.filter(e=>!identityLiveClassIds().has(String(e.classId||'')));
+    const safeTestDelete=liveClasses.length===0 &&
+      history.length>0 &&
+      history.every(e=>isTestLikeClassName(e.className));
+    const safeEmptyDelete=liveClasses.length===0 && history.length===0;
+    return {liveClasses,history,orphanHistory,safeDelete:safeTestDelete||safeEmptyDelete};
+  }
+
+  function cleanupEmptyTestClassInstances(){
+    const store=loadIdentityV1();
+    const live=identityLiveClassIds();
+    const usedClassIds=new Set(Object.values(store.enrollments||{}).map(e=>String(e.classId||'')));
+    let removed=0;
+    Object.keys(store.classInstances||{}).forEach(cid=>{
+      const c=store.classInstances[cid];
+      if(!live.has(String(cid)) && !usedClassIds.has(String(cid)) && isTestLikeClassName(c?.name)){
+        delete store.classInstances[cid];
+        removed++;
+      }
+    });
+    if(removed)saveIdentityV1();
+    return removed;
   }
 
   function identityStudentHistory(studentId=''){
@@ -4353,7 +4444,7 @@
         <div><b>🪑 座位／積分</b><small id="pe-seat-score-status">共用班級及學生資料</small></div>
         <button type="button" id="pe-seat-score-close">✕</button>
       </div>
-      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated-v2530.html"></iframe>
+      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=2540"></iframe>
     </div>`;
     document.body.appendChild(m);
     m.querySelector('#pe-seat-score-close').addEventListener('click',()=>closeSeatScore());
@@ -4514,8 +4605,8 @@
     m.id='pe-class-center-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>🏫 班級中心 <small style="font-size:.62em;opacity:.55">v2.5.3</small></h3>
-      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.5.3</span></p>
+      <h3>🏫 班級中心 <small style="font-size:.62em;opacity:.55">v2.5.4</small></h3>
+      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.5.4</span></p>
       <div class="pe-v2-tabs">
         <button type="button" data-class-center-tab="overview" class="active">總覽</button>
         <button type="button" data-class-center-tab="students">學生</button>
@@ -4658,7 +4749,7 @@
 
   function installClassCoreApi(){
     window.__classCoreAPI={
-      version:3,
+      version:4,
       getClasses:()=>state.classCore.map(c=>({
         ...normalizeClassProfile(c),
         students:normalizeClassProfile(c).students.map(s=>({...s}))
@@ -4695,12 +4786,252 @@
       getSchoolYear:()=>currentSchoolYear(),
       getStudentRegistry:()=>Object.values(syncIdentityV1FromClassCore().students||{}).map(x=>({...x})),
       getEnrollments:(studentId='')=>studentId?identityStudentHistory(studentId):Object.values(syncIdentityV1FromClassCore().enrollments||{}).map(x=>({...x})),
-      audit:()=>identityAudit()
+      audit:()=>identityAudit(),
+      mergeStudentIds:(sourceId,targetId)=>({sourceId,targetId}),
+      cleanupDuplicateEnrollments:()=>dedupeIdentityEnrollments()
     };
   }
 
   installClassCoreApi();
   
+
+  function ensureIdentityManagerModal(){
+    let m=document.getElementById('pe-identity-manager-modal');
+    if(m)return m;
+    m=document.createElement('div');
+    m.id='pe-identity-manager-modal';
+    m.className='pe-modal';
+    m.innerHTML=`<div class="pe-dialog" style="width:min(920px,calc(100vw - 24px))">
+      <h3>👤 永久學生管理</h3>
+      <p class="pe-note">正式歷史學生唔應該隨便刪除。測試／重複身份可以喺呢度安全清理；合併時會保留目標 Student ID。</p>
+
+      <div class="pe-class-card">
+        <h4>🔗 合併重複學生</h4>
+        <div class="pe-grid">
+          <div class="pe-field"><label>重複／錯誤身份（來源）</label><select id="pe-idm-source"></select></div>
+          <div class="pe-field"><label>真正身份（保留）</label><select id="pe-idm-target"></select></div>
+        </div>
+        <div id="pe-idm-merge-preview" class="pe-note"></div>
+        <div class="pe-actions">
+          <button class="pe-btn primary" id="pe-idm-merge">合併並保留目標 Student ID</button>
+        </div>
+      </div>
+
+      <div class="pe-class-card" style="margin-top:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <h4 style="margin:0">🧹 學生身份清理</h4>
+          <button class="pe-btn" id="pe-idm-dedupe">清理重複 Enrollment</button>
+        </div>
+        <div id="pe-idm-list" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:8px"></div>
+      </div>
+
+      <div class="pe-actions"><button class="pe-btn" id="pe-idm-close">關閉</button></div>
+    </div>`;
+    document.body.appendChild(m);
+    m.addEventListener('click',e=>{if(e.target===m)closeModal(m)});
+    m.querySelector('#pe-idm-close').addEventListener('click',()=>closeModal(m));
+    m.querySelector('#pe-idm-source').addEventListener('change',renderIdentityManagerPreview);
+    m.querySelector('#pe-idm-target').addEventListener('change',renderIdentityManagerPreview);
+    m.querySelector('#pe-idm-merge').addEventListener('click',mergeSelectedStudentIdentities);
+    m.querySelector('#pe-idm-dedupe').addEventListener('click',()=>{
+      const n=dedupeIdentityEnrollments();
+      cleanupEmptyTestClassInstances();
+      alert(n?`已清理 ${n} 個重複 Enrollment。`:'沒有發現可安全自動清理嘅重複 Enrollment。');
+      renderIdentityManager();
+      renderIdentityV1();
+    });
+    m.querySelector('#pe-idm-list').addEventListener('click',async e=>{
+      const btn=e.target.closest('[data-idm-delete]');
+      if(!btn)return;
+      await deleteSafeTestIdentity(btn.dataset.idmDelete);
+    });
+    return m;
+  }
+
+  function identityStudentLabel(s){
+    if(!s)return '';
+    const sid=String(s.studentId||'');
+    const tail=sid.length>12?'…'+sid.slice(-10):sid;
+    return `${s.currentName||'未命名學生'}｜${tail}`;
+  }
+
+  function renderIdentityManager(){
+    const m=ensureIdentityManagerModal();
+    dedupeIdentityEnrollments();
+    const store=syncIdentityV1FromClassCore();
+    const students=Object.values(store.students||{})
+      .sort((a,b)=>String(a.currentName||'').localeCompare(String(b.currentName||''),'zh-HK'));
+
+    const source=m.querySelector('#pe-idm-source');
+    const target=m.querySelector('#pe-idm-target');
+    const keepSource=source.value, keepTarget=target.value;
+    const options='<option value="">請選擇</option>'+students.map(s=>
+      `<option value="${esc(s.studentId)}">${esc(identityStudentLabel(s))}</option>`
+    ).join('');
+    source.innerHTML=options; target.innerHTML=options;
+    if(students.some(s=>String(s.studentId)===keepSource))source.value=keepSource;
+    if(students.some(s=>String(s.studentId)===keepTarget))target.value=keepTarget;
+
+    const list=m.querySelector('#pe-idm-list');
+    list.innerHTML=students.length?students.map(s=>{
+      const usage=studentIdentityUsage(s.studentId);
+      const hist=identityStudentHistory(s.studentId);
+      const historyText=hist.slice(0,4).map(h=>`${h.schoolYear}・${h.className}・${String(h.studentNo||'').padStart(2,'0')}號`).join('｜')||'沒有 Enrollment';
+      const liveText=usage.liveClasses.length?`目前班別：${usage.liveClasses.map(c=>c.name).join('、')}`:'目前冇班級使用';
+      return `<div class="pe-class-card" style="margin:0;padding:9px">
+        <b style="display:block">${esc(s.currentName||'未命名學生')}</b>
+        <small style="display:block;opacity:.6;overflow-wrap:anywhere">${esc(s.studentId)}</small>
+        <small style="display:block;margin-top:4px">${esc(historyText)}</small>
+        <small style="display:block;margin-top:3px;opacity:.72">${esc(liveText)}</small>
+        ${usage.safeDelete
+          ?`<button class="pe-btn" data-idm-delete="${esc(s.studentId)}" style="margin-top:7px">刪除測試／錯誤身份</button>`
+          :`<small style="display:block;margin-top:6px;opacity:.55">正式／使用中身份：不可直接刪除</small>`}
+      </div>`;
+    }).join(''):'<div class="pe-note">永久學生庫目前沒有資料。</div>';
+
+    renderIdentityManagerPreview();
+  }
+
+  function renderIdentityManagerPreview(){
+    const m=ensureIdentityManagerModal();
+    const sourceId=m.querySelector('#pe-idm-source').value;
+    const targetId=m.querySelector('#pe-idm-target').value;
+    const out=m.querySelector('#pe-idm-merge-preview');
+    if(!sourceId||!targetId){
+      out.textContent='選擇來源同目標後，系統會顯示合併方向。';
+      return;
+    }
+    if(sourceId===targetId){
+      out.textContent='來源同目標唔可以係同一個 Student ID。';
+      return;
+    }
+    const store=loadIdentityV1();
+    const s=store.students[sourceId],t=store.students[targetId];
+    out.textContent=`${s?.currentName||sourceId} → ${t?.currentName||targetId}；合併後保留目標 Student ID，來源 ID 會移除。`;
+  }
+
+  async function deleteSafeTestIdentity(studentId=''){
+    const sid=String(studentId||'');
+    const store=syncIdentityV1FromClassCore();
+    const info=store.students[sid];
+    if(!info)return;
+    const usage=studentIdentityUsage(sid);
+    if(!usage.safeDelete){
+      alert('呢個身份仍然有正式／使用中班級關係，為免誤刪，系統唔允許直接刪除。可以改用「合併重複學生」。');
+      return;
+    }
+    if(!confirm(`確定刪除測試／錯誤身份「${info.currentName||sid}」？\n只會刪除呢個 Student ID 同佢嘅測試 Enrollment；正式學生身份不受影響。`))return;
+    Object.keys(store.enrollments||{}).forEach(id=>{
+      if(String(store.enrollments[id]?.studentId)===sid)delete store.enrollments[id];
+    });
+    delete store.students[sid];
+    saveIdentityV1();
+    cleanupEmptyTestClassInstances();
+    renderIdentityManager();
+    renderIdentityV1();
+  }
+
+  async function mergeSelectedStudentIdentities(){
+    const m=ensureIdentityManagerModal();
+    const sourceId=String(m.querySelector('#pe-idm-source').value||'');
+    const targetId=String(m.querySelector('#pe-idm-target').value||'');
+    if(!sourceId||!targetId)return alert('請選擇來源同要保留嘅目標身份。');
+    if(sourceId===targetId)return alert('來源同目標唔可以係同一個 Student ID。');
+
+    let store=syncIdentityV1FromClassCore();
+    const source=store.students[sourceId],target=store.students[targetId];
+    if(!source||!target)return alert('找不到所選學生身份，請重新整理後再試。');
+
+    const msg=[
+      `將「${source.currentName||sourceId}」合併到「${target.currentName||targetId}」？`,
+      '',
+      `保留：${targetId}`,
+      `移除：${sourceId}`,
+      '',
+      '來源身份嘅班級關係、Enrollment 同學生待辦會轉到保留身份。'
+    ].join('\n');
+    if(!confirm(msg))return;
+
+    // 1) Live class rosters.
+    const changed=[];
+    for(let i=0;i<state.classCore.length;i++){
+      let cls=normalizeClassProfile(state.classCore[i]);
+      const hasSource=cls.students.some(s=>String(s.studentId||s.id)===sourceId);
+      if(!hasSource)continue;
+      const hasTarget=cls.students.some(s=>String(s.studentId||s.id)===targetId);
+      if(hasTarget){
+        cls.students=cls.students.filter(s=>String(s.studentId||s.id)!==sourceId);
+      }else{
+        cls.students=cls.students.map(s=>{
+          if(String(s.studentId||s.id)!==sourceId)return s;
+          return {...s,id:targetId,studentId:targetId,name:target.currentName||s.name};
+        });
+      }
+      cls.updatedAt=new Date().toISOString();
+      state.classCore[i]=cls;
+      changed.push(cls);
+    }
+    saveClassCore();
+    for(const cls of changed){
+      try{await syncClassProfile(cls)}catch{}
+    }
+
+    // 2) Student-linked pending items.
+    const pendingChanged=[];
+    state.pendingItems.forEach(item=>{
+      if(String(item.studentId||'')!==sourceId)return;
+      item.studentId=targetId;
+      if(target.currentName)item.studentName=target.currentName;
+      item.updatedAt=new Date().toISOString();
+      pendingChanged.push({...item});
+    });
+    if(pendingChanged.length){
+      saveLocalPending();
+      for(const item of pendingChanged){
+        try{await syncPendingSet(item)}catch{}
+      }
+    }
+
+    // 3) Permanent registry aliases.
+    store=loadIdentityV1();
+    const latestTarget=store.students[targetId]||target;
+    const latestSource=store.students[sourceId]||source;
+    latestTarget.aliases=[...new Set([
+      ...(Array.isArray(latestTarget.aliases)?latestTarget.aliases:[]),
+      ...(Array.isArray(latestSource.aliases)?latestSource.aliases:[]),
+      latestSource.currentName
+    ].filter(Boolean))];
+    latestTarget.firstSeenAt=[latestTarget.firstSeenAt,latestSource.firstSeenAt].filter(Boolean).sort()[0]||latestTarget.firstSeenAt;
+    latestTarget.lastSeenAt=new Date().toISOString();
+    store.students[targetId]=latestTarget;
+
+    // 4) Enrollment transfer; deterministic target id also removes duplicate logical links.
+    Object.entries({...store.enrollments}).forEach(([eid,e])=>{
+      if(String(e.studentId)!==sourceId)return;
+      const newId=enrollmentIdFor(normalizeSchoolYear(e.schoolYear),String(e.classId||''),targetId);
+      if(!store.enrollments[newId]){
+        store.enrollments[newId]={...e,enrollmentId:newId,studentId:targetId,updatedAt:new Date().toISOString()};
+      }
+      delete store.enrollments[eid];
+    });
+    delete store.students[sourceId];
+    saveIdentityV1();
+    dedupeIdentityEnrollments();
+    cleanupEmptyTestClassInstances();
+    syncIdentityV1FromClassCore();
+
+    renderClassCoreList();
+    renderClassCoreEditor();
+    renderIdentityManager();
+    renderIdentityV1();
+    alert(`合併完成。已保留「${target.currentName||targetId}」嘅 Student ID。`);
+  }
+
+  function openIdentityManager(){
+    const m=ensureIdentityManagerModal();
+    m.classList.add('open');
+    renderIdentityManager();
+  }
 
   function ensureIdentityV1Modal(){
     let m=document.getElementById('pe-identity-v1-modal');
@@ -4709,7 +5040,7 @@
     m.id='pe-identity-v1-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog" style="width:min(900px,calc(100vw - 24px))">
-      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.5.3</small></h3>
+      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.5.4</small></h3>
       <p class="pe-note">studentId 永久跟學生；classId 代表某一學年嘅班級實體。01／02 等暫時班號唔會進入永久學生庫；改成真實姓名後會沿用原 studentId 自動升格。</p>
       <div class="pe-grid">
         <div class="pe-field">
@@ -4728,6 +5059,7 @@
         <div class="pe-actions" style="justify-content:flex-start">
           <button class="pe-btn" id="pe-idv1-run-audit">重新檢查</button>
           <button class="pe-btn" id="pe-idv1-resync">同步現有班級到身份層</button>
+          <button class="pe-btn" id="pe-idv1-manage-students">👤 永久學生管理</button>
         </div>
       </div>
       <div class="pe-class-card" style="margin-top:8px">
@@ -4751,6 +5083,7 @@
     m.querySelector('#pe-idv1-close').addEventListener('click',()=>closeModal(m));
     m.querySelector('#pe-idv1-run-audit').addEventListener('click',renderIdentityV1);
     m.querySelector('#pe-idv1-resync').addEventListener('click',()=>{syncIdentityV1FromClassCore();renderIdentityV1()});
+    m.querySelector('#pe-idv1-manage-students').addEventListener('click',openIdentityManager);
     m.querySelector('#pe-idv1-search').addEventListener('input',renderIdentityRegistry);
     m.querySelector('#pe-idv1-target-class').addEventListener('change',renderIdentityRegistry);
     m.querySelector('#pe-idv1-year').addEventListener('change',()=>{
@@ -4892,7 +5225,7 @@
     m.id='pe-class-core-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>🏫 班別／學生中心 <small style="font-size:.62em;opacity:.55">v2.5.3</small></h3>
+      <h3>🏫 班別／學生中心 <small style="font-size:.62em;opacity:.55">v2.5.4</small></h3>
       <p class="pe-note">呢份學生資料係座位表、積分、追收及學生紀錄嘅共用核心。每個班別及學生而家都有固定 ID；改名唔會令資料斷開。學生名單每行一位。</p>
       <div class="pe-class-core-grid">
         <div>

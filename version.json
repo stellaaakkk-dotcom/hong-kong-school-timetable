@@ -1,6 +1,6 @@
 {
-  "build": "2.5.3",
-  "cacheTag": "2530",
+  "build": "2.5.4",
+  "cacheTag": "2540",
   "released": "2026-10-04",
-  "purpose": "pwa-freshness-guard"
+  "purpose": "identity-v1.3-student-management-compact-deploy"
 }
