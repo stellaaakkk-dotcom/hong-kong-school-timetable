@@ -1,6 +1,6 @@
 {
-  "build": "2.5.7",
-  "cacheTag": "2570",
+  "build": "2.5.8",
+  "cacheTag": "2580",
   "released": "2026-10-04",
-  "purpose": "v1-final-class-add-button-direct-theme-sync"
+  "purpose": "v1-final-active-class-theme-sync"
 }
