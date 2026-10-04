@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.6.1';
+  const VERSION = '2.6.2';
   const LOCAL_KEY = 'hk-school-submission-records-v1';
   const PENDING_KEY = 'hk-school-submission-pending-v1';
   const CLASS_PREF_KEY = 'hk-school-class-student-counts-v1';
@@ -331,7 +331,7 @@
     return Array.from({length:n},(_,i)=>i+1);
   }
 
-  async function upsertRecord(record) {
+  async function upsertRecordRaw(record) {
     const r = normalizeRecord({ ...record, updatedAt: new Date().toISOString() });
     const idx = state.records.findIndex(x => x.id === r.id);
     if (idx >= 0) state.records[idx] = r;
@@ -340,6 +340,7 @@
     rememberClassPref(r.className,r.studentCount);
     saveLocal();
     render();
+    try{window.dispatchEvent(new CustomEvent('submission-records-changed',{detail:{type:'save',id:r.id}}))}catch{}
 
     const cloudData = {
           statusVersion: r.statusVersion || 1,
@@ -372,17 +373,38 @@
     } else {
       queuePending({op:'set',id:r.id,data:cloudData});
     }
+    return r;
   }
 
-  async function removeRecord(recordId) {
+  async function removeRecordRaw(recordId) {
     state.records = state.records.filter(r => r.id !== recordId);
     if (state.activeId === recordId) state.activeId = state.records[0]?.id || null;
     saveLocal();
     render();
+    try{window.dispatchEvent(new CustomEvent('submission-records-changed',{detail:{type:'delete',id:recordId}}))}catch{}
     if (state.usingFirestore && navigator.onLine) {
       try { await collectionRef().doc(recordId).delete(); }
       catch (err) { console.error('[Submission module] delete', err); queuePending({op:'delete',id:recordId}); toast('刪除已加入待同步', 'error'); }
     } else queuePending({op:'delete',id:recordId});
+    return true;
+  }
+
+  async function upsertRecord(record){
+    const svc=window.__schoolDataService;
+    if(svc?.submissions?.save){
+      try{return await svc.submissions.save(record)}
+      catch(err){console.warn('[Submission module] data service save fallback',err)}
+    }
+    return upsertRecordRaw(record);
+  }
+
+  async function removeRecord(recordId){
+    const svc=window.__schoolDataService;
+    if(svc?.submissions?.remove){
+      try{return await svc.submissions.remove(recordId)}
+      catch(err){console.warn('[Submission module] data service delete fallback',err)}
+    }
+    return removeRecordRaw(recordId);
   }
 
 
@@ -1221,10 +1243,15 @@
   }
 
   window.__submissionTrackerAPI={
+    version:2,
     getRecords:()=>state.records.map(r=>({...r})),
     getById:(id)=>state.records.find(r=>r.id===id)||null,
     findBySourceKey:(key)=>state.records.find(r=>r.sourceKey===key)||null,
     getPendingCount:()=>{loadPending();return state.pendingCount},
+    saveInternal:upsertRecordRaw,
+    removeInternal:removeRecordRaw,
+    save:upsertRecord,
+    remove:removeRecord,
     flushPending,
     open:showPage,
     openRecord:(id)=>{

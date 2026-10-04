@@ -1,11 +1,12 @@
 {
-  "build": "2.6.1",
-  "cacheTag": "2610",
+  "build": "2.6.2",
+  "cacheTag": "2620",
   "released": "2026-10-04",
-  "purpose": "v2.1-shared-data-service-first-write-paths",
-  "dataServiceVersion": 2,
+  "purpose": "v2.2-submission-write-path",
+  "dataServiceVersion": 3,
   "writePaths": [
     "classes",
-    "pending"
+    "pending",
+    "submissions"
   ]
 }
