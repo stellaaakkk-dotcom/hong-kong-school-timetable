@@ -1,30 +1,25 @@
-香港教師教學日誌 v2.4.32 — Theme Sync Phase 1
+香港教師教學日誌 v2.4.33
 
-目標：
-主畫面揀色後，共用主題同步到：
-- 班級中心
-- 今日工作台／planner enhancement UI
-- 作業／回條追收系統
-- 座位／積分系統
+修正 1：Theme Sync 甩色
+- 每日科目工作流：科目／班別選擇 active 按鈕改跟主題 accent。
+- 工作流未選按鈕亦改跟主題 soft / text / line。
+- 待處理／追收：全部／今日／逾期／個人／班別等 active chip 改跟主題 accent。
+- 座位／積分底部浮台：active tab 不再用獨立 --primary 藍色，統一用 --accent。
+- 座位模組 applyParentTheme 同時設定 --primary，兼容仍使用舊變數的元件。
+- 座位模組 soft button / 小組分數藍色亦改跟主題。
 
-支援 6 套主題：
-薄荷、晴空、莓果、紫藤、黑白、布甸狗。
+修正 2：待處理中心漏「未處理功課」
+舊邏輯：
+- 只有 missing.length > 0 的 submission record 才加入待處理／追收。
+- 因此「欠交 0，但仍有未處理學生」完全不顯示。
 
-實作：
-1. 主系統仍以 React main 的 --accent / --soft 為唯一主題來源。
-2. planner 讀取目前主題並建立共用 Theme Token：
-   accent / secondary / soft / soft2 / text / line / bg
-3. 追收系統：
-   window.__submissionThemeAPI.applyTheme(theme)
-   重新注入其既有 CSS，不改功能。
-4. 座位／積分 iframe：
-   parent 以 postMessage({type:'hk-theme-sync', theme}) 傳送。
-   iframe 將 accent / accent2 / line / bg 套入原有 CSS variables。
-5. 主畫面每次按 palette 圓點都即時同步。
-6. 開啟座位表、座位 iframe ready、開學生 Profile 時亦會再同步一次。
-7. 本機保存 hk-school-theme-sync-v1 / hk-school-seat-theme-v1，重開時可先使用上次主題。
+新邏輯：
+- 使用統一 submissionProgress(record) 三態。
+- 只要不是已交齊，就加入待處理／追收。
+- 同時顯示：
+  已交 X｜欠交 Y｜未處理 Z
+- 已交齊的紀錄不顯示。
+- 例如全班 25 人、未開始處理：
+  已交 0｜欠交 0｜未處理 25
 
-布甸狗沿用已確認成功：
-#9B6A3F / #A87446 / #80542F / #FFF9EF
-
-Phase 1 只統一配色，不改各模組版面、按鈕位置或功能。
+其他功能及資料結構不改。
