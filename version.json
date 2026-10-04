@@ -1,6 +1,6 @@
 {
-  "build": "2.5.5",
-  "cacheTag": "2550",
+  "build": "2.5.6",
+  "cacheTag": "2560",
   "released": "2026-10-04",
-  "purpose": "identity-v1.4-orphan-test-enrollment-cleanup"
+  "purpose": "v1-final-theme-sync-class-manager"
 }
