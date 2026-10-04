@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.7.0';
+  const VERSION = '2.7.1';
   const LOCAL_KEY = 'hk-school-submission-records-v1';
   const PENDING_KEY = 'hk-school-submission-pending-v1';
   const CLASS_PREF_KEY = 'hk-school-class-student-counts-v1';
@@ -272,6 +272,15 @@
     }
     return [...map.values()];
   }
+  function applyPendingQueueToRecords(records=[],queue=[]){
+    const map=new Map((Array.isArray(records)?records:[]).map(r=>[String(r.id),normalizeRecord(r)]));
+    for(const item of normalizePendingQueue(queue)){
+      const id=String(item.id||'');if(!id)continue;
+      if(item.op==='delete')map.delete(id);
+      else map.set(id,normalizeRecord({...(map.get(id)||{}),...(item.data||{}),id}));
+    }
+    return [...map.values()];
+  }
   function loadPending(){
     try{
       const q=normalizePendingQueue(JSON.parse(localStorage.getItem(PENDING_KEY)||'[]'));
@@ -339,7 +348,8 @@
     state.unsubscribe = collectionRef()
       .orderBy('updatedAt', 'desc')
       .onSnapshot(snapshot => {
-        state.records = snapshot.docs.map(doc => normalizeRecord({ id: doc.id, ...doc.data() }));
+        const cloud = snapshot.docs.map(doc => normalizeRecord({ id: doc.id, ...doc.data() }));
+        state.records = applyPendingQueueToRecords(cloud, loadPending());
         if (!state.records.find(r => r.id === state.activeId)) {
           state.activeId = state.records[0]?.id || null;
         }
@@ -1269,6 +1279,16 @@
     }, 1800);
   }
 
+  async function ensureOnlineSync(){
+    if(!navigator.onLine)return false;
+    if(!state.usingFirestore||!state.user){
+      await connectStorage();
+      return !!state.usingFirestore;
+    }
+    await flushPending();
+    return true;
+  }
+
   window.__submissionTrackerAPI={
     version:2,
     getRecords:()=>state.records.map(r=>({...r})),
@@ -1280,6 +1300,7 @@
     save:upsertRecord,
     remove:removeRecord,
     flushPending,
+    ensureOnlineSync,
     open:showPage,
     openRecord:(id)=>{
       if(!id)return;
@@ -1288,7 +1309,7 @@
       render();
     }
   };
-  window.addEventListener('online',()=>flushPending());
+  window.addEventListener('online',()=>ensureOnlineSync().catch(err=>console.warn('[Submission module] online reconnect',err)));
 
   window.addEventListener('firebase-auth-state', e => {
     if (e.detail?.user) {

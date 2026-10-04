@@ -1,14 +1,13 @@
 {
-  "build": "2.7.0",
-  "cacheTag": "2700",
+  "build": "2.7.1",
+  "cacheTag": "2710",
   "released": "2026-10-04",
-  "purpose": "v2.4-sync-offline-hardening",
-  "dataServiceVersion": 6,
-  "changes": [
-    "dedupe duplicate Data Service notifications",
-    "normalize offline queues so latest operation per record wins",
-    "serialize queue flushes to prevent overlapping retries",
-    "unified schoolSyncStatusChanged status event",
-    "include submission queue in reconnect flush"
+  "purpose": "v2.4.1-offline-queue-reconnect-fix",
+  "dataServiceVersion": 7,
+  "fixes": [
+    "submission queue immediately updates sync count",
+    "reconnect submission storage after offline disconnect",
+    "overlay unsynced local queue on cloud snapshots",
+    "planner reconnects data layer before flush"
   ]
 }
