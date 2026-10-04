@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.7.2';
+  const VERSION = '2.7.3';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -744,14 +744,39 @@
     return map[state.sync]||map.connecting;
   }
 
-  function renderStatusStack(){
-    const el=ensureStatusStack();
-    const [cls,label]=cloudStatusMeta();
+  function renderStatusStack() {
+    const el=document.getElementById('pe-status-stack');
+    if(!el)return;
+
+    const n=totalPending();
+    let cloudLabel='已連接';
+    let cls='ok';
+
+    if(n>0){
+      cloudLabel=`待同步 ${n}`;
+      cls='wait';
+    }else if(!navigator.onLine){
+      cloudLabel='離線';
+      cls='off';
+    }else if(state.sync==='syncing'){
+      cloudLabel='同步中';
+      cls='wait';
+    }else if(state.sync==='connecting'){
+      cloudLabel='連接中';
+      cls='wait';
+    }else if(state.sync==='signedout'){
+      cloudLabel='未登入';
+      cls='off';
+    }else if(state.sync==='error'){
+      cloudLabel='載入失敗';
+      cls='off';
+    }
+
     let last='';
     try{last=localStorage.getItem(LAST_CLOUD_OK_KEY)||''}catch{}
     el.innerHTML=`
       <div class="pe-status-chip cache">💾 ${cacheStatusText()}</div>
-      <div class="pe-status-chip cloud ${cls}">☁ ${label}${last?` <small>最後成功：${fmtClock(last)}</small>`:''}</div>`;
+      <div class="pe-status-chip cloud ${cls}">☁ 雲端：${cloudLabel}${last?` <small>最後成功：${fmtClock(last)}</small>`:''}</div>`;
   }
 
   function setSync(status) {
@@ -828,6 +853,7 @@
       const p=ensureSyncPill();
       p.className='pe-sync-pill off';
       p.textContent=`⚠ 待同步 ${n}`;
+      renderStatusStack();
       broadcastSyncStatus('pending',n);
       return;
     }
@@ -883,14 +909,22 @@
       const col=pendingCollection(),q=loadPendingQueue(),remain=[];
       for(const item of q){
         try{
-          if(item.op==='delete')await col.doc(item.id).delete();
-          else await col.doc(item.id).set(item.data,{merge:true});
+          if(item.op==='delete')await withPendingSyncTimeout(col.doc(item.id).delete());
+          else await withPendingSyncTimeout(col.doc(item.id).set(item.data,{merge:true}));
         }catch{remain.push(item)}
       }
       savePendingQueue(remain);
     })().finally(()=>{pendingFlushPromise=null});
     return pendingFlushPromise;
   }
+
+  (function hideLegacySyncPill(){
+    try{
+      const st=document.createElement('style');
+      st.textContent='#pe-sync-pill{display:none !important}';
+      document.head.appendChild(st);
+    }catch{}
+  })();
 
   function ensureSyncPill() {
     let el = document.getElementById('pe-sync-pill');
@@ -2976,15 +3010,28 @@
     renderDashboard();
   }
 
+  function withPendingSyncTimeout(promise,ms=7000){
+    return Promise.race([
+      promise,
+      new Promise((_,reject)=>setTimeout(()=>reject(new Error('pending sync timeout')),ms))
+    ]);
+  }
+
   async function syncPendingSet(rec){
-    if(state.firebaseReady&&navigator.onLine){
+    if(!rec?.id)return;
+    queuePendingOp({op:'set',id:rec.id,data:rec});
+
+    if(state.firebaseReady&&state.user&&navigator.onLine){
       setSync('syncing');
       try{
-        await pendingCollection().doc(rec.id).set(rec,{merge:true});
-        savePendingQueue(loadPendingQueue().filter(x=>x.id!==rec.id));
+        await withPendingSyncTimeout(pendingCollection().doc(rec.id).set(rec,{merge:true}));
+        savePendingQueue(loadPendingQueue().filter(x=>!(x.op==='set'&&x.id===rec.id)));
         updateSyncDisplay();
-      }catch{queuePendingOp({op:'set',id:rec.id,data:rec})}
-    }else queuePendingOp({op:'set',id:rec.id,data:rec});
+      }catch(err){
+        console.warn('[planner-enhancements] pending save kept in queue',err);
+        updateSyncDisplay();
+      }
+    }else updateSyncDisplay();
   }
 
   async function togglePendingComplete(id){
@@ -3016,16 +3063,19 @@
     renderPendingList();
     renderDashboard();
 
-    if(state.firebaseReady&&navigator.onLine){
+    queuePendingOp({op:'delete',id});
+
+    if(state.firebaseReady&&state.user&&navigator.onLine){
       setSync('syncing');
       try{
-        await pendingCollection().doc(id).delete();
-        savePendingQueue(loadPendingQueue().filter(x=>x.id!==id));
+        await withPendingSyncTimeout(pendingCollection().doc(id).delete());
+        savePendingQueue(loadPendingQueue().filter(x=>!(x.op==='delete'&&x.id===id)));
         updateSyncDisplay();
-      }catch{
-        queuePendingOp({op:'delete',id});
+      }catch(err){
+        console.warn('[planner-enhancements] pending delete kept in queue',err);
+        updateSyncDisplay();
       }
-    }else queuePendingOp({op:'delete',id});
+    }else updateSyncDisplay();
   }
 
   async function deletePendingViaDataService(id,skipConfirm=false){
@@ -4619,7 +4669,7 @@
         <div><b>🪑 座位／積分</b><small id="pe-seat-score-status">共用班級及學生資料</small></div>
         <button type="button" id="pe-seat-score-close">✕</button>
       </div>
-      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=2720"></iframe>
+      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=2730"></iframe>
     </div>`;
     document.body.appendChild(m);
     m.querySelector('#pe-seat-score-close').addEventListener('click',()=>closeSeatScore());
@@ -4780,8 +4830,8 @@
     m.id='pe-class-center-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>🏫 班級中心 <small style="font-size:.62em;opacity:.55">v2.7.2</small></h3>
-      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.7.2</span></p>
+      <h3>🏫 班級中心 <small style="font-size:.62em;opacity:.55">v2.7.3</small></h3>
+      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.7.3</span></p>
       <div class="pe-v2-tabs">
         <button type="button" data-class-center-tab="overview" class="active">總覽</button>
         <button type="button" data-class-center-tab="students">學生</button>
@@ -4942,7 +4992,7 @@
     let seatAdapter=null;
 
     const svc={
-      version:7,
+      version:8,
       schemaVersion:1,
       getStatus:()=>({
         ready:true,
@@ -5438,7 +5488,7 @@
     m.id='pe-identity-v1-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog" style="width:min(900px,calc(100vw - 24px))">
-      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.7.2</small></h3>
+      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.7.3</small></h3>
       <p class="pe-note">studentId 永久跟學生；classId 代表某一學年嘅班級實體。01／02 等暫時班號唔會進入永久學生庫；改成真實姓名後會沿用原 studentId 自動升格。</p>
       <div class="pe-grid">
         <div class="pe-field">
@@ -5624,7 +5674,7 @@
     m.id='pe-class-core-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>🏫 班別／學生中心 <small style="font-size:.62em;opacity:.55">v2.7.2</small></h3>
+      <h3>🏫 班別／學生中心 <small style="font-size:.62em;opacity:.55">v2.7.3</small></h3>
       <p class="pe-note">呢份學生資料係座位表、積分、追收及學生紀錄嘅共用核心。每個班別及學生而家都有固定 ID；改名唔會令資料斷開。學生名單每行一位。</p>
       <div class="pe-class-core-grid">
         <div>

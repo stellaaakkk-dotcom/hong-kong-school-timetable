@@ -1,14 +1,13 @@
 {
-  "build": "2.7.2",
-  "cacheTag": "2720",
+  "build": "2.7.3",
+  "cacheTag": "2730",
   "released": "2026-10-04",
-  "purpose": "v2.4.2-submission-queue-first-reliability",
-  "dataServiceVersion": 7,
+  "purpose": "pending-queue-first-plus-unified-cloud-status",
+  "dataServiceVersion": 8,
   "changes": [
-    "submission writes always enter app queue before cloud attempt",
-    "queue clears only after confirmed Firestore success",
-    "Firestore submission writes use timeout instead of hanging indefinitely",
-    "online reconnect retries after 1.2 seconds",
-    "submission pending count forces top sync-status refresh"
+    "Submission v2.7.2 queue-first retained",
+    "Pending now queue-first with timeout",
+    "pending count shown in original cloud connection status",
+    "legacy separate sync pill hidden"
   ]
 }

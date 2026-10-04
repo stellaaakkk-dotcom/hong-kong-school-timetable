@@ -1,58 +1,42 @@
-香港教師教學日誌 v2.7.2 — V2.4.2 Submission 離線 Queue 修正
+香港教師教學日誌 v2.7.3 — Pending 離線修正＋雲端狀態整合
 更新日期：2026-10-04
 
-測試結果
+今版修正
 ========
-v2.7.1：
-- Pending 離線同步正常。
-- Submission 離線修改仍可能沒有「待同步」。
-- 重新上線後 Submission 有機會未補傳。
+1. Submission
+- 保留 v2.7.2 已驗證成功的 queue-first 邏輯，不再改動。
 
-根源
+2. Pending
+- 改成 queue-first：
+  本機先保存 → 立即加入 queue → Firestore 成功後才清 queue。
+- save/delete 都用同一規則。
+- Firestore 7 秒未完成，queue 保留。
+- 同一 Pending ID 只保留最新一個操作。
+
+3. 雲端狀態顯示
+- 「待同步 X」直接整合到原本雲端狀態位置。
+- 不再另外顯示一粒獨立同步提示。
+- 顯示方式：
+  ☁ 雲端：待同步 1
+  ☁ 雲端：同步中
+  ☁ 雲端：已連接
+  ☁ 雲端：離線
+  ☁ 雲端：未登入
+- 「最後成功」時間保留。
+
+驗證
 ====
-Firestore Web SDK 在某些 Android / Chrome 網絡狀況：
-- navigator.onLine 仍可能是 true；
-- 但實際 Firestore 已不可連線；
-- .set() / .delete() 不一定立即 reject，而可能長時間 pending。
+A. Pending
+1. 關閉網絡。
+2. 新增／修改一項 Pending。
+3. 原本雲端狀態位置應直接顯示「雲端：待同步 1」。
+4. 同一項再改，仍應為 1。
+5. 開回網絡，應變「同步中」→「已連接」。
 
-舊流程是：
-先 Firestore → 失敗 catch → 才加入自訂 queue。
-
-因此如果 Firestore promise 沒有 reject，
-自訂 queue 就永遠不會收到這筆 Submission。
-
-v2.7.2 修正
-============
-Submission 改為 queue-first：
-1. 本機狀態先保存。
-2. 每次 Submission save/delete 立即寫入自訂 queue。
-3. 頂部「待同步 X」立即可計算到。
-4. 如果在線，才嘗試 Firestore。
-5. 只有 Firestore 明確成功後，才移除 queue。
-6. Firestore 7 秒仍未完成，視為暫未同步，queue 保留。
-7. 重新上線會立即 retry，並於 1.2 秒後再 retry 一次。
-
-好處
-====
-- 不再依賴 navigator.onLine 判斷是否真的連到 Firestore。
-- 即使 Android 網絡狀態判斷不準，Submission 都不會漏 queue。
-- 同一 Submission ID 連續修改仍只保留最新一筆 queue。
-- Pending 原本已成功的流程不改。
-
-建議測試
-========
-A. Submission
-1. 在線時先開一份現有追收。
-2. 關閉網絡。
-3. 將一位學生由未處理改成已交／欠交。
-4. 頂部應出現「待同步 1」。
-5. 同一份追收再改另一位學生，待同步仍應為 1。
-6. 開回網絡。
-7. 應先見同步中，最後變「已同步」。
-8. 完全重開網站，再開該追收，剛才狀態應仍存在。
-
-B. Pending
-原本 v2.7.1 已成功，今版再快速確認一次即可。
+B. Submission
+1. 離線改同一份追收。
+2. 雲端狀態位置應顯示「待同步 1」。
+3. 上線後自動補傳並回「已連接」。
 
 部署
 ====
