@@ -6,17 +6,17 @@
   const PENDING_KEY = 'hk-school-submission-pending-v1';
   const CLASS_PREF_KEY = 'hk-school-class-student-counts-v1';
   const COLORS = {
-    cream: '#fff8d9',
-    cream2: '#fff3b8',
-    caramel: '#a86f3d',
-    caramelDark: '#7f4f2d',
-    milk: '#fffdf8',
-    line: '#eadfce',
-    bg: '#fffaf0',
+    cream: '#f8f1e6',
+    cream2: '#efe1cf',
+    caramel: '#8f674b',
+    caramelDark: '#684836',
+    milk: '#fffdf9',
+    line: '#e5dbd1',
+    bg: '#faf7f2',
     danger: '#d64545',
     dangerBg: '#fff0ef',
     success: '#6f8f57',
-    muted: '#8b7768'
+    muted: '#85776d'
   };
 
   const state = {
@@ -438,7 +438,7 @@
       .sub-wrap{max-width:1080px;margin:auto;color:#4a3428;font-family:"Noto Sans TC","PingFang HK","Microsoft JhengHei",sans-serif}
       .sub-bubble{background:${COLORS.milk};border:1px solid ${COLORS.line};border-radius:14px;padding:10px 12px;margin-bottom:8px;box-shadow:0 2px 8px rgba(127,79,45,.045)}
       .sub-bubble.new{background:#fff8d9;border-color:#efdca0}
-      .sub-bubble.follow{background:#fff3df;border-color:#efd3ae}
+      .sub-bubble.follow{background:#fff3df;border-color:#e4d2c2}
       .sub-bubble.status{background:#fffaf0}
       .sub-title{display:flex;align-items:center;gap:7px;margin-bottom:7px;font-size:13px;font-weight:800;color:${COLORS.caramelDark}}
       .sub-num{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:${COLORS.caramel};color:#fff;font-size:10px}
@@ -454,7 +454,7 @@
       .sub-stat{padding:7px 3px;text-align:center;border-right:1px solid ${COLORS.line}}
       .sub-stat:last-child{border-right:0}.sub-stat span{display:block;font-size:9px;color:${COLORS.muted}}.sub-stat b{font-size:17px}.sub-stat.done b{color:${COLORS.success}}.sub-stat.missing b{color:${COLORS.danger}}
       .sub-students{display:grid;grid-template-columns:repeat(12,minmax(34px,1fr));gap:5px 3px;align-items:center;justify-items:center}
-      .sub-student{width:36px;height:36px;padding:0;border-radius:50%;border:1.5px solid #d8c2aa;background:#fffdf8;color:${COLORS.caramelDark};font-size:11px;font-weight:800}
+      .sub-student{width:36px;height:36px;padding:0;border-radius:50%;border:1.5px solid #d9c8ba;background:#fffdf8;color:${COLORS.caramelDark};font-size:11px;font-weight:800}
       .sub-student.missing{border-color:#e5a29e;background:${COLORS.dangerBg};color:${COLORS.danger}}
       .sub-missing-summary{margin-top:7px;padding:7px 9px;border:1px solid ${COLORS.line};border-radius:9px;background:#fffdf8;font-size:11px}
       .sub-missing-details{margin-top:7px;display:grid;gap:5px}
@@ -464,16 +464,16 @@
       .sub-repeat{font-size:8px;color:${COLORS.danger};font-weight:800}
 
       .sub-follow-item,.sub-record{border:1px solid ${COLORS.line};border-radius:10px;background:#fffdf8;padding:8px 9px;margin-top:6px}
-      .sub-follow-item{border-color:#edcfb7;background:#fff7eb}
+      .sub-follow-item{border-color:#e4d4c5;background:#faf5ee}
       .sub-item-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
       .sub-item-title{font-size:12px;font-weight:800}.sub-meta{margin-top:3px;color:${COLORS.muted};font-size:10px;line-height:1.4}
-      .sub-tag{display:inline-block;border:1px solid #dfc7ad;border-radius:999px;padding:3px 7px;background:#fff3d6;color:${COLORS.caramelDark};font-size:10px;font-weight:800;white-space:nowrap}
+      .sub-tag{display:inline-block;border:1px solid #dcc8b8;border-radius:999px;padding:3px 7px;background:#f5eadc;color:${COLORS.caramelDark};font-size:10px;font-weight:800;white-space:nowrap}
       .sub-tag.red{border-color:#efc5c1;background:${COLORS.dangerBg};color:${COLORS.danger}}
       .sub-empty{padding:8px;text-align:center;color:${COLORS.muted};font-size:11px}
       .sub-history summary{cursor:pointer;font-size:12px;font-weight:800;color:${COLORS.caramelDark};list-style:none}.sub-history summary::-webkit-details-marker{display:none}
       .sub-storage{font-size:9px;color:${COLORS.muted};margin-left:auto}
       .journal-homework-cell{position:relative!important}
-      .journal-followup-btn{position:absolute;right:4px;bottom:3px;z-index:3;border:1px solid #d8c2aa;border-radius:999px;background:#fff7df;color:${COLORS.caramelDark};padding:2px 5px;font-size:7px;font-weight:800;line-height:1.2;box-shadow:0 1px 3px #0001}
+      .journal-followup-btn{position:absolute;right:4px;bottom:3px;z-index:3;border:1px solid #d9c8ba;border-radius:999px;background:#f7efe5;color:${COLORS.caramelDark};padding:2px 5px;font-size:7px;font-weight:800;line-height:1.2;box-shadow:0 1px 3px #0001}
       .journal-followup-btn.added{background:#eef7e9;color:${COLORS.success};border-color:#bfd5b1}
       .journal-homework-cell textarea{padding-bottom:17px!important}
       .journal-followup-modal{display:none;position:fixed;inset:0;z-index:2147483600;background:#0004;align-items:center;justify-content:center;padding:14px}
@@ -484,7 +484,7 @@
       .journal-followup-dialog .sub-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
       .journal-followup-dialog .full{grid-column:1/-1}
       .journal-followup-dialog .modal-actions{display:flex;gap:6px;justify-content:flex-end;margin-top:10px}
-      .today-submission-card{margin:10px 0 0;padding:9px 11px;border:1px solid #efd3ae;border-radius:10px;background:#fff7eb;color:#5a4031}
+      .today-submission-card{margin:10px 0 0;padding:9px 11px;border:1px solid #e4d2c2;border-radius:10px;background:#faf5ee;color:#5f4a3d}
       .today-submission-card .head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px}
       .today-submission-card .head b{font-size:11px;color:${COLORS.caramelDark}}.today-submission-card .head button{border:0;background:${COLORS.caramel};color:#fff;border-radius:7px;padding:4px 7px;font-size:9px;font-weight:800}
       .today-submission-card .row{font-size:9px;line-height:1.55;color:#725845}
