@@ -1,17 +1,15 @@
 {
-  "build": "2.6.4",
-  "cacheTag": "2640",
+  "build": "2.6.5",
+  "cacheTag": "2650",
   "released": "2026-10-04",
-  "purpose": "v2.3-profile-write-adapter",
+  "purpose": "v2.3.1-profile-delete-paths",
   "dataServiceVersion": 4,
-  "writePaths": [
-    "classes",
-    "pending",
-    "submissions",
-    "profile"
-  ],
   "profileWritePaths": [
     "studentNotes",
+    "parentContacts",
+    "classEvents"
+  ],
+  "profileDeletePaths": [
     "parentContacts",
     "classEvents"
   ]

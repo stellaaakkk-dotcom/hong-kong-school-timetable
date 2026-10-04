@@ -1388,7 +1388,9 @@ function registerProfileDataAdapter(){
    svc.profile.registerAdapter({
      saveNote:async payload=>saveStudentPrivateNoteRaw(payload),
      saveParentContact:async payload=>saveParentContactRaw(payload),
-     saveEvent:async payload=>applySelectedEventToStudentRaw(payload?.studentId||'',payload?.shortcutIndex)
+     saveEvent:async payload=>applySelectedEventToStudentRaw(payload?.studentId||'',payload?.shortcutIndex),
+     removeParentContact:async payload=>removeParentContactRaw(payload),
+     removeEvent:async payload=>removeStudentEventRaw(payload)
    });
    return true;
  }catch(e){
@@ -2027,7 +2029,10 @@ function openStudentProfile(id){
      ${p.lessonContext&&lessonContextLabel(p.lessonContext)?`<div class="note">課堂：${esc(lessonContextLabel(p.lessonContext))}</div>`:''}
      ${t?`<div class="note">待辦：${esc(t.text)}｜${t.done?'已完成':'未完成'}${t.completedAt?'｜'+esc(t.completedAt):''}</div>`:''}
      ${t?.followUpRemark?`<div class="note">跟進備註：${esc(t.followUpRemark)}</div>`:''}
-     ${t?`<button class="btn" style="margin-top:5px" onclick="openTodoDetail('${t.id}')">查看待辦詳情</button>`:''}
+     <div class="quick-row" style="margin-top:5px">
+       ${t?`<button class="btn" onclick="openTodoDetail('${t.id}')">查看待辦詳情</button>`:''}
+       ${(p.eventMode==='record'||p.type==='record')&&h.id?`<button class="btn danger" onclick="removeStudentEvent('${esc(h.id)}','${esc(id)}')">刪除紀錄</button>`:''}
+     </div>
    </div>`;
  }).join(''):'<div class="note">暫時未有學生紀錄。</div>';
 
@@ -2049,6 +2054,7 @@ function openStudentProfile(id){
        ${c.response?`<div class="note">家長回覆：${esc(c.response)}</div>`:''}
        ${c.followUp?`<div class="note">後續：${esc(c.followUp)}</div>`:''}
        ${c.todoId?`<div class="note">由待辦建立</div>`:''}
+       ${c.id?`<button class="btn danger" style="margin-top:5px" onclick="removeParentContact('${esc(c.id)}')">刪除</button>`:''}
      </div>
    `).join(''):'<div class="note">暫時未有家校聯絡紀錄。</div>';
  }
@@ -2425,6 +2431,72 @@ async function saveParentContact(){
    catch(e){console.warn('[seat profile] parent contact data service fallback',e)}
  }
  return saveParentContactRaw(payload);
+}
+
+function removeParentContactRaw(payload={}){
+ const recordId=String(payload.recordId||'');
+ if(!recordId)return false;
+ const rec=(state.parentContacts||[]).find(c=>String(c.id)===recordId);
+ if(!rec)return false;
+ state.parentContacts=(state.parentContacts||[]).filter(c=>String(c.id)!==recordId);
+ (state.todos||[]).forEach(t=>{
+   if(String(t.contactRecordId||'')===recordId)delete t.contactRecordId;
+ });
+ save();
+ renderAll();
+ if(currentProfileStudentId)openStudentProfile(currentProfileStudentId);
+ return {recordId,studentId:rec.studentId||''};
+}
+
+async function removeParentContact(recordId){
+ const rec=(state.parentContacts||[]).find(c=>String(c.id)===String(recordId));
+ if(!rec)return;
+ if(!confirm(`刪除 ${rec.date||''} 呢筆家校聯絡紀錄？\n如有相關待辦，待辦會保留。`))return;
+ const payload={recordId:String(recordId),studentId:rec.studentId||currentProfileStudentId||''};
+ const svc=parentSchoolDataService();
+ if(svc?.profile?.removeParentContact){
+   try{
+     await svc.profile.removeParentContact(payload);
+     toast('已刪除家校聯絡紀錄');
+     return;
+   }catch(e){console.warn('[seat profile] contact delete fallback',e)}
+ }
+ removeParentContactRaw(payload);
+ toast('已刪除家校聯絡紀錄');
+}
+
+function removeStudentEventRaw(payload={}){
+ const recordId=String(payload.recordId||'');
+ if(!recordId)return false;
+ const h=(state.history||[]).find(x=>String(x.id)===recordId);
+ if(!h)return false;
+ const p=h.payload||h.undoPayload||{};
+ const studentId=String(payload.studentId||p.id||p.studentId||'');
+ state.history=(state.history||[]).filter(x=>String(x.id)!==recordId);
+ save();
+ renderAll();
+ if(currentProfileStudentId)openStudentProfile(currentProfileStudentId);
+ return {recordId,studentId};
+}
+
+async function removeStudentEvent(recordId,studentId=''){
+ const h=(state.history||[]).find(x=>String(x.id)===String(recordId));
+ if(!h)return;
+ const p=h.payload||h.undoPayload||{};
+ const linkedTodoId=p.linkedTodoId||'';
+ const note=linkedTodoId?'\n相關待辦會保留，只刪除課堂事件紀錄。':'';
+ if(!confirm(`刪除呢筆課堂事件紀錄？${note}`))return;
+ const payload={recordId:String(recordId),studentId:String(studentId||p.id||p.studentId||'')};
+ const svc=parentSchoolDataService();
+ if(svc?.profile?.removeEvent){
+   try{
+     await svc.profile.removeEvent(payload);
+     toast('已刪除課堂事件紀錄');
+     return;
+   }catch(e){console.warn('[seat profile] event delete fallback',e)}
+ }
+ removeStudentEventRaw(payload);
+ toast('已刪除課堂事件紀錄');
 }
 
 function openTodoDetail(id){
@@ -3416,7 +3488,7 @@ const initialPanel=document.querySelector('.panel.active')?.id||'dashboardPanel'
 </script>
 <script>
 (function(){
-  const INTEGRATION_VERSION='2.6.4';
+  const INTEGRATION_VERSION='2.6.5';
 
   function parentApi(){
     try{
