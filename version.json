@@ -1,10 +1,14 @@
 {
-  "build": "2.6.9",
-  "cacheTag": "2690",
+  "build": "2.7.0",
+  "cacheTag": "2700",
   "released": "2026-10-04",
-  "purpose": "clear-undone-history-only",
-  "dataServiceVersion": 5,
-  "fixes": [
-    "manual cleanup for undone history without affecting live state"
+  "purpose": "v2.4-sync-offline-hardening",
+  "dataServiceVersion": 6,
+  "changes": [
+    "dedupe duplicate Data Service notifications",
+    "normalize offline queues so latest operation per record wins",
+    "serialize queue flushes to prevent overlapping retries",
+    "unified schoolSyncStatusChanged status event",
+    "include submission queue in reconnect flush"
   ]
 }

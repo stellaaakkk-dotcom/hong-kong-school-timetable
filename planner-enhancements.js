@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.6.9';
+  const VERSION = '2.7.0';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -772,54 +772,115 @@
     renderStatusStack();
   }
 
-  function loadActivityPending(){try{const q=JSON.parse(localStorage.getItem(ACTIVITY_PENDING_KEY)||'[]');state.activityPending=Array.isArray(q)?q.length:0;return Array.isArray(q)?q:[]}catch{state.activityPending=0;return[]}}
-  function saveActivityPending(q){try{localStorage.setItem(ACTIVITY_PENDING_KEY,JSON.stringify(q));state.activityPending=q.length}catch{}updateSyncDisplay()}
-  function queueActivityPending(item){const q=loadActivityPending().filter(x=>x.id!==item.id);q.push(item);saveActivityPending(q)}
-  function totalPending(){const sub=window.__submissionTrackerAPI?.getPendingCount?.()||0;return state.activityPending+(state.pendingQueueCount||0)+sub}
+  function normalizeOfflineQueue(q=[]){
+    const map=new Map();
+    for(const raw of Array.isArray(q)?q:[]){
+      if(!raw||!raw.id)continue;
+      const item={...raw,id:String(raw.id),op:raw.op==='delete'?'delete':'set'};
+      map.set(item.id,item); // newest operation for the same record wins
+    }
+    return [...map.values()];
+  }
+  function loadActivityPending(){
+    try{
+      const q=normalizeOfflineQueue(JSON.parse(localStorage.getItem(ACTIVITY_PENDING_KEY)||'[]'));
+      state.activityPending=q.length;
+      return q;
+    }catch{state.activityPending=0;return[]}
+  }
+  function saveActivityPending(q){
+    const clean=normalizeOfflineQueue(q);
+    try{localStorage.setItem(ACTIVITY_PENDING_KEY,JSON.stringify(clean));state.activityPending=clean.length}catch{}
+    updateSyncDisplay();
+  }
+  function queueActivityPending(item){
+    const q=loadActivityPending();
+    q.push(item);
+    saveActivityPending(q);
+  }
+  function totalPending(){
+    const sub=window.__submissionTrackerAPI?.getPendingCount?.()||0;
+    return state.activityPending+(state.pendingQueueCount||0)+sub;
+  }
+  function broadcastSyncStatus(status,pendingCount=totalPending()){
+    try{
+      window.dispatchEvent(new CustomEvent('schoolSyncStatusChanged',{detail:{
+        status,
+        pendingCount,
+        online:navigator.onLine,
+        firebaseReady:!!state.firebaseReady,
+        signedIn:!!state.user
+      }}));
+    }catch{}
+  }
   function updateSyncDisplay(){
     const n=totalPending();
     if(n>0){
       const p=ensureSyncPill();
       p.className='pe-sync-pill off';
       p.textContent=`⚠ 待同步 ${n}`;
+      broadcastSyncStatus('pending',n);
       return;
     }
-    if(!navigator.onLine){setSync('offline');return}
-    if(window.__firebaseBootstrapError){setSync('error');return}
-    if(window.__firebaseAuthResolved && !window.__firebaseAuthUser){setSync('signedout');return}
-    setSync(state.firebaseReady?'ok':'connecting');
+    if(!navigator.onLine){setSync('offline');broadcastSyncStatus('offline',0);return}
+    if(window.__firebaseBootstrapError){setSync('error');broadcastSyncStatus('error',0);return}
+    if(window.__firebaseAuthResolved && !window.__firebaseAuthUser){setSync('signedout');broadcastSyncStatus('signedout',0);return}
+    const next=state.firebaseReady?'ok':'connecting';
+    setSync(next);
+    broadcastSyncStatus(next,0);
   }
-  async function flushActivityPending(){if(!navigator.onLine||!state.firebaseReady)return;let q=loadActivityPending(),remain=[];for(const item of q){try{if(item.op==='delete')await activityCollection().doc(item.id).delete();else await activityCollection().doc(item.id).set(item.data,{merge:true})}catch{remain.push(item)}}saveActivityPending(remain)}
+  let activityFlushPromise=null;
+  async function flushActivityPending(){
+    if(activityFlushPromise)return activityFlushPromise;
+    if(!navigator.onLine||!state.firebaseReady)return;
+    activityFlushPromise=(async()=>{
+      let q=loadActivityPending(),remain=[];
+      for(const item of q){
+        try{
+          if(item.op==='delete')await activityCollection().doc(item.id).delete();
+          else await activityCollection().doc(item.id).set(item.data,{merge:true});
+        }catch{remain.push(item)}
+      }
+      saveActivityPending(remain);
+    })().finally(()=>{activityFlushPromise=null});
+    return activityFlushPromise;
+  }
 
   function loadPendingQueue(){
     try{
-      const q=JSON.parse(localStorage.getItem(PENDING_QUEUE_KEY)||'[]');
-      state.pendingQueueCount=Array.isArray(q)?q.length:0;
-      return Array.isArray(q)?q:[];
+      const q=normalizeOfflineQueue(JSON.parse(localStorage.getItem(PENDING_QUEUE_KEY)||'[]'));
+      state.pendingQueueCount=q.length;
+      return q;
     }catch{state.pendingQueueCount=0;return[]}
   }
   function savePendingQueue(q){
+    const clean=normalizeOfflineQueue(q);
     try{
-      localStorage.setItem(PENDING_QUEUE_KEY,JSON.stringify(q));
-      state.pendingQueueCount=q.length;
+      localStorage.setItem(PENDING_QUEUE_KEY,JSON.stringify(clean));
+      state.pendingQueueCount=clean.length;
     }catch{}
     updateSyncDisplay();
   }
   function queuePendingOp(item){
-    const q=loadPendingQueue().filter(x=>x.id!==item.id);
+    const q=loadPendingQueue();
     q.push(item);
     savePendingQueue(q);
   }
+  let pendingFlushPromise=null;
   async function flushPendingQueue(){
+    if(pendingFlushPromise)return pendingFlushPromise;
     if(!navigator.onLine||!state.firebaseReady||!state.user)return;
-    const col=pendingCollection(),q=loadPendingQueue(),remain=[];
-    for(const item of q){
-      try{
-        if(item.op==='delete')await col.doc(item.id).delete();
-        else await col.doc(item.id).set(item.data,{merge:true});
-      }catch{remain.push(item)}
-    }
-    savePendingQueue(remain);
+    pendingFlushPromise=(async()=>{
+      const col=pendingCollection(),q=loadPendingQueue(),remain=[];
+      for(const item of q){
+        try{
+          if(item.op==='delete')await col.doc(item.id).delete();
+          else await col.doc(item.id).set(item.data,{merge:true});
+        }catch{remain.push(item)}
+      }
+      savePendingQueue(remain);
+    })().finally(()=>{pendingFlushPromise=null});
+    return pendingFlushPromise;
   }
 
   function ensureSyncPill() {
@@ -829,7 +890,23 @@
   }
 
   function installNetworkStatus() {
-    const refresh = async () => {if(navigator.onLine&&state.firebaseReady){await flushActivityPending();await flushPendingQueue();updateSyncDisplay()}else setSync(navigator.onLine?'connecting':'offline')};
+    let refreshPromise=null;
+    const refresh = async () => {
+      if(refreshPromise)return refreshPromise;
+      refreshPromise=(async()=>{
+        if(navigator.onLine&&state.firebaseReady){
+          setSync('syncing');
+          await flushActivityPending();
+          await flushPendingQueue();
+          try{await window.__submissionTrackerAPI?.flushPending?.()}catch{}
+          updateSyncDisplay();
+        }else{
+          setSync(navigator.onLine?'connecting':'offline');
+          broadcastSyncStatus(navigator.onLine?'connecting':'offline',totalPending());
+        }
+      })().finally(()=>{refreshPromise=null});
+      return refreshPromise;
+    };
     window.addEventListener('online', refresh);
     window.addEventListener('offline', refresh);
     refresh();
@@ -4525,7 +4602,7 @@
         <div><b>🪑 座位／積分</b><small id="pe-seat-score-status">共用班級及學生資料</small></div>
         <button type="button" id="pe-seat-score-close">✕</button>
       </div>
-      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=2690"></iframe>
+      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=2700"></iframe>
     </div>`;
     document.body.appendChild(m);
     m.querySelector('#pe-seat-score-close').addEventListener('click',()=>closeSeatScore());
@@ -4686,8 +4763,8 @@
     m.id='pe-class-center-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>🏫 班級中心 <small style="font-size:.62em;opacity:.55">v2.6.9</small></h3>
-      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.6.9</span></p>
+      <h3>🏫 班級中心 <small style="font-size:.62em;opacity:.55">v2.7.0</small></h3>
+      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.7.0</span></p>
       <div class="pe-v2-tabs">
         <button type="button" data-class-center-tab="overview" class="active">總覽</button>
         <button type="button" data-class-center-tab="students">學生</button>
@@ -4848,7 +4925,7 @@
     let seatAdapter=null;
 
     const svc={
-      version:5,
+      version:6,
       schemaVersion:1,
       getStatus:()=>({
         ready:true,
@@ -4860,6 +4937,8 @@
         pendingCount:(state.pendingItems||[]).length,
         permanentStudentCount:Object.keys(syncIdentityV1FromClassCore().students||{}).length,
         enrollmentCount:Object.keys(syncIdentityV1FromClassCore().enrollments||{}).length,
+        queuedWrites:totalPending(),
+        syncState:state.sync||'connecting',
         writePaths:{classes:true,pending:true,submissions:true,profile:true,seat:true}
       }),
       snapshot:()=>({
@@ -4874,8 +4953,8 @@
         list:()=> (state.classCore||[]).map(c=>clone(normalizeClassProfile(c))),
         getById:(id='')=>{const c=(state.classCore||[]).find(x=>String(x.classId||x.id)===String(id));return c?clone(normalizeClassProfile(c)):null},
         getByName:(name='')=>{const c=classProfileByName(name);return c?clone(normalizeClassProfile(c)):null},
-        save:async rec=>{await syncClassProfile(clone(rec));emit('classes',{type:'save',classId:rec?.classId||rec?.id||''});return svc.classes.getById(rec?.classId||rec?.id||'')},
-        remove:async id=>{await deleteClassProfile(id);emit('classes',{type:'delete',classId:id});return true}
+        save:async rec=>{await syncClassProfile(clone(rec));return svc.classes.getById(rec?.classId||rec?.id||'')},
+        remove:async id=>{await deleteClassProfile(id);return true}
       },
       students:{
         registry:()=>Object.values(syncIdentityV1FromClassCore().students||{}).map(clone),
@@ -4897,9 +4976,9 @@
           const idx=state.pendingItems.findIndex(x=>String(x.id)===String(rec.id));
           const next={...clone(rec),updatedAt:new Date().toISOString()};
           if(idx>=0)state.pendingItems[idx]=next;else state.pendingItems.unshift(next);
-          saveLocalPending();await syncPendingSet(next);emit('pending',{type:'save',id:next.id});return clone(next)
+          saveLocalPending();await syncPendingSet(next);return clone(next)
         },
-        remove:async id=>{await deletePendingItem(id,true);emit('pending',{type:'delete',id});return true}
+        remove:async id=>{await deletePendingItem(id,true);return true}
       },
       submissions:{
         list:()=> (window.__submissionTrackerAPI?.getRecords?.()||state.submissions||[]).map(clone),
@@ -4908,14 +4987,12 @@
           const api=window.__submissionTrackerAPI;
           if(!api?.saveInternal)throw new Error('submission tracker not ready');
           const saved=await api.saveInternal(clone(rec));
-          emit('submissions',{type:'save',id:rec?.id||saved?.id||''});
           return clone(saved||rec)
         },
         remove:async id=>{
           const api=window.__submissionTrackerAPI;
           if(!api?.removeInternal)throw new Error('submission tracker not ready');
           await api.removeInternal(id);
-          emit('submissions',{type:'delete',id});
           return true
         }
       },
@@ -4982,7 +5059,6 @@
     window.addEventListener('classCoreChanged',()=>emit('classes',{type:'external'}));
     window.addEventListener('identityV1Changed',()=>emit('identity',{type:'external'}));
     window.addEventListener('pendingItemsChanged',()=>emit('pending',{type:'external'}));
-    window.addEventListener('submission-pending-changed',()=>emit('submissions',{type:'external'}));
     window.addEventListener('submission-records-changed',e=>emit('submissions',{type:e.detail?.type||'external',id:e.detail?.id||''}));
     window.__schoolDataService=svc;
     try{window.dispatchEvent(new CustomEvent('schoolDataServiceReady',{detail:svc.getStatus()}))}catch{}
@@ -5341,7 +5417,7 @@
     m.id='pe-identity-v1-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog" style="width:min(900px,calc(100vw - 24px))">
-      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.6.9</small></h3>
+      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.7.0</small></h3>
       <p class="pe-note">studentId 永久跟學生；classId 代表某一學年嘅班級實體。01／02 等暫時班號唔會進入永久學生庫；改成真實姓名後會沿用原 studentId 自動升格。</p>
       <div class="pe-grid">
         <div class="pe-field">
@@ -5527,7 +5603,7 @@
     m.id='pe-class-core-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>🏫 班別／學生中心 <small style="font-size:.62em;opacity:.55">v2.6.9</small></h3>
+      <h3>🏫 班別／學生中心 <small style="font-size:.62em;opacity:.55">v2.7.0</small></h3>
       <p class="pe-note">呢份學生資料係座位表、積分、追收及學生紀錄嘅共用核心。每個班別及學生而家都有固定 ID；改名唔會令資料斷開。學生名單每行一位。</p>
       <div class="pe-class-core-grid">
         <div>

@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.6.9';
+  const VERSION = '2.7.0';
   const LOCAL_KEY = 'hk-school-submission-records-v1';
   const PENDING_KEY = 'hk-school-submission-pending-v1';
   const CLASS_PREF_KEY = 'hk-school-class-student-counts-v1';
@@ -263,22 +263,49 @@
       .collection('submissionRecords');
   }
 
-  function loadPending(){
-    try{const q=JSON.parse(localStorage.getItem(PENDING_KEY)||'[]');state.pendingCount=Array.isArray(q)?q.length:0;return Array.isArray(q)?q:[]}catch{state.pendingCount=0;return[]}
-  }
-  function savePending(q){try{localStorage.setItem(PENDING_KEY,JSON.stringify(q));state.pendingCount=q.length}catch{}renderStatus();window.dispatchEvent(new CustomEvent('submission-pending-changed',{detail:{count:state.pendingCount}}))}
-  function queuePending(item){const q=loadPending().filter(x=>x.id!==item.id);q.push(item);savePending(q)}
-  async function flushPending(){
-    if(!navigator.onLine||!state.usingFirestore)return;
-    let q=loadPending(); if(!q.length)return;
-    const remain=[];
-    for(const item of q){
-      try{
-        if(item.op==='delete') await collectionRef().doc(item.id).delete();
-        else await collectionRef().doc(item.id).set(item.data,{merge:true});
-      }catch{remain.push(item)}
+  function normalizePendingQueue(q=[]){
+    const map=new Map();
+    for(const raw of Array.isArray(q)?q:[]){
+      if(!raw||!raw.id)continue;
+      const item={...raw,id:String(raw.id),op:raw.op==='delete'?'delete':'set'};
+      map.set(item.id,item);
     }
-    savePending(remain);
+    return [...map.values()];
+  }
+  function loadPending(){
+    try{
+      const q=normalizePendingQueue(JSON.parse(localStorage.getItem(PENDING_KEY)||'[]'));
+      state.pendingCount=q.length;
+      return q;
+    }catch{state.pendingCount=0;return[]}
+  }
+  function savePending(q){
+    const clean=normalizePendingQueue(q);
+    try{localStorage.setItem(PENDING_KEY,JSON.stringify(clean));state.pendingCount=clean.length}catch{}
+    renderStatus();
+    window.dispatchEvent(new CustomEvent('submission-pending-changed',{detail:{count:state.pendingCount}}));
+  }
+  function queuePending(item){
+    const q=loadPending();
+    q.push(item);
+    savePending(q);
+  }
+  let flushPromise=null;
+  async function flushPending(){
+    if(flushPromise)return flushPromise;
+    if(!navigator.onLine||!state.usingFirestore)return;
+    flushPromise=(async()=>{
+      let q=loadPending(); if(!q.length)return;
+      const remain=[];
+      for(const item of q){
+        try{
+          if(item.op==='delete') await collectionRef().doc(item.id).delete();
+          else await collectionRef().doc(item.id).set(item.data,{merge:true});
+        }catch{remain.push(item)}
+      }
+      savePending(remain);
+    })().finally(()=>{flushPromise=null});
+    return flushPromise;
   }
   function repeatMissingCount(record,student){
     const cls=record.className||''; let count=0;
