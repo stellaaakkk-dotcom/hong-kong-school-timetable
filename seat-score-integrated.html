@@ -867,6 +867,15 @@ body.event-select-mode #seatPanel .desk span{
     height:calc(42px + env(safe-area-inset-bottom, 0px));
   }
 }
+
+/* v2.6.8: keep undone history visible rather than deleting it */
+.history-item.is-undone{
+  opacity:.62;
+}
+.history-item.is-undone .history-main{
+  text-decoration:line-through;
+  text-decoration-thickness:1px;
+}
 </style>
 <style>
 .main-system-record{border-left:3px solid #6b8afd}
@@ -1515,7 +1524,45 @@ function autoBackupSeat(label){
  state.versions=state.versions.slice(0,12);
 }
 
-function pushUndo(label){undoStack.push({label,state:JSON.stringify(state)});if(undoStack.length>40)undoStack.shift()}function undoLast(){const x=undoStack.pop();if(!x){toast('沒有可復原操作');return}state=JSON.parse(x.state);save();renderAll();toast('已復原：'+x.label)}function logAction(text,reason='',undoPayload=null){const id='h'+Date.now()+Math.random().toString(36).slice(2,6);state.history.unshift({id,text,reason,time:new Date().toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'}),undoPayload,payload:undoPayload,undone:false});state.history=state.history.slice(0,120)}
+function pushUndo(label){
+ undoStack.push({label,state:JSON.stringify(state)});
+ if(undoStack.length>40)undoStack.shift();
+}
+function undoLast(){
+ const x=undoStack.pop();
+ if(!x){toast('沒有可復原操作');return}
+
+ const currentHistory=Array.isArray(state.history)?state.history:[];
+ const previous=JSON.parse(x.state);
+ const previousHistory=Array.isArray(previous.history)?previous.history:[];
+ const previousIds=new Set(previousHistory.map(h=>String(h.id||'')));
+
+ // Records created by the action being undone must remain visible,
+ // but become non-actionable "已撤銷" history instead of disappearing.
+ const actionRecords=currentHistory
+   .filter(h=>h?.id && !previousIds.has(String(h.id)))
+   .map(h=>({
+     ...h,
+     undone:true,
+     undoneAt:new Date().toLocaleString('zh-HK')
+   }));
+
+ state=previous;
+ const merged=[...actionRecords,...previousHistory];
+ const seen=new Set();
+ state.history=merged.filter(h=>{
+   const key=String(h?.id||'');
+   if(!key)return true;
+   if(seen.has(key))return false;
+   seen.add(key);
+   return true;
+ }).slice(0,120);
+
+ save('undo');
+ renderAll();
+ toast('已撤銷：'+x.label);
+}
+function logAction(text,reason='',undoPayload=null){const id='h'+Date.now()+Math.random().toString(36).slice(2,6);state.history.unshift({id,text,reason,time:new Date().toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'}),undoPayload,payload:undoPayload,undone:false});state.history=state.history.slice(0,120)}
 
 function switchMainPanel(panelId,sourceBtn=null){
  document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
@@ -1645,7 +1692,20 @@ function applySelectedEventToStudent(id){
  }
  return applySelectedEventToStudentRaw(id,shortcutIndex);
 }
-function renderClassSwitcher(){const sel=document.getElementById('classSwitcher');if(!sel)return;const entries=Object.entries(manager.classes).sort((a,b)=>(b[1].lastUsed||0)-(a[1].lastUsed||0));sel.innerHTML=entries.map(([id,c])=>`<option value="${id}"${id===manager.activeClassId?' selected':''}>${esc(c.className||'未命名班')}</option>`).join('');const dot=document.getElementById('classColorDot');if(dot)dot.style.background=state.classColor||'#4A90E2';document.documentElement.style.setProperty('--accent',state.classColor||'#4A90E2')}
+function renderClassSwitcher(){
+ const sel=document.getElementById('classSwitcher');if(!sel)return;
+ const entries=Object.entries(manager.classes).sort((a,b)=>(b[1].lastUsed||0)-(a[1].lastUsed||0));
+ sel.innerHTML=entries.map(([id,c])=>`<option value="${id}"${id===manager.activeClassId?' selected':''}>${esc(c.className||'未命名班')}</option>`).join('');
+ const dot=document.getElementById('classColorDot');
+ if(dot)dot.style.background=state.classColor||'#4A90E2';
+
+ // Shared app theme always wins over the legacy per-class accent.
+ let sharedTheme=null;
+ try{sharedTheme=JSON.parse(localStorage.getItem('hk-school-seat-theme-v1')||'null')}catch{}
+ const accent=String(sharedTheme?.accent||state.classColor||'#4A90E2');
+ document.documentElement.style.setProperty('--accent',accent);
+ document.documentElement.style.setProperty('--primary',accent);
+}
 function switchClass(id){if(!manager.classes[id])return;save();manager.activeClassId=id;state=normalizeClass(manager.classes[id]);saveManager();undoStack=[];renderAll();toast('已切換至 '+state.className)}
 function openClassManager(){
  if(parentApi()?.getClasses){
@@ -3470,7 +3530,7 @@ function endClassSession(){
  save();renderAll();toast('本課及出勤紀錄已封存');
 }
 function resetTodayScores(){if(!confirm('清空本課積分？'))return;pushUndo('清本課分');state.students.forEach(s=>s.todayScore=0);for(let g=1;g<=activeGroupCount();g++)state.groupToday[g]=0;save('reset-today-score');renderAll()}function resetAllScores(){if(!confirm('清空所有積分？'))return;pushUndo('清全部分');state.students.forEach(s=>{s.score=0;s.todayScore=0});for(let g=1;g<=activeGroupCount();g++){state.groupScores[g]=0;state.groupToday[g]=0}save('reset-all-score');renderAll()}
-function renderHistory(){const w=document.getElementById('historyList');w.innerHTML=state.history.map(h=>`<div class="history-item"><div><div class="history-main">${esc(h.text)}</div><div class="history-meta">${esc(h.time)}${h.reason?'｜'+esc(h.reason):''}${h.undone?'｜已撤銷':''}</div></div>${h.undoPayload&&!h.undone?`<button class="btn" onclick="undoHistory('${h.id}')">撤銷</button>`:''}</div>`).join('')||'<div class="note">暫時未有紀錄</div>'}function undoHistory(id){const h=state.history.find(x=>x.id===id);if(!h||h.undone||!h.undoPayload)return;pushUndo('撤銷紀錄');const p=h.undoPayload;if(p.type==='student'){const s=state.students.find(x=>x.id===p.id);if(s){s.score-=p.delta;s.todayScore-=p.delta}}if(p.type==='group'){state.groupScores[p.group]-=p.delta;state.groupToday[p.group]-=p.delta}if(p.type==='everyone')groupStudents(p.group).forEach(s=>{s.score-=p.delta;s.todayScore-=p.delta});if(p.type==='wholeclass')state.students.forEach(s=>{s.score-=p.delta;s.todayScore-=p.delta});
+function renderHistory(){const w=document.getElementById('historyList');w.innerHTML=state.history.map(h=>`<div class="history-item${h.undone?' is-undone':''}"><div><div class="history-main">${esc(h.text)}</div><div class="history-meta">${esc(h.time)}${h.reason?'｜'+esc(h.reason):''}${h.undone?'｜已撤銷':''}</div></div>${h.undoPayload&&!h.undone?`<button class="btn" onclick="undoHistory('${h.id}')">撤銷</button>`:''}</div>`).join('')||'<div class="note">暫時未有紀錄</div>'}function undoHistory(id){const h=state.history.find(x=>x.id===id);if(!h||h.undone||!h.undoPayload)return;pushUndo('撤銷紀錄');const p=h.undoPayload;if(p.type==='student'){const s=state.students.find(x=>x.id===p.id);if(s){s.score-=p.delta;s.todayScore-=p.delta}}if(p.type==='group'){state.groupScores[p.group]-=p.delta;state.groupToday[p.group]-=p.delta}if(p.type==='everyone')groupStudents(p.group).forEach(s=>{s.score-=p.delta;s.todayScore-=p.delta});if(p.type==='wholeclass')state.students.forEach(s=>{s.score-=p.delta;s.todayScore-=p.delta});
 if(p.type==='everyoneIds'&&Array.isArray(p.ids))p.ids.forEach(id=>{const s=state.students.find(x=>x.id===id);if(s){s.score-=p.delta;s.todayScore-=p.delta}});
 if(p.type==='wholeclassIds'&&Array.isArray(p.ids))p.ids.forEach(id=>{const s=state.students.find(x=>x.id===id);if(s){s.score-=p.delta;s.todayScore-=p.delta}});
 h.undone=true;save();renderAll()}function clearHistory(){if(confirm('清除紀錄？')){state.history=[];save();renderHistory()}}
@@ -3570,7 +3630,7 @@ const initialPanel=document.querySelector('.panel.active')?.id||'dashboardPanel'
 </script>
 <script>
 (function(){
-  const INTEGRATION_VERSION='2.6.7';
+  const INTEGRATION_VERSION='2.6.8';
 
   function parentApi(){
     try{

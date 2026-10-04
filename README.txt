@@ -1,44 +1,48 @@
-香港教師教學日誌 v2.6.7 — V2.3.2 座位／積分共用 Data Service
+香港教師教學日誌 v2.6.8 — 座位主題＋Undo 修正
 更新日期：2026-10-04
 
-今版目標
+測試發現
 ========
-將座位表模組的中央儲存入口接入 School Data Service。
-不逐個功能重寫，而是統一由中央 save() 經 Data Service → Seat adapter → 原本 localStorage。
+v2.6.7 的座位／積分 Data Service 寫入測試完成，但有兩個 UI／歷史回歸：
 
-涵蓋
+1. 座位表一有改動，就由目前主題色變返舊藍色。
+2. 按 Undo 後，剛才的操作紀錄直接消失，而不是顯示為已撤銷。
+
+根源
 ====
-- 學生座位移動／互換
-- 整組位置移動
-- 學生個人積分
-- 小組積分
-- 全組／全班加分
-- Undo／撤銷
-- 清本課分／清全部分
-- 出勤及課堂封存
-- 5人組／第8組／座位設定等所有原本經 save() 保存的座位模組狀態
+1. renderClassSwitcher() 每次 renderAll() 都把 --accent 改為班別 classColor，
+   舊預設為 #4A90E2，因此覆蓋主系統 shared theme。
+2. undoLast() 直接還原操作前完整 state，
+   操作後新增的 history 亦因此一併被刪走。
 
-安全設計
+今版修正
 ========
-- School Data Service 升級至 v5。
-- 新增 seat adapter。
-- 原本 saveManager/localStorage 完整保留。
-- Data Service 或 adapter 未 ready／出錯時，自動 fallback 到 saveRaw()。
-- Profile、追收、Pending、Class 的已驗證流程不改。
-- 無更改 Student ID／Class ID 映射。
+主題：
+- renderClassSwitcher 會優先讀 hk-school-seat-theme-v1。
+- shared theme accent / primary 永遠優先於 legacy classColor。
+- 班別顏色圓點仍可顯示原有 classColor，但不再控制整個座位表主題。
 
-身份資料頁
-==========
-應顯示：
-V2 共用資料服務：✓ 已啟用｜寫入：班別 ✓・待辦 ✓・追收 ✓・Profile ✓・座位積分 ✓
+Undo：
+- 資料仍會真正還原到操作前狀態。
+- 該次操作新增的 history 不會消失。
+- 紀錄會保留並標示「已撤銷」。
+- 已撤銷紀錄稍為淡化及加刪除線，不再顯示再次撤銷按鈕。
+- Undo 儲存仍經 Data Service 中央 save('undo')。
 
-建議測試
-========
-1. 調一位學生去另一座位，重開座位表位置仍正確。
-2. 對一位學生 +1，重開後個人分數保留。
-3. 對一組 +1，重開後小組分保留。
-4. 做一次 Undo，重開後撤銷結果仍保留。
-5. Profile 備註／家校聯絡／課堂事件仍正常，避免中央 save 改動造成回歸。
+驗證
+====
+A. 主題
+1. 主系統選紫藤／布甸狗等非藍色主題。
+2. 開座位表。
+3. 調位或加分。
+4. 主題應保持不變，不再跳回藍色。
+
+B. Undo
+1. 對一位學生 +1。
+2. 課堂紀錄應新增該筆。
+3. 按 Undo。
+4. 分數應還原。
+5. 該筆紀錄仍存在，但顯示「已撤銷」，而不是消失。
 
 部署
 ====

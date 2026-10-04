@@ -1,23 +1,11 @@
 {
-  "build": "2.6.7",
-  "cacheTag": "2670",
+  "build": "2.6.8",
+  "cacheTag": "2680",
   "released": "2026-10-04",
-  "purpose": "v2.3.2-seat-score-central-save-data-service",
+  "purpose": "seat-theme-lock-and-undo-history-preservation",
   "dataServiceVersion": 5,
-  "writePaths": [
-    "classes",
-    "pending",
-    "submissions",
-    "profile",
-    "seat"
-  ],
-  "seatWriteCoverage": [
-    "seat positions",
-    "group positions",
-    "student scores",
-    "group scores",
-    "undo",
-    "attendance/session state",
-    "seat settings"
+  "fixes": [
+    "seat shared theme survives render/save",
+    "undo preserves action history as undone"
   ]
 }
