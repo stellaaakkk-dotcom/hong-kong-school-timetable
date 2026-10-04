@@ -1,12 +1,13 @@
 {
-  "build": "2.6.2",
-  "cacheTag": "2620",
+  "build": "2.6.3",
+  "cacheTag": "2630",
   "released": "2026-10-04",
-  "purpose": "v2.2-submission-write-path",
+  "purpose": "v2.2.1-student-profile-three-state-submissions",
   "dataServiceVersion": 3,
   "writePaths": [
     "classes",
     "pending",
     "submissions"
-  ]
+  ],
+  "studentHubVersion": 3
 }

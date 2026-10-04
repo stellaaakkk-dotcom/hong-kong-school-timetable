@@ -831,6 +831,23 @@ body.event-select-mode #seatPanel .desk span{
   }
 }
 
+
+.main-submission-status{
+ display:inline-flex;align-items:center;justify-content:center;
+ min-width:46px;padding:3px 7px;border-radius:999px;
+ font-size:11px;font-weight:800;line-height:1.25;white-space:nowrap;
+ border:1px solid var(--line,#ddd);
+ background:#fff;color:var(--text,#555);
+}
+.main-submission-status.status-missing{
+ color:#c83d3d;background:#fff1f1;border-color:#efc2c2;
+}
+.main-submission-status.status-submitted{
+ color:var(--accent,#347968);background:var(--soft,#eef7f3);border-color:var(--accent,#347968);
+}
+.main-submission-status.status-unprocessed{
+ color:#7d746c;background:#f4f1ed;border-color:#d9d0c7;
+}
 </style>
 <style>
 .main-system-record{border-left:3px solid #6b8afd}
@@ -1779,6 +1796,16 @@ function mainPendingStatusLabel(status){
    status==='done'?'已完成':'未完成';
 }
 
+function mainSubmissionStatusLabel(status){
+ return status==='submitted'?'已交':
+   status==='missing'?'欠交':'未處理';
+}
+
+function mainSubmissionStatusClass(status){
+ return status==='submitted'?'status-submitted':
+   status==='missing'?'status-missing':'status-unprocessed';
+}
+
 function renderMainStudentData(student){
  const subBox=document.getElementById('studentMainSubmissions');
  const pendingBox=document.getElementById('studentMainPending');
@@ -1796,11 +1823,11 @@ function renderMainStudentData(student){
    <div class="profile-history-item main-system-record">
      <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
        <b>${esc(r.name||'追收項目')}</b>
-       <span class="todo-status-badge status-pending">欠交</span>
+       <span class="main-submission-status ${mainSubmissionStatusClass(r.status)}">${esc(mainSubmissionStatusLabel(r.status))}</span>
      </div>
      <div class="note">${r.dueDate?'繳交 '+esc(r.dueDate):''}${r.deadlineDate?'｜追收 '+esc(r.deadlineDate):''}</div>
-     <button class="btn" style="margin-top:5px" onclick="openMainSubmission('${esc(r.id)}')">開啟追收</button>
-   </div>`).join(''):'<div class="note">目前沒有欠交項目。</div>';
+     <button class="btn" style="margin-top:5px" onclick="openMainSubmission('${esc(r.id)}')">開啟來源</button>
+   </div>`).join(''):'<div class="note">目前沒有追收紀錄。</div>';
 
  const personal=snap.pending||[];
  const classPending=snap.classPending||[];
@@ -3300,7 +3327,7 @@ const initialPanel=document.querySelector('.panel.active')?.id||'dashboardPanel'
 </script>
 <script>
 (function(){
-  const INTEGRATION_VERSION='2.6.2';
+  const INTEGRATION_VERSION='2.6.3';
 
   function parentApi(){
     try{
