@@ -848,6 +848,25 @@ body.event-select-mode #seatPanel .desk span{
 .main-submission-status.status-unprocessed{
  color:#7d746c;background:#f4f1ed;border-color:#d9d0c7;
 }
+
+/* v2.6.6: student profile bottom safe space for floating dock / mobile browser UI */
+#studentProfileModal .modal{
+  padding-bottom:calc(132px + env(safe-area-inset-bottom, 0px)) !important;
+}
+#studentProfileModal .modal::after{
+  content:'';
+  display:block;
+  height:calc(28px + env(safe-area-inset-bottom, 0px));
+  flex:0 0 auto;
+}
+@media(max-width:700px){
+  #studentProfileModal .modal{
+    padding-bottom:calc(158px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  #studentProfileModal .modal::after{
+    height:calc(42px + env(safe-area-inset-bottom, 0px));
+  }
+}
 </style>
 <style>
 .main-system-record{border-left:3px solid #6b8afd}
@@ -3488,7 +3507,7 @@ const initialPanel=document.querySelector('.panel.active')?.id||'dashboardPanel'
 </script>
 <script>
 (function(){
-  const INTEGRATION_VERSION='2.6.5';
+  const INTEGRATION_VERSION='2.6.6';
 
   function parentApi(){
     try{

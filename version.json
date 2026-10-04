@@ -1,16 +1,7 @@
 {
-  "build": "2.6.5",
-  "cacheTag": "2650",
+  "build": "2.6.6",
+  "cacheTag": "2660",
   "released": "2026-10-04",
-  "purpose": "v2.3.1-profile-delete-paths",
-  "dataServiceVersion": 4,
-  "profileWritePaths": [
-    "studentNotes",
-    "parentContacts",
-    "classEvents"
-  ],
-  "profileDeletePaths": [
-    "parentContacts",
-    "classEvents"
-  ]
+  "purpose": "student-profile-bottom-safe-space",
+  "dataServiceVersion": 4
 }
