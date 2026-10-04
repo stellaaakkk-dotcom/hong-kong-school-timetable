@@ -1,4 +1,4 @@
-const CACHE = "hk-teacher-journal-pwa-v2520";
+const CACHE = "hk-teacher-journal-pwa-v2530";
 const ROOT = new URL("./", self.registration.scope).href;
 const CORE = ["./", "./manifest.webmanifest", "./app-icon-192.png", "./app-icon-512.png", "./pdf.worker.min.mjs"];
 
@@ -66,6 +66,7 @@ self.addEventListener("fetch", event => {
     url.pathname.endsWith("/planner-enhancements-v2500.js") ||
     url.pathname.endsWith("/planner-enhancements-v2510.js") ||
     url.pathname.endsWith("/planner-enhancements-v2520.js") ||
+    url.pathname.endsWith("/planner-enhancements-v2530.js") ||
     url.pathname.endsWith("/submission-module.js") ||
     url.pathname.endsWith("/submission-module-v224.js") ||
     url.pathname.endsWith("/submission-module-v225.js") ||
@@ -78,6 +79,7 @@ self.addEventListener("fetch", event => {
     url.pathname.endsWith("/submission-module-v2500.js") ||
     url.pathname.endsWith("/submission-module-v2510.js") ||
     url.pathname.endsWith("/submission-module-v2520.js") ||
+    url.pathname.endsWith("/submission-module-v2530.js") ||
     url.pathname.endsWith("/automate-bridge.js") ||
     url.pathname.endsWith("/seat-score-integrated.html") ||
     url.pathname.endsWith("/seat-score-integrated-v239.html") ||
@@ -117,7 +119,13 @@ self.addEventListener("fetch", event => {
     url.pathname.endsWith("/seat-score-integrated-v2433.html") ||
     url.pathname.endsWith("/seat-score-integrated-v2500.html") ||
     url.pathname.endsWith("/seat-score-integrated-v2510.html") ||
-    url.pathname.endsWith("/seat-score-integrated-v2520.html");
+    url.pathname.endsWith("/seat-score-integrated-v2520.html") ||
+    url.pathname.endsWith("/seat-score-integrated-v2530.html");
+
+  if (url.pathname.endsWith("/version.json")) {
+    event.respondWith(fetch(request,{cache:"no-store"}));
+    return;
+  }
 
   if (isLiveModule) {
     event.respondWith(
@@ -136,7 +144,7 @@ self.addEventListener("fetch", event => {
   // Navigation: network-first, offline fallback to last page.
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request)
+      fetch(request,{cache:"no-store"})
         .then(response => {
           const copy = response.clone();
           caches.open(CACHE).then(cache => cache.put(ROOT, copy));

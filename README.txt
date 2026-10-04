@@ -1,34 +1,35 @@
-香港教師教學日誌 v2.5.2 — Identity V1.1 Compatibility Hard Bust
+香港教師教學日誌 v2.5.3 — V1.2 PWA／版本更新硬化
 
-目的：
-修正「已上載 v2.5.1，但身份資料畫面仍然顯示 v2.5.0 舊內容」。
+目的
+- 直接開原本網址亦應自動取得最新版本。
+- 不再依賴使用者手動加 ?v=xxxx。
 
-根因：
-如果舊 index.html 仍被使用，它會繼續要求：
-- planner-enhancements-v2500.js
-- submission-module-v2500.js
-- seat-score-integrated-v2500.html
+新增
+1. version.json
+   - 最新 build：2.5.3
+   - 每次檢查使用 ?ts=時間戳 + cache:no-store。
 
-以前新 ZIP 只新增新 physical filename，舊 physical filename 不會被覆蓋，
-所以 stale index 仍可成功載入真正舊程式。
+2. index.html Freshness Guard
+   - 首次載入檢查版本。
+   - pageshow / BFCache 返回時再檢查。
+   - App 從背景回到前景時再檢查。
+   - 發現目前 build 落後會自動 location.replace 到帶 v 參數版本。
+   - 用 sessionStorage 防止 reload loop。
 
-v2.5.2：
-1. 新 physical files：
-   planner-enhancements-v2520.js
-   submission-module-v2520.js
-   seat-score-integrated-v2520.html
-2. 同時將 v2500、v2510 compatibility physical files 覆蓋成 v2.5.2 最新程式。
-3. 因此就算瀏覽器暫時仍使用 v2500 / v2510 index reference，都會取得最新程式。
-4. Identity modal 標題新增可見：
-   build 2.5.2
-   用嚟立即確認實際載入版本。
-5. 保留 V1.1 規則：
-   - 01/02/03 placeholder 不進永久 Student Registry
-   - 舊 placeholder registry 自動清理
-   - enrollment 保留 provisional=true
-   - 真實姓名沿用同一 studentId 升格
+3. Service Worker
+   - cache：hk-teacher-journal-pwa-v2530
+   - version.json 永遠 network-only。
+   - navigation fetch 使用 cache:no-store。
+   - 新版 planner/submission/seat 維持 network-first。
+   - 建議 registration 使用 updateViaCache:'none'（若原 index 有標準 register 句式會自動替換）。
 
-更新後驗證：
-- 身份與跨學年資料 V1 標題右邊應見 build 2.5.2
-- 「永久學生」應只計真實姓名學生
-- 歷史學生庫不應再出現純 01/02/03 placeholder
+4. Compatibility physical files
+   - v2500 / v2510 / v2520 舊 physical filename 亦覆蓋為最新程式。
+   - 即使舊 index 暫時出現，都會盡量取得 v2.5.3 邏輯。
+
+驗證
+A. 上載全部檔案。
+B. 關閉目前 tab。
+C. 直接用原本網址打開，不加 ?v=。
+D. 「班別／學生中心 → 身份資料 V1」應顯示 build 2.5.3。
+E. 如果將來再部署新版本，只需更新 version.json build，舊畫面會自動偵測並跳到新版本。
