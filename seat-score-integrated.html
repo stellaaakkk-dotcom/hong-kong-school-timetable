@@ -873,7 +873,7 @@ body.event-select-mode #seatPanel .desk span{
 #studentMainSubmissions .profile-history-item,
 #studentMainPending .profile-history-item{padding:7px!important;margin-bottom:5px!important}
 </style>
-</head><body><div id="integrationBanner" style="position:sticky;top:0;z-index:9999;background:#eef5ff;border-bottom:1px solid #cfdcf0;padding:5px 10px;font:700 11px system-ui;color:#35506f">🔗 已整合香港教師教學日誌：班級／學生由主系統提供；座位、積分保留喺本模組；學生 Profile 寫入已接共用 Data Service。</div><div class="app"><div class="topbar"><div class="brand"><h1 id="pageTitle">七組座位表＋課堂積分 Pro</h1><p>班別管理｜今日班務｜學生｜座位｜積分｜紀錄</p></div><div class="class-switcher"><span id="classColorDot" class="class-dot"></span><select id="classSwitcher" onchange="switchClass(this.value)"></select><button class="btn" onclick="openGlobalSearch()">搜尋</button><button class="btn" onclick="openClassManager()">班別</button></div><div class="tabs"><button class="tab active" data-tab="dashboardPanel">今日</button><button class="tab" data-tab="studentsPanel">學生</button><button class="tab" data-tab="seatPanel">座位</button><button class="tab" data-tab="scorePanel">積分</button><button class="tab" data-tab="historyPanel">紀錄</button><button class="tab" data-tab="setupPanel">更多</button></div></div>
+</head><body><div id="integrationBanner" style="position:sticky;top:0;z-index:9999;background:#eef5ff;border-bottom:1px solid #cfdcf0;padding:5px 10px;font:700 11px system-ui;color:#35506f">🔗 已整合香港教師教學日誌：班級／學生由主系統提供；座位、積分及學生 Profile 寫入已接共用 Data Service；原本本機儲存保留作 fallback。</div><div class="app"><div class="topbar"><div class="brand"><h1 id="pageTitle">七組座位表＋課堂積分 Pro</h1><p>班別管理｜今日班務｜學生｜座位｜積分｜紀錄</p></div><div class="class-switcher"><span id="classColorDot" class="class-dot"></span><select id="classSwitcher" onchange="switchClass(this.value)"></select><button class="btn" onclick="openGlobalSearch()">搜尋</button><button class="btn" onclick="openClassManager()">班別</button></div><div class="tabs"><button class="tab active" data-tab="dashboardPanel">今日</button><button class="tab" data-tab="studentsPanel">學生</button><button class="tab" data-tab="seatPanel">座位</button><button class="tab" data-tab="scorePanel">積分</button><button class="tab" data-tab="historyPanel">紀錄</button><button class="tab" data-tab="setupPanel">更多</button></div></div>
 
 <section class="panel active" id="dashboardPanel">
   <div id="dashboardContent"></div>
@@ -1391,7 +1391,7 @@ function loadManager(){
  const id='class_'+Date.now();const first=normalizeClass(old||makeClassTemplate(old?.className||'3A'));return{activeClassId:id,classes:{[id]:first}}
 }
 let manager=loadManager();Object.keys(manager.classes).forEach(id=>manager.classes[id]=normalizeClass(manager.classes[id]));let state=manager.classes[manager.activeClassId];
-setTimeout(retryRegisterProfileDataAdapter,0);
+setTimeout(retryRegisterDataAdapters,0);
 let undoStack=[],dragId=null,groupDragId=null,bubbleGroupId=null,tempFiveGroups=[],swapMode=false,swapFirstId=null,tempPartialGroups=[],groupMoveMode=false,selectedMoveGroup=null;
 function saveManager(){localStorage.setItem(KEY,JSON.stringify(manager))}
 function parentSchoolDataService(){
@@ -1417,16 +1417,79 @@ function registerProfileDataAdapter(){
    return false;
  }
 }
-function retryRegisterProfileDataAdapter(){
- if(registerProfileDataAdapter())return;
+function registerSeatDataAdapter(){
+ try{
+   const svc=parentSchoolDataService();
+   if(!svc?.seat?.registerAdapter)return false;
+   svc.seat.registerAdapter({
+     snapshot:()=>({
+       classId:manager.activeClassId||'',
+       className:state.className||'',
+       students:(state.students||[]).map(s=>({
+         id:s.id,no:s.no,name:s.name,group:s.group,seat:s.seat,
+         score:s.score,todayScore:s.todayScore,locked:!!s.locked,
+         front:!!s.front,leader:!!s.leader,absent:!!s.absent
+       })),
+       groupScores:{...(state.groupScores||{})},
+       groupToday:{...(state.groupToday||{})},
+       groupPositions:{...(state.groupPositions||{})},
+       fivePersonGroups:[...(state.fivePersonGroups||[])],
+       enableEighthGroup:!!state.enableEighthGroup,
+       updatedAt:state.lastUsed||Date.now()
+     }),
+     commit:async meta=>saveRaw(meta)
+   });
+   return true;
+ }catch(e){
+   console.warn('[seat] data service adapter registration',e);
+   return false;
+ }
+}
+function retryRegisterDataAdapters(){
+ const tryAll=()=>registerProfileDataAdapter()&&registerSeatDataAdapter();
+ if(tryAll())return;
  let tries=0;
  const timer=setInterval(()=>{
    tries++;
-   if(registerProfileDataAdapter()||tries>=12)clearInterval(timer);
+   if(tryAll()||tries>=12)clearInterval(timer);
  },500);
 }
 saveManager();
-function save(){state.todos=dedupeTodos(state.todos);state.parentContacts=dedupeParentContacts(state.parentContacts);state.lastUsed=Date.now();manager.classes[manager.activeClassId]=state;saveManager()}function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1200)}function numSort(a,b){return(parseInt(a)||0)-(parseInt(b)||0)}
+
+function saveRaw(meta={}){
+ state.todos=dedupeTodos(state.todos);
+ state.parentContacts=dedupeParentContacts(state.parentContacts);
+ state.lastUsed=Date.now();
+ manager.classes[manager.activeClassId]=state;
+ saveManager();
+ return {
+   ok:true,
+   classId:manager.activeClassId||'',
+   reason:meta?.reason||'state-save',
+   updatedAt:state.lastUsed
+ };
+}
+function save(reason='state-save'){
+ const meta={
+   reason:String(reason||'state-save'),
+   classId:manager.activeClassId||'',
+   className:state.className||''
+ };
+ const svc=parentSchoolDataService();
+ if(svc?.seat?.commit){
+   try{
+     const p=svc.seat.commit(meta);
+     if(p&&typeof p.catch==='function')p.catch(e=>{
+       console.warn('[seat] data service save fallback',e);
+       saveRaw(meta);
+     });
+     return;
+   }catch(e){
+     console.warn('[seat] data service save fallback',e);
+   }
+ }
+ saveRaw(meta);
+}function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1200)}function numSort(a,b){return(parseInt(a)||0)-(parseInt(b)||0)}
 function activeGroupCount(){return state.enableEighthGroup?8:7}
 function activeGroups(){return Array.from({length:activeGroupCount()},(_,i)=>i+1)}
 
@@ -2776,7 +2839,7 @@ function studentDesk(s){
  return d;
 }
 function enableSeatDrop(el,g,seat){el.ondragover=e=>{if(dragId&&!groupDragId){e.preventDefault();el.classList.add('drop-hint')}};el.ondragleave=()=>el.classList.remove('drop-hint');el.ondrop=e=>{if(!dragId||groupDragId)return;e.preventDefault();e.stopPropagation();el.classList.remove('drop-hint');moveStudent(dragId,g,seat)}}function canPairSameGroup(a,b){return!state.noGroupPairs.some(p=>(p[0]===a&&p[1]===b)||(p[0]===b&&p[1]===a))}
-function moveStudent(id,g,targetSeat){const s=state.students.find(x=>x.id===id);if(!s||s.locked)return;g=+g;const members=groupStudents(g),cap=groupCap(g);if(targetSeat==null){if(s.group!==g&&members.length>=cap){toast(`第${g}組最多${cap}人`);return}const used=new Set(members.map(x=>x.seat));targetSeat=[0,1,2,3,4,5].find(i=>i<groupSeatSpaces(g)&&!used.has(i));if(targetSeat==null)return}const oldG=s.group,oldS=s.seat;if(oldG===g&&oldS===targetSeat)return;const occ=state.students.find(x=>x.group===g&&x.seat===targetSeat&&x.id!==id);if(oldG!==g&&!occ&&members.length>=cap){toast(`第${g}組最多${cap}人`);return}if(members.filter(x=>x.id!==occ?.id&&x.id!==s.id).some(x=>!canPairSameGroup(s.id,x.id))){toast('違反不可同組限制');return}pushUndo('學生調位');if(occ){occ.group=oldG;occ.seat=oldS}else{}s.group=g;s.seat=targetSeat;logAction(`班號 ${s.no} 調位`,'調位');save();renderAll()}
+function moveStudent(id,g,targetSeat){const s=state.students.find(x=>x.id===id);if(!s||s.locked)return;g=+g;const members=groupStudents(g),cap=groupCap(g);if(targetSeat==null){if(s.group!==g&&members.length>=cap){toast(`第${g}組最多${cap}人`);return}const used=new Set(members.map(x=>x.seat));targetSeat=[0,1,2,3,4,5].find(i=>i<groupSeatSpaces(g)&&!used.has(i));if(targetSeat==null)return}const oldG=s.group,oldS=s.seat;if(oldG===g&&oldS===targetSeat)return;const occ=state.students.find(x=>x.group===g&&x.seat===targetSeat&&x.id!==id);if(oldG!==g&&!occ&&members.length>=cap){toast(`第${g}組最多${cap}人`);return}if(members.filter(x=>x.id!==occ?.id&&x.id!==s.id).some(x=>!canPairSameGroup(s.id,x.id))){toast('違反不可同組限制');return}pushUndo('學生調位');if(occ){occ.group=oldG;occ.seat=oldS}else{}s.group=g;s.seat=targetSeat;logAction(`班號 ${s.no} 調位`,'調位');save('student-seat-move');renderAll()}
 function enableSlotDrop(slot,no){
  slot.addEventListener('click',e=>{
    if(!groupMoveMode||!selectedMoveGroup)return;
@@ -3250,7 +3313,7 @@ function quickAwardStudent(id,d,reason){
  s.todayScore+=d;
  s.lastReason=reason;
  logAction(`班號 ${s.no} ${d>0?'+':''}${d}`,reason,{type:'student',id,studentNo:String(s.no),delta:d,eventDate:new Date().toLocaleDateString('zh-HK'),eventTime:new Date().toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'}),lessonContext:currentLessonContext()});
- save();
+ save('student-score');
  renderAll();
  openGroupBubble(g);
 }
@@ -3283,7 +3346,7 @@ function bubbleGroupScore(d){
    {type:'group',group:g,delta:delta}
  );
 
- save();
+ save('group-score');
 
  const summary=document.getElementById('groupBubbleScoreSummary');
  if(summary)summary.textContent=`小組分：本課 ${afterToday}｜累積 ${afterTotal}`;
@@ -3406,7 +3469,7 @@ function endClassSession(){
  logAction(`結束課堂 ${date}`,'課堂');
  save();renderAll();toast('本課及出勤紀錄已封存');
 }
-function resetTodayScores(){if(!confirm('清空本課積分？'))return;pushUndo('清本課分');state.students.forEach(s=>s.todayScore=0);for(let g=1;g<=activeGroupCount();g++)state.groupToday[g]=0;save();renderAll()}function resetAllScores(){if(!confirm('清空所有積分？'))return;pushUndo('清全部分');state.students.forEach(s=>{s.score=0;s.todayScore=0});for(let g=1;g<=activeGroupCount();g++){state.groupScores[g]=0;state.groupToday[g]=0}save();renderAll()}
+function resetTodayScores(){if(!confirm('清空本課積分？'))return;pushUndo('清本課分');state.students.forEach(s=>s.todayScore=0);for(let g=1;g<=activeGroupCount();g++)state.groupToday[g]=0;save('reset-today-score');renderAll()}function resetAllScores(){if(!confirm('清空所有積分？'))return;pushUndo('清全部分');state.students.forEach(s=>{s.score=0;s.todayScore=0});for(let g=1;g<=activeGroupCount();g++){state.groupScores[g]=0;state.groupToday[g]=0}save('reset-all-score');renderAll()}
 function renderHistory(){const w=document.getElementById('historyList');w.innerHTML=state.history.map(h=>`<div class="history-item"><div><div class="history-main">${esc(h.text)}</div><div class="history-meta">${esc(h.time)}${h.reason?'｜'+esc(h.reason):''}${h.undone?'｜已撤銷':''}</div></div>${h.undoPayload&&!h.undone?`<button class="btn" onclick="undoHistory('${h.id}')">撤銷</button>`:''}</div>`).join('')||'<div class="note">暫時未有紀錄</div>'}function undoHistory(id){const h=state.history.find(x=>x.id===id);if(!h||h.undone||!h.undoPayload)return;pushUndo('撤銷紀錄');const p=h.undoPayload;if(p.type==='student'){const s=state.students.find(x=>x.id===p.id);if(s){s.score-=p.delta;s.todayScore-=p.delta}}if(p.type==='group'){state.groupScores[p.group]-=p.delta;state.groupToday[p.group]-=p.delta}if(p.type==='everyone')groupStudents(p.group).forEach(s=>{s.score-=p.delta;s.todayScore-=p.delta});if(p.type==='wholeclass')state.students.forEach(s=>{s.score-=p.delta;s.todayScore-=p.delta});
 if(p.type==='everyoneIds'&&Array.isArray(p.ids))p.ids.forEach(id=>{const s=state.students.find(x=>x.id===id);if(s){s.score-=p.delta;s.todayScore-=p.delta}});
 if(p.type==='wholeclassIds'&&Array.isArray(p.ids))p.ids.forEach(id=>{const s=state.students.find(x=>x.id===id);if(s){s.score-=p.delta;s.todayScore-=p.delta}});
@@ -3507,7 +3570,7 @@ const initialPanel=document.querySelector('.panel.active')?.id||'dashboardPanel'
 </script>
 <script>
 (function(){
-  const INTEGRATION_VERSION='2.6.6';
+  const INTEGRATION_VERSION='2.6.7';
 
   function parentApi(){
     try{

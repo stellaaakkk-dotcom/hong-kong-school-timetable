@@ -1,7 +1,23 @@
 {
-  "build": "2.6.6",
-  "cacheTag": "2660",
+  "build": "2.6.7",
+  "cacheTag": "2670",
   "released": "2026-10-04",
-  "purpose": "student-profile-bottom-safe-space",
-  "dataServiceVersion": 4
+  "purpose": "v2.3.2-seat-score-central-save-data-service",
+  "dataServiceVersion": 5,
+  "writePaths": [
+    "classes",
+    "pending",
+    "submissions",
+    "profile",
+    "seat"
+  ],
+  "seatWriteCoverage": [
+    "seat positions",
+    "group positions",
+    "student scores",
+    "group scores",
+    "undo",
+    "attendance/session state",
+    "seat settings"
+  ]
 }
