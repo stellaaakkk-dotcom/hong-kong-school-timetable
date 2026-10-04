@@ -1,25 +1,55 @@
-香港教師教學日誌 v2.4.33
+香港教師教學日誌 v2.5.0 — 成熟整合 V1：身份與跨學年資料層
 
-修正 1：Theme Sync 甩色
-- 每日科目工作流：科目／班別選擇 active 按鈕改跟主題 accent。
-- 工作流未選按鈕亦改跟主題 soft / text / line。
-- 待處理／追收：全部／今日／逾期／個人／班別等 active chip 改跟主題 accent。
-- 座位／積分底部浮台：active tab 不再用獨立 --primary 藍色，統一用 --accent。
-- 座位模組 applyParentTheme 同時設定 --primary，兼容仍使用舊變數的元件。
-- 座位模組 soft button / 小組分數藍色亦改跟主題。
+原則
+- 不重新產生現有 classId / studentId。
+- studentId 永久跟學生。
+- classId 代表某一學年班級實體。
+- Enrollment 儲存某學生在某學年、某班、某班號的關係。
 
-修正 2：待處理中心漏「未處理功課」
-舊邏輯：
-- 只有 missing.length > 0 的 submission record 才加入待處理／追收。
-- 因此「欠交 0，但仍有未處理學生」完全不顯示。
+新增
+1. Identity V1 Local Store
+   hk-school-identity-v1
+   - currentSchoolYear
+   - permanent students registry
+   - classInstances
+   - enrollments
 
-新邏輯：
-- 使用統一 submissionProgress(record) 三態。
-- 只要不是已交齊，就加入待處理／追收。
-- 同時顯示：
-  已交 X｜欠交 Y｜未處理 Z
-- 已交齊的紀錄不顯示。
-- 例如全班 25 人、未開始處理：
-  已交 0｜欠交 0｜未處理 25
+2. School Year
+   - 自動推斷目前學年，例如 2026/27。
+   - 新班別會帶 schoolYear。
+   - 新 classId 加入學年資訊。
+   - 同一個「3B」下學年可以建立新 classId，不會被舊 3B 吞掉。
 
-其他功能及資料結構不改。
+3. Historical Student Registry
+   - 現有學生自動加入永久學生庫。
+   - 保存 aliases / firstSeen / lastSeen。
+   - 「班別／學生中心 → 🧬 身份資料 V1」可搜尋歷史學生。
+   - 可將前年／以前教過的學生勾回目前班別。
+   - 沿用原本 studentId，只新增今年 enrollment。
+
+4. Enrollment
+   - schoolYear + classId + studentId + studentNo。
+   - 班號每年可以不同，不寫死在永久 Student。
+   - 同一 studentId 的歷史班別可以追溯。
+
+5. Identity Audit
+   - duplicate classId
+   - 同一學年同 studentId 出現在多個班別
+   - orphan student-linked pending
+   - legacy 姓名／班號 pending
+   - legacy number-only submission records
+
+6. Class Core API v3
+   新增：
+   - getSchoolYear()
+   - getStudentRegistry()
+   - getEnrollments(studentId)
+   - audit()
+
+兼容
+- 舊班級／學生資料會補 metadata，但 ID 原封不動。
+- 舊追收紀錄不強行改寫，以免破壞歷史資料。
+- Theme Sync / 座位 / 追收 / Profile 現有功能保留。
+
+目前 V1 身份 store 先採 local persistence。
+跨裝置身份 registry 的 Firestore service layer 留待 V2 共用資料服務處理，避免 V1 同時改太多同步架構。
