@@ -1,11 +1,10 @@
 {
-  "build": "2.6.8",
-  "cacheTag": "2680",
+  "build": "2.6.9",
+  "cacheTag": "2690",
   "released": "2026-10-04",
-  "purpose": "seat-theme-lock-and-undo-history-preservation",
+  "purpose": "clear-undone-history-only",
   "dataServiceVersion": 5,
   "fixes": [
-    "seat shared theme survives render/save",
-    "undo preserves action history as undone"
+    "manual cleanup for undone history without affecting live state"
   ]
 }

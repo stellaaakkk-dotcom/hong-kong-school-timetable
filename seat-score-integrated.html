@@ -898,7 +898,7 @@ body.event-select-mode #seatPanel .desk span{
 </section>
 <section class="panel" id="seatPanel"><div class="toolbar"><button class="btn primary" onclick="startClassSession()">今日課堂開始</button><button class="btn" onclick="openAttendance()">快速點名</button><button class="btn" onclick="openPicker()">抽選</button><button class="btn primary" onclick="openMoveGroupModal()" id="moveGroupMainBtn">移動組別</button><button class="btn primary teacher-only" onclick="generateRandomPreview()">隨機全部</button><button class="btn teacher-only" onclick="randomizeWithinGroups()">只亂組內</button><button class="btn teacher-only" onclick="openPartialRandomModal()">指定組隨機</button><button class="btn soft teacher-only" onclick="openFiveGroupModal()">設定5人組</button><button class="btn teacher-only" onclick="toggleEighthGroup()" id="eighthGroupBtn">開設第8組</button><button class="btn teacher-only" id="swapModeBtn" onclick="toggleSwapMode()">交換模式</button><button class="btn soft teacher-only" onclick="undoLast()">↶ Undo</button><button class="btn teacher-only" onclick="saveSeatVersion()">儲存版本</button><div class="spacer"></div><span class="chip" id="seatCountChip"></span><button class="btn" onclick="toggleProjectorMode()">投影</button><button class="btn" onclick="toggleClassroomMode()">課堂模式</button></div><div class="toolbar" id="seatToolbarSecondary"><button class="btn teacher-only" onclick="resetGroupLayout()">重設4×2位置</button><button class="btn teacher-only" onclick="window.print()">列印</button><button class="btn teacher-only" onclick="openVersionsModal()">座位版本</button><button class="btn teacher-only" onclick="openRestrictionsModal()">座位限制</button><button class="btn teacher-only" onclick="awardWholeClass()">全班 +1</button><button class="btn teacher-only" onclick="endClassSession()">結束課堂</button><button class="btn teacher-only" onclick="openSessionHistory()">課堂歷史</button><label class="chip"><input type="checkbox" id="hideRankingChk" onchange="toggleRanking()"> 隱藏小組分</label></div><div class="classroom"><div class="front-row"><div class="teacher-desk">教師桌</div><div class="board">黑 板</div><div class="door">門口</div></div><div class="room-grid" id="roomGrid"></div><div class="bottom-door-row"><div></div><div class="door">門口</div></div></div></section>
 <section class="panel" id="scorePanel"><div class="toolbar"><button class="btn soft" onclick="undoLast()">↶ Undo</button><button class="btn" onclick="resetTodayScores()">清本課分</button><button class="btn danger" onclick="resetAllScores()">清全部分</button><div class="spacer"></div><input id="search" placeholder="搜尋班號／姓名" oninput="renderScoreList()"><select id="scoreFilter" onchange="renderScoreList()"><option value="all">班號排序</option><option value="desc">累積分排序</option></select></div><div class="score-layout"><div class="card"><h2 style="margin:0 0 8px;font-size:15px">小組積分</h2><div id="groupScoreList" class="group-score-list"></div></div><div id="studentScoreList" class="personal-group-grid"></div></div></section>
-<section class="panel" id="historyPanel"><div class="card"><div class="modal-title-row"><h2 style="margin:0;font-size:15px">課堂紀錄</h2><button class="btn danger" onclick="clearHistory()">清除紀錄</button></div><p class="note">每一筆計分可獨立撤銷。</p><div id="historyList" class="history-list"></div></div></section>
+<section class="panel" id="historyPanel"><div class="card"><div class="modal-title-row"><h2 style="margin:0;font-size:15px">課堂紀錄</h2><div class="quick-row"><button class="btn" id="clearUndoneHistoryBtn" onclick="clearUndoneHistory()">清理已撤銷</button><button class="btn danger" onclick="clearHistory()">清除紀錄</button></div></div><p class="note">有效紀錄保留；已撤銷紀錄可按「清理已撤銷」移除。</p><div id="historyList" class="history-list"></div></div></section>
 <section class="panel" id="setupPanel">
 <div class="card" style="margin-bottom:8px">
   <h2 style="margin:0 0 8px;font-size:15px">課堂事件設定</h2>
@@ -3530,10 +3530,31 @@ function endClassSession(){
  save();renderAll();toast('本課及出勤紀錄已封存');
 }
 function resetTodayScores(){if(!confirm('清空本課積分？'))return;pushUndo('清本課分');state.students.forEach(s=>s.todayScore=0);for(let g=1;g<=activeGroupCount();g++)state.groupToday[g]=0;save('reset-today-score');renderAll()}function resetAllScores(){if(!confirm('清空所有積分？'))return;pushUndo('清全部分');state.students.forEach(s=>{s.score=0;s.todayScore=0});for(let g=1;g<=activeGroupCount();g++){state.groupScores[g]=0;state.groupToday[g]=0}save('reset-all-score');renderAll()}
-function renderHistory(){const w=document.getElementById('historyList');w.innerHTML=state.history.map(h=>`<div class="history-item${h.undone?' is-undone':''}"><div><div class="history-main">${esc(h.text)}</div><div class="history-meta">${esc(h.time)}${h.reason?'｜'+esc(h.reason):''}${h.undone?'｜已撤銷':''}</div></div>${h.undoPayload&&!h.undone?`<button class="btn" onclick="undoHistory('${h.id}')">撤銷</button>`:''}</div>`).join('')||'<div class="note">暫時未有紀錄</div>'}function undoHistory(id){const h=state.history.find(x=>x.id===id);if(!h||h.undone||!h.undoPayload)return;pushUndo('撤銷紀錄');const p=h.undoPayload;if(p.type==='student'){const s=state.students.find(x=>x.id===p.id);if(s){s.score-=p.delta;s.todayScore-=p.delta}}if(p.type==='group'){state.groupScores[p.group]-=p.delta;state.groupToday[p.group]-=p.delta}if(p.type==='everyone')groupStudents(p.group).forEach(s=>{s.score-=p.delta;s.todayScore-=p.delta});if(p.type==='wholeclass')state.students.forEach(s=>{s.score-=p.delta;s.todayScore-=p.delta});
+function renderHistory(){
+ const w=document.getElementById('historyList');
+ const arr=state.history||[];
+ w.innerHTML=arr.map(h=>`<div class="history-item${h.undone?' is-undone':''}"><div><div class="history-main">${esc(h.text)}</div><div class="history-meta">${esc(h.time)}${h.reason?'｜'+esc(h.reason):''}${h.undone?'｜已撤銷':''}</div></div>${h.undoPayload&&!h.undone?`<button class="btn" onclick="undoHistory('${h.id}')">撤銷</button>`:''}</div>`).join('')||'<div class="note">暫時未有紀錄</div>';
+ const btn=document.getElementById('clearUndoneHistoryBtn');
+ if(btn){
+   const n=arr.filter(h=>h.undone).length;
+   btn.disabled=n===0;
+   btn.textContent=n?`清理已撤銷（${n}）`:'清理已撤銷';
+ }
+}function undoHistory(id){const h=state.history.find(x=>x.id===id);if(!h||h.undone||!h.undoPayload)return;pushUndo('撤銷紀錄');const p=h.undoPayload;if(p.type==='student'){const s=state.students.find(x=>x.id===p.id);if(s){s.score-=p.delta;s.todayScore-=p.delta}}if(p.type==='group'){state.groupScores[p.group]-=p.delta;state.groupToday[p.group]-=p.delta}if(p.type==='everyone')groupStudents(p.group).forEach(s=>{s.score-=p.delta;s.todayScore-=p.delta});if(p.type==='wholeclass')state.students.forEach(s=>{s.score-=p.delta;s.todayScore-=p.delta});
 if(p.type==='everyoneIds'&&Array.isArray(p.ids))p.ids.forEach(id=>{const s=state.students.find(x=>x.id===id);if(s){s.score-=p.delta;s.todayScore-=p.delta}});
 if(p.type==='wholeclassIds'&&Array.isArray(p.ids))p.ids.forEach(id=>{const s=state.students.find(x=>x.id===id);if(s){s.score-=p.delta;s.todayScore-=p.delta}});
-h.undone=true;save();renderAll()}function clearHistory(){if(confirm('清除紀錄？')){state.history=[];save();renderHistory()}}
+h.undone=true;save();renderAll()}
+function clearUndoneHistory(){
+ const undone=(state.history||[]).filter(h=>h.undone);
+ if(!undone.length){toast('目前沒有已撤銷紀錄');return}
+ if(!confirm(`確定清理 ${undone.length} 筆已撤銷紀錄？\n只會刪除歷史顯示，不會再改動分數或座位。`))return;
+ state.history=(state.history||[]).filter(h=>!h.undone);
+ save('clear-undone-history');
+ renderHistory();
+ renderDashboard();
+ toast(`已清理 ${undone.length} 筆已撤銷紀錄`);
+}
+function clearHistory(){if(confirm('清除紀錄？')){state.history=[];save('clear-history');renderHistory()}}
 function openFiveGroupModal(){tempFiveGroups=[...state.fivePersonGroups];renderFiveChoices();document.getElementById('fiveGroupModal').classList.add('show')}function closeFiveGroupModal(){document.getElementById('fiveGroupModal').classList.remove('show')}function renderFiveChoices(){const w=document.getElementById('fiveGroupChoices');w.innerHTML='';for(let g=1;g<=activeGroupCount();g++){const b=document.createElement('button');b.className='choice'+(tempFiveGroups.includes(g)?' active':'');b.textContent='第'+g+'組';b.onclick=()=>{tempFiveGroups.includes(g)?tempFiveGroups=tempFiveGroups.filter(x=>x!==g):tempFiveGroups.push(g);renderFiveChoices()};w.appendChild(b)}}function saveFiveGroupSetting(){for(let g=1;g<=activeGroupCount();g++){const cap=tempFiveGroups.includes(g)?5:4;if(groupStudents(g).length>cap){alert(`第${g}組現有${groupStudents(g).length}人`);return}}pushUndo('設定5人組');state.fivePersonGroups=[...tempFiveGroups];save();closeFiveGroupModal();renderAll()}function resetGroupLayout(){
  pushUndo('重設位置');
  state.groupPositions={1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:8};
@@ -3630,7 +3651,7 @@ const initialPanel=document.querySelector('.panel.active')?.id||'dashboardPanel'
 </script>
 <script>
 (function(){
-  const INTEGRATION_VERSION='2.6.8';
+  const INTEGRATION_VERSION='2.6.9';
 
   function parentApi(){
     try{
