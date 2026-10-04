@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.5.4';
+  const VERSION = '2.5.5';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -1090,6 +1090,43 @@
       });
     });
     if(removed)saveIdentityV1();
+    return removed;
+  }
+
+  function isSafeRemovableEnrollment(e={}){
+    const liveIds=identityLiveClassIds();
+    const classId=String(e.classId||'');
+    if(classId && liveIds.has(classId))return false;
+    return isTestLikeClassName(e.className);
+  }
+
+  function removeSafeStudentEnrollment(studentId='', enrollmentId=''){
+    const sid=String(studentId||'');
+    const eid=String(enrollmentId||'');
+    const store=loadIdentityV1();
+    const e=store.enrollments?.[eid];
+    if(!e || String(e.studentId)!==sid)return {ok:false,reason:'找不到紀錄'};
+    if(!isSafeRemovableEnrollment(e))return {ok:false,reason:'呢個 Enrollment 仍屬正式／現存班級，不能直接刪除'};
+    delete store.enrollments[eid];
+    saveIdentityV1();
+    cleanupEmptyTestClassInstances();
+    return {ok:true};
+  }
+
+  function removeAllSafeTestEnrollments(studentId=''){
+    const sid=String(studentId||'');
+    const store=loadIdentityV1();
+    let removed=0;
+    Object.entries({...store.enrollments}).forEach(([eid,e])=>{
+      if(String(e.studentId)!==sid)return;
+      if(!isSafeRemovableEnrollment(e))return;
+      delete store.enrollments[eid];
+      removed++;
+    });
+    if(removed){
+      saveIdentityV1();
+      cleanupEmptyTestClassInstances();
+    }
     return removed;
   }
 
@@ -4444,7 +4481,7 @@
         <div><b>🪑 座位／積分</b><small id="pe-seat-score-status">共用班級及學生資料</small></div>
         <button type="button" id="pe-seat-score-close">✕</button>
       </div>
-      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=2540"></iframe>
+      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=2550"></iframe>
     </div>`;
     document.body.appendChild(m);
     m.querySelector('#pe-seat-score-close').addEventListener('click',()=>closeSeatScore());
@@ -4605,8 +4642,8 @@
     m.id='pe-class-center-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>🏫 班級中心 <small style="font-size:.62em;opacity:.55">v2.5.4</small></h3>
-      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.5.4</span></p>
+      <h3>🏫 班級中心 <small style="font-size:.62em;opacity:.55">v2.5.5</small></h3>
+      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.5.5</span></p>
       <div class="pe-v2-tabs">
         <button type="button" data-class-center-tab="overview" class="active">總覽</button>
         <button type="button" data-class-center-tab="students">學生</button>
@@ -4749,7 +4786,7 @@
 
   function installClassCoreApi(){
     window.__classCoreAPI={
-      version:4,
+      version:5,
       getClasses:()=>state.classCore.map(c=>({
         ...normalizeClassProfile(c),
         students:normalizeClassProfile(c).students.map(s=>({...s}))
@@ -4788,7 +4825,8 @@
       getEnrollments:(studentId='')=>studentId?identityStudentHistory(studentId):Object.values(syncIdentityV1FromClassCore().enrollments||{}).map(x=>({...x})),
       audit:()=>identityAudit(),
       mergeStudentIds:(sourceId,targetId)=>({sourceId,targetId}),
-      cleanupDuplicateEnrollments:()=>dedupeIdentityEnrollments()
+      cleanupDuplicateEnrollments:()=>dedupeIdentityEnrollments(),
+      cleanupTestEnrollments:(studentId)=>removeAllSafeTestEnrollments(studentId)
     };
   }
 
@@ -4803,7 +4841,7 @@
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog" style="width:min(920px,calc(100vw - 24px))">
       <h3>👤 永久學生管理</h3>
-      <p class="pe-note">正式歷史學生唔應該隨便刪除。測試／重複身份可以喺呢度安全清理；合併時會保留目標 Student ID。</p>
+      <p class="pe-note">正式歷史學生唔應該隨便刪除。測試／重複身份可以安全清理；如果測試班已刪除，可只刪該班 Enrollment，而保留真正 Student ID。</p>
 
       <div class="pe-class-card">
         <h4>🔗 合併重複學生</h4>
@@ -4841,9 +4879,36 @@
       renderIdentityV1();
     });
     m.querySelector('#pe-idm-list').addEventListener('click',async e=>{
-      const btn=e.target.closest('[data-idm-delete]');
-      if(!btn)return;
-      await deleteSafeTestIdentity(btn.dataset.idmDelete);
+      const identityBtn=e.target.closest('[data-idm-delete]');
+      if(identityBtn){
+        await deleteSafeTestIdentity(identityBtn.dataset.idmDelete);
+        return;
+      }
+
+      const cleanBtn=e.target.closest('[data-idm-clean-test]');
+      if(cleanBtn){
+        const sid=cleanBtn.dataset.idmCleanTest;
+        if(!confirm('確定清除呢位學生所有「已刪除測試班」Enrollment？\n正式／現存班級紀錄唔會刪除。'))return;
+        const n=removeAllSafeTestEnrollments(sid);
+        alert(n?`已清除 ${n} 個測試班 Enrollment。`:'沒有可安全清除嘅測試班 Enrollment。');
+        renderIdentityManager();
+        renderIdentityV1();
+        return;
+      }
+
+      const enrollmentBtn=e.target.closest('[data-idm-enrollment-delete]');
+      if(enrollmentBtn){
+        const sid=enrollmentBtn.dataset.studentId;
+        const eid=enrollmentBtn.dataset.idmEnrollmentDelete;
+        const store=loadIdentityV1();
+        const rec=store.enrollments?.[eid];
+        if(!rec)return;
+        if(!confirm(`刪除「${rec.schoolYear}・${rec.className}・${String(rec.studentNo||'').padStart(2,'0')}號」呢一條測試 Enrollment？`))return;
+        const result=removeSafeStudentEnrollment(sid,eid);
+        if(!result.ok)alert(result.reason);
+        renderIdentityManager();
+        renderIdentityV1();
+      }
     });
     return m;
   }
@@ -4876,16 +4941,29 @@
     list.innerHTML=students.length?students.map(s=>{
       const usage=studentIdentityUsage(s.studentId);
       const hist=identityStudentHistory(s.studentId);
-      const historyText=hist.slice(0,4).map(h=>`${h.schoolYear}・${h.className}・${String(h.studentNo||'').padStart(2,'0')}號`).join('｜')||'沒有 Enrollment';
+      const safeTestHist=hist.filter(h=>isSafeRemovableEnrollment(h));
       const liveText=usage.liveClasses.length?`目前班別：${usage.liveClasses.map(c=>c.name).join('、')}`:'目前冇班級使用';
+
+      const historyHtml=hist.length?hist.map(h=>{
+        const removable=isSafeRemovableEnrollment(h);
+        const label=`${h.schoolYear}・${h.className}・${String(h.studentNo||'').padStart(2,'0')}號`;
+        return `<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:4px">
+          <small>${esc(label)}</small>
+          ${removable?`<button class="pe-btn" style="padding:3px 7px;font-size:11px" data-idm-enrollment-delete="${esc(h.enrollmentId)}" data-student-id="${esc(s.studentId)}">刪除紀錄</button>`:''}
+        </div>`;
+      }).join(''):'<small style="display:block;margin-top:4px">沒有 Enrollment</small>';
+
       return `<div class="pe-class-card" style="margin:0;padding:9px">
         <b style="display:block">${esc(s.currentName||'未命名學生')}</b>
         <small style="display:block;opacity:.6;overflow-wrap:anywhere">${esc(s.studentId)}</small>
-        <small style="display:block;margin-top:4px">${esc(historyText)}</small>
-        <small style="display:block;margin-top:3px;opacity:.72">${esc(liveText)}</small>
+        <div style="margin-top:4px">${historyHtml}</div>
+        <small style="display:block;margin-top:5px;opacity:.72">${esc(liveText)}</small>
+        ${safeTestHist.length
+          ?`<button class="pe-btn" data-idm-clean-test="${esc(s.studentId)}" style="margin-top:7px">清除全部測試班紀錄（${safeTestHist.length}）</button>`
+          :''}
         ${usage.safeDelete
           ?`<button class="pe-btn" data-idm-delete="${esc(s.studentId)}" style="margin-top:7px">刪除測試／錯誤身份</button>`
-          :`<small style="display:block;margin-top:6px;opacity:.55">正式／使用中身份：不可直接刪除</small>`}
+          :`<small style="display:block;margin-top:6px;opacity:.55">正式／使用中身份：不可直接刪除 Student ID</small>`}
       </div>`;
     }).join(''):'<div class="pe-note">永久學生庫目前沒有資料。</div>';
 
@@ -5040,7 +5118,7 @@
     m.id='pe-identity-v1-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog" style="width:min(900px,calc(100vw - 24px))">
-      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.5.4</small></h3>
+      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.5.5</small></h3>
       <p class="pe-note">studentId 永久跟學生；classId 代表某一學年嘅班級實體。01／02 等暫時班號唔會進入永久學生庫；改成真實姓名後會沿用原 studentId 自動升格。</p>
       <div class="pe-grid">
         <div class="pe-field">
@@ -5225,7 +5303,7 @@
     m.id='pe-class-core-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>🏫 班別／學生中心 <small style="font-size:.62em;opacity:.55">v2.5.4</small></h3>
+      <h3>🏫 班別／學生中心 <small style="font-size:.62em;opacity:.55">v2.5.5</small></h3>
       <p class="pe-note">呢份學生資料係座位表、積分、追收及學生紀錄嘅共用核心。每個班別及學生而家都有固定 ID；改名唔會令資料斷開。學生名單每行一位。</p>
       <div class="pe-class-core-grid">
         <div>

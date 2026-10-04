@@ -1,6 +1,6 @@
 {
-  "build": "2.5.4",
-  "cacheTag": "2540",
+  "build": "2.5.5",
+  "cacheTag": "2550",
   "released": "2026-10-04",
-  "purpose": "identity-v1.3-student-management-compact-deploy"
+  "purpose": "identity-v1.4-orphan-test-enrollment-cleanup"
 }

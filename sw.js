@@ -1,4 +1,4 @@
-const CACHE = "hk-teacher-journal-pwa-v2540";
+const CACHE = "hk-teacher-journal-pwa-v2550";
 const ROOT = new URL("./", self.registration.scope).href;
 const CORE = ["./", "./manifest.webmanifest", "./app-icon-192.png", "./app-icon-512.png", "./pdf.worker.min.mjs"];
 
