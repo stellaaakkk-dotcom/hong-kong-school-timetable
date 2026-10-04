@@ -1,13 +1,14 @@
 {
-  "build": "2.7.1",
-  "cacheTag": "2710",
+  "build": "2.7.2",
+  "cacheTag": "2720",
   "released": "2026-10-04",
-  "purpose": "v2.4.1-offline-queue-reconnect-fix",
+  "purpose": "v2.4.2-submission-queue-first-reliability",
   "dataServiceVersion": 7,
-  "fixes": [
-    "submission queue immediately updates sync count",
-    "reconnect submission storage after offline disconnect",
-    "overlay unsynced local queue on cloud snapshots",
-    "planner reconnects data layer before flush"
+  "changes": [
+    "submission writes always enter app queue before cloud attempt",
+    "queue clears only after confirmed Firestore success",
+    "Firestore submission writes use timeout instead of hanging indefinitely",
+    "online reconnect retries after 1.2 seconds",
+    "submission pending count forces top sync-status refresh"
   ]
 }

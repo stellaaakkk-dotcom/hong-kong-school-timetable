@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.7.1';
+  const VERSION = '2.7.2';
   const LOCAL_KEY = 'hk-school-submission-records-v1';
   const PENDING_KEY = 'hk-school-submission-pending-v1';
   const CLASS_PREF_KEY = 'hk-school-class-student-counts-v1';
@@ -299,6 +299,13 @@
     q.push(item);
     savePending(q);
   }
+  function withSyncTimeout(promise,ms=7000){
+    return Promise.race([
+      promise,
+      new Promise((_,reject)=>setTimeout(()=>reject(new Error('submission sync timeout')),ms))
+    ]);
+  }
+
   let flushPromise=null;
   async function flushPending(){
     if(flushPromise)return flushPromise;
@@ -308,8 +315,8 @@
       const remain=[];
       for(const item of q){
         try{
-          if(item.op==='delete') await collectionRef().doc(item.id).delete();
-          else await collectionRef().doc(item.id).set(item.data,{merge:true});
+          if(item.op==='delete') await withSyncTimeout(collectionRef().doc(item.id).delete());
+          else await withSyncTimeout(collectionRef().doc(item.id).set(item.data,{merge:true}));
         }catch{remain.push(item)}
       }
       savePending(remain);
@@ -398,17 +405,20 @@
           createdAt: r.createdAt,
           updatedAt: r.updatedAt
         };
+    // Queue first. Only remove this operation after Firestore confirms success.
+    // This also covers Android/Chrome cases where navigator.onLine remains true
+    // while Firestore is actually unreachable.
+    queuePending({op:'set',id:r.id,data:cloudData});
+
     if (state.usingFirestore && navigator.onLine) {
       try {
-        await collectionRef().doc(r.id).set(cloudData, { merge: true });
-        const q=loadPending().filter(x=>!(x.op==='set'&&x.id===r.id));savePending(q);
+        await withSyncTimeout(collectionRef().doc(r.id).set(cloudData, { merge: true }));
+        const q=loadPending().filter(x=>!(x.op==='set'&&x.id===r.id));
+        savePending(q);
       } catch (err) {
-        console.error('[Submission module] save', err);
-        queuePending({op:'set',id:r.id,data:cloudData});
-        toast('Firestore 儲存失敗，已加入待同步', 'error');
+        console.warn('[Submission module] save kept in offline queue', err);
+        toast('尚未同步，已保留待同步', 'error');
       }
-    } else {
-      queuePending({op:'set',id:r.id,data:cloudData});
     }
     return r;
   }
@@ -419,10 +429,18 @@
     saveLocal();
     render();
     try{window.dispatchEvent(new CustomEvent('submission-records-changed',{detail:{type:'delete',id:recordId}}))}catch{}
+    // Same rule as save: queue first, clear only after confirmed cloud delete.
+    queuePending({op:'delete',id:recordId});
     if (state.usingFirestore && navigator.onLine) {
-      try { await collectionRef().doc(recordId).delete(); }
-      catch (err) { console.error('[Submission module] delete', err); queuePending({op:'delete',id:recordId}); toast('刪除已加入待同步', 'error'); }
-    } else queuePending({op:'delete',id:recordId});
+      try {
+        await withSyncTimeout(collectionRef().doc(recordId).delete());
+        const q=loadPending().filter(x=>!(x.op==='delete'&&x.id===recordId));
+        savePending(q);
+      } catch (err) {
+        console.warn('[Submission module] delete kept in offline queue', err);
+        toast('刪除尚未同步，已保留待同步', 'error');
+      }
+    }
     return true;
   }
 

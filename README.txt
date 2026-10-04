@@ -1,28 +1,58 @@
-香港教師教學日誌 v2.7.1 — V2.4.1 離線 Queue／重連修正
+香港教師教學日誌 v2.7.2 — V2.4.2 Submission 離線 Queue 修正
 更新日期：2026-10-04
 
-測試發現
+測試結果
 ========
-v2.7.0 離線時可能出現：
-- 追收 queue 已有變更，但「待同步」未即時刷新。
-- Submission 在離線期間斷開 Firestore 後，重新上線只 flush、沒有重新 connect。
-- cloud snapshot 可能在 queue 尚未成功上傳前覆蓋本機未同步版本。
+v2.7.1：
+- Pending 離線同步正常。
+- Submission 離線修改仍可能沒有「待同步」。
+- 重新上線後 Submission 有機會未補傳。
 
-今版修正
-========
-1. submission-pending-changed 只更新同步狀態，不再當作追收 record change。
-2. 重新上線時：
-   - Planner 如已斷線會先 connectData()。
-   - Submission 會 ensureOnlineSync()，必要時重新 connectStorage()。
-3. Activity／Pending／Submission 收到 cloud snapshot 時，會把仍在 queue 的本機操作疊回去：
-   - set：本機未同步版本優先顯示。
-   - delete：仍保持刪除，不會被雲端舊資料「復活」。
-4. queue 一有變化，「待同步 X」會即時重算。
-
-注意
+根源
 ====
-目前頂部「待同步」代表 Activity／Pending／Submission 的自動雲端 queue。
-座位／積分／Profile 目前仍以本機持久化為主，並不會因為這個數字而代表已自動上傳完整座位資料。
+Firestore Web SDK 在某些 Android / Chrome 網絡狀況：
+- navigator.onLine 仍可能是 true；
+- 但實際 Firestore 已不可連線；
+- .set() / .delete() 不一定立即 reject，而可能長時間 pending。
+
+舊流程是：
+先 Firestore → 失敗 catch → 才加入自訂 queue。
+
+因此如果 Firestore promise 沒有 reject，
+自訂 queue 就永遠不會收到這筆 Submission。
+
+v2.7.2 修正
+============
+Submission 改為 queue-first：
+1. 本機狀態先保存。
+2. 每次 Submission save/delete 立即寫入自訂 queue。
+3. 頂部「待同步 X」立即可計算到。
+4. 如果在線，才嘗試 Firestore。
+5. 只有 Firestore 明確成功後，才移除 queue。
+6. Firestore 7 秒仍未完成，視為暫未同步，queue 保留。
+7. 重新上線會立即 retry，並於 1.2 秒後再 retry 一次。
+
+好處
+====
+- 不再依賴 navigator.onLine 判斷是否真的連到 Firestore。
+- 即使 Android 網絡狀態判斷不準，Submission 都不會漏 queue。
+- 同一 Submission ID 連續修改仍只保留最新一筆 queue。
+- Pending 原本已成功的流程不改。
+
+建議測試
+========
+A. Submission
+1. 在線時先開一份現有追收。
+2. 關閉網絡。
+3. 將一位學生由未處理改成已交／欠交。
+4. 頂部應出現「待同步 1」。
+5. 同一份追收再改另一位學生，待同步仍應為 1。
+6. 開回網絡。
+7. 應先見同步中，最後變「已同步」。
+8. 完全重開網站，再開該追收，剛才狀態應仍存在。
+
+B. Pending
+原本 v2.7.1 已成功，今版再快速確認一次即可。
 
 部署
 ====
@@ -36,20 +66,3 @@ v2.7.0 離線時可能出現：
 - version.json
 
 README.txt 只供版本核對，可不必上載。
-
-建議測試
-========
-A. Pending
-1. 離線。
-2. 新增測試待辦。
-3. 應立即見「待同步 1」。
-4. 同一待辦再修改，仍應是 1，不應變 2。
-5. 上線後應轉「同步中」→「已同步」。
-6. 重開網站，待辦仍存在。
-
-B. Submission
-1. 離線。
-2. 修改一項追收三態。
-3. 應見待同步數增加。
-4. 上線後自動重新連接並清 queue。
-5. 重開網站，三態仍保留。
