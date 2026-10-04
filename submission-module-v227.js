@@ -8,8 +8,8 @@
   const COLORS = {
     cream: '#f8f1e6',
     cream2: '#efe1cf',
-    caramel: '#8f674b',
-    caramelDark: '#684836',
+    caramel: '#9b6a3f',
+    caramelDark: '#80542f',
     milk: '#fffdf9',
     line: '#e5dbd1',
     bg: '#faf7f2',
