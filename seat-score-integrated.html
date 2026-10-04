@@ -854,7 +854,7 @@ body.event-select-mode #seatPanel .desk span{
 #studentMainSubmissions .profile-history-item,
 #studentMainPending .profile-history-item{padding:7px!important;margin-bottom:5px!important}
 </style>
-</head><body><div id="integrationBanner" style="position:sticky;top:0;z-index:9999;background:#eef5ff;border-bottom:1px solid #cfdcf0;padding:5px 10px;font:700 11px system-ui;color:#35506f">🔗 已整合香港教師教學日誌：班級／學生由主系統提供；座位、積分及學生紀錄保留喺本模組。</div><div class="app"><div class="topbar"><div class="brand"><h1 id="pageTitle">七組座位表＋課堂積分 Pro</h1><p>班別管理｜今日班務｜學生｜座位｜積分｜紀錄</p></div><div class="class-switcher"><span id="classColorDot" class="class-dot"></span><select id="classSwitcher" onchange="switchClass(this.value)"></select><button class="btn" onclick="openGlobalSearch()">搜尋</button><button class="btn" onclick="openClassManager()">班別</button></div><div class="tabs"><button class="tab active" data-tab="dashboardPanel">今日</button><button class="tab" data-tab="studentsPanel">學生</button><button class="tab" data-tab="seatPanel">座位</button><button class="tab" data-tab="scorePanel">積分</button><button class="tab" data-tab="historyPanel">紀錄</button><button class="tab" data-tab="setupPanel">更多</button></div></div>
+</head><body><div id="integrationBanner" style="position:sticky;top:0;z-index:9999;background:#eef5ff;border-bottom:1px solid #cfdcf0;padding:5px 10px;font:700 11px system-ui;color:#35506f">🔗 已整合香港教師教學日誌：班級／學生由主系統提供；座位、積分保留喺本模組；學生 Profile 寫入已接共用 Data Service。</div><div class="app"><div class="topbar"><div class="brand"><h1 id="pageTitle">七組座位表＋課堂積分 Pro</h1><p>班別管理｜今日班務｜學生｜座位｜積分｜紀錄</p></div><div class="class-switcher"><span id="classColorDot" class="class-dot"></span><select id="classSwitcher" onchange="switchClass(this.value)"></select><button class="btn" onclick="openGlobalSearch()">搜尋</button><button class="btn" onclick="openClassManager()">班別</button></div><div class="tabs"><button class="tab active" data-tab="dashboardPanel">今日</button><button class="tab" data-tab="studentsPanel">學生</button><button class="tab" data-tab="seatPanel">座位</button><button class="tab" data-tab="scorePanel">積分</button><button class="tab" data-tab="historyPanel">紀錄</button><button class="tab" data-tab="setupPanel">更多</button></div></div>
 
 <section class="panel active" id="dashboardPanel">
   <div id="dashboardContent"></div>
@@ -1372,8 +1372,38 @@ function loadManager(){
  const id='class_'+Date.now();const first=normalizeClass(old||makeClassTemplate(old?.className||'3A'));return{activeClassId:id,classes:{[id]:first}}
 }
 let manager=loadManager();Object.keys(manager.classes).forEach(id=>manager.classes[id]=normalizeClass(manager.classes[id]));let state=manager.classes[manager.activeClassId];
+setTimeout(retryRegisterProfileDataAdapter,0);
 let undoStack=[],dragId=null,groupDragId=null,bubbleGroupId=null,tempFiveGroups=[],swapMode=false,swapFirstId=null,tempPartialGroups=[],groupMoveMode=false,selectedMoveGroup=null;
 function saveManager(){localStorage.setItem(KEY,JSON.stringify(manager))}
+function parentSchoolDataService(){
+ try{
+   if(window.parent===window)return null;
+   return window.parent.__schoolDataService||null;
+ }catch{return null}
+}
+function registerProfileDataAdapter(){
+ try{
+   const svc=parentSchoolDataService();
+   if(!svc?.profile?.registerAdapter)return false;
+   svc.profile.registerAdapter({
+     saveNote:async payload=>saveStudentPrivateNoteRaw(payload),
+     saveParentContact:async payload=>saveParentContactRaw(payload),
+     saveEvent:async payload=>applySelectedEventToStudentRaw(payload?.studentId||'',payload?.shortcutIndex)
+   });
+   return true;
+ }catch(e){
+   console.warn('[seat profile] data service adapter registration',e);
+   return false;
+ }
+}
+function retryRegisterProfileDataAdapter(){
+ if(registerProfileDataAdapter())return;
+ let tries=0;
+ const timer=setInterval(()=>{
+   tries++;
+   if(registerProfileDataAdapter()||tries>=12)clearInterval(timer);
+ },500);
+}
 saveManager();
 function save(){state.todos=dedupeTodos(state.todos);state.parentContacts=dedupeParentContacts(state.parentContacts);state.lastUsed=Date.now();manager.classes[manager.activeClassId]=state;saveManager()}function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1200)}function numSort(a,b){return(parseInt(a)||0)-(parseInt(b)||0)}
 function activeGroupCount(){return state.enableEighthGroup?8:7}
@@ -1448,11 +1478,12 @@ function selectEventShortcut(i){
  }
 }
 
-function applySelectedEventToStudent(id){
- if(selectedEventShortcut===null)return false;
+function applySelectedEventToStudentRaw(id,forcedShortcutIndex=null){
+ const shortcutIndex=forcedShortcutIndex===null?selectedEventShortcut:Number(forcedShortcutIndex);
+ if(shortcutIndex===null||!Number.isInteger(shortcutIndex))return false;
  const s=state.students.find(x=>x.id===id);
  if(!s)return true;
- const e=state.eventShortcuts[selectedEventShortcut];
+ const e=state.eventShortcuts[shortcutIndex];
  if(!e)return false;
 
  pushUndo(`班號${s.no}課堂事件`);
@@ -1511,6 +1542,24 @@ function applySelectedEventToStudent(id){
  renderAll();
  toast(`已記錄：${s.no} ${e.label}${e.createTodo?'，並建立待辦':''}`);
  return true;
+}
+function applySelectedEventToStudent(id){
+ const shortcutIndex=selectedEventShortcut;
+ if(shortcutIndex===null)return false;
+ const svc=parentSchoolDataService();
+ if(svc?.profile?.saveEvent){
+   svc.profile.saveEvent({
+     classId:manager.activeClassId||'',
+     className:state.className||'',
+     studentId:id,
+     shortcutIndex
+   }).catch(e=>{
+     console.warn('[seat profile] event data service fallback',e);
+     applySelectedEventToStudentRaw(id,shortcutIndex);
+   });
+   return true;
+ }
+ return applySelectedEventToStudentRaw(id,shortcutIndex);
 }
 function renderClassSwitcher(){const sel=document.getElementById('classSwitcher');if(!sel)return;const entries=Object.entries(manager.classes).sort((a,b)=>(b[1].lastUsed||0)-(a[1].lastUsed||0));sel.innerHTML=entries.map(([id,c])=>`<option value="${id}"${id===manager.activeClassId?' selected':''}>${esc(c.className||'未命名班')}</option>`).join('');const dot=document.getElementById('classColorDot');if(dot)dot.style.background=state.classColor||'#4A90E2';document.documentElement.style.setProperty('--accent',state.classColor||'#4A90E2')}
 function switchClass(id){if(!manager.classes[id])return;save();manager.activeClassId=id;state=normalizeClass(manager.classes[id]);saveManager();undoStack=[];renderAll();toast('已切換至 '+state.className)}
@@ -2034,10 +2083,34 @@ function closeStudentProfile(){
    }
  }catch{}
 }
-function saveStudentPrivateNote(){
+function saveStudentPrivateNoteRaw(payload={}){
+ const sid=String(payload.studentId||currentProfileStudentId||'');
+ if(!sid)return false;
+ const note=payload.note!==undefined
+   ?String(payload.note||'').trim()
+   :String(document.getElementById('studentPrivateNote')?.value||'').trim();
+ state.studentNotes[sid]=note;
+ save();
+ return {studentId:sid,note};
+}
+async function saveStudentPrivateNote(){
  if(!currentProfileStudentId)return;
- state.studentNotes[currentProfileStudentId]=document.getElementById('studentPrivateNote').value.trim();
- save();toast('已儲存私人備註');
+ const payload={
+   classId:manager.activeClassId||'',
+   className:state.className||'',
+   studentId:currentProfileStudentId,
+   note:document.getElementById('studentPrivateNote').value.trim()
+ };
+ const svc=parentSchoolDataService();
+ if(svc?.profile?.saveNote){
+   try{
+     await svc.profile.saveNote(payload);
+     toast('已儲存私人備註');
+     return;
+   }catch(e){console.warn('[seat profile] note data service fallback',e)}
+ }
+ saveStudentPrivateNoteRaw(payload);
+ toast('已儲存私人備註');
 }
 
 function openTodoModal(){
@@ -2246,11 +2319,12 @@ function closeParentContactModal(){
  document.getElementById('parentContactModal').classList.remove('show');
 }
 
-function saveParentContact(){
+function saveParentContactRaw(payload={}){
  const saveBtn=document.getElementById('saveParentContactBtn');
  if(saveBtn?.disabled)return;
  if(saveBtn){saveBtn.disabled=true;saveBtn.textContent='儲存中…';}
- const s=state.students.find(x=>x.id===currentProfileStudentId);
+ const contactStudentId=String(payload.studentId||currentProfileStudentId||'');
+ const s=state.students.find(x=>x.id===contactStudentId);
  if(!s){if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='儲存聯絡紀錄';}toast('找不到學生');return}
 
  const content=document.getElementById('parentContactContent').value.trim();
@@ -2297,7 +2371,7 @@ function saveParentContact(){
    renderAll();
    openStudentProfile(s.id);
    toast('相同家校聯絡已存在，未有重複新增');
-   return;
+   return exactDuplicate;
  }
 
  state.parentContacts.unshift(rec);
@@ -2336,6 +2410,21 @@ function saveParentContact(){
  },50);
 
  toast('已儲存家校聯絡紀錄');
+ return rec;
+}
+
+async function saveParentContact(){
+ const svc=parentSchoolDataService();
+ const payload={
+   classId:manager.activeClassId||'',
+   className:state.className||'',
+   studentId:currentProfileStudentId||''
+ };
+ if(svc?.profile?.saveParentContact){
+   try{return await svc.profile.saveParentContact(payload)}
+   catch(e){console.warn('[seat profile] parent contact data service fallback',e)}
+ }
+ return saveParentContactRaw(payload);
 }
 
 function openTodoDetail(id){
@@ -3327,7 +3416,7 @@ const initialPanel=document.querySelector('.panel.active')?.id||'dashboardPanel'
 </script>
 <script>
 (function(){
-  const INTEGRATION_VERSION='2.6.3';
+  const INTEGRATION_VERSION='2.6.4';
 
   function parentApi(){
     try{

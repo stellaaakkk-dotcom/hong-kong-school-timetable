@@ -1,13 +1,18 @@
 {
-  "build": "2.6.3",
-  "cacheTag": "2630",
+  "build": "2.6.4",
+  "cacheTag": "2640",
   "released": "2026-10-04",
-  "purpose": "v2.2.1-student-profile-three-state-submissions",
-  "dataServiceVersion": 3,
+  "purpose": "v2.3-profile-write-adapter",
+  "dataServiceVersion": 4,
   "writePaths": [
     "classes",
     "pending",
-    "submissions"
+    "submissions",
+    "profile"
   ],
-  "studentHubVersion": 3
+  "profileWritePaths": [
+    "studentNotes",
+    "parentContacts",
+    "classEvents"
+  ]
 }
