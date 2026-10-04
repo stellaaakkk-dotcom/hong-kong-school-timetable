@@ -1,6 +1,6 @@
 {
-  "build": "2.5.8",
-  "cacheTag": "2580",
+  "build": "2.6.0",
+  "cacheTag": "2600",
   "released": "2026-10-04",
-  "purpose": "v1-final-active-class-theme-sync"
+  "purpose": "v2-shared-data-service-foundation"
 }

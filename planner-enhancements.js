@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.5.8';
+  const VERSION = '2.6.0';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -4522,7 +4522,7 @@
         <div><b>🪑 座位／積分</b><small id="pe-seat-score-status">共用班級及學生資料</small></div>
         <button type="button" id="pe-seat-score-close">✕</button>
       </div>
-      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=2580"></iframe>
+      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=2600"></iframe>
     </div>`;
     document.body.appendChild(m);
     m.querySelector('#pe-seat-score-close').addEventListener('click',()=>closeSeatScore());
@@ -4683,8 +4683,8 @@
     m.id='pe-class-center-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>🏫 班級中心 <small style="font-size:.62em;opacity:.55">v2.5.8</small></h3>
-      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.5.8</span></p>
+      <h3>🏫 班級中心 <small style="font-size:.62em;opacity:.55">v2.6.0</small></h3>
+      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.6.0</span></p>
       <div class="pe-v2-tabs">
         <button type="button" data-class-center-tab="overview" class="active">總覽</button>
         <button type="button" data-class-center-tab="students">學生</button>
@@ -4825,35 +4825,101 @@
   }
 
 
+  function installSchoolDataService(){
+    if(window.__schoolDataService?.version>=1)return window.__schoolDataService;
+
+    const clone=x=>x==null?x:JSON.parse(JSON.stringify(x));
+    const listeners=new Map();
+    const on=(domain,fn)=>{
+      const key=String(domain||'all');
+      if(!listeners.has(key))listeners.set(key,new Set());
+      listeners.get(key).add(fn);
+      return ()=>listeners.get(key)?.delete(fn);
+    };
+    const emit=(domain,detail={})=>{
+      [domain,'all'].forEach(key=>listeners.get(key)?.forEach(fn=>{try{fn(clone(detail))}catch(err){console.warn('[data service listener]',err)}}));
+      try{window.dispatchEvent(new CustomEvent('schoolDataChanged',{detail:{domain,...clone(detail)}}))}catch{}
+    };
+
+    const svc={
+      version:1,
+      schemaVersion:1,
+      getStatus:()=>({
+        ready:true,
+        schoolYear:currentSchoolYear(),
+        online:navigator.onLine,
+        signedIn:!!state.user,
+        firebaseReady:!!state.firebaseReady,
+        classCount:(state.classCore||[]).length,
+        pendingCount:(state.pendingItems||[]).length,
+        permanentStudentCount:Object.keys(syncIdentityV1FromClassCore().students||{}).length,
+        enrollmentCount:Object.keys(syncIdentityV1FromClassCore().enrollments||{}).length
+      }),
+      snapshot:()=>({
+        schoolYear:currentSchoolYear(),
+        classes:(state.classCore||[]).map(c=>clone(normalizeClassProfile(c))),
+        students:Object.values(syncIdentityV1FromClassCore().students||{}).map(clone),
+        enrollments:Object.values(syncIdentityV1FromClassCore().enrollments||{}).map(clone),
+        pending:(state.pendingItems||[]).map(clone),
+        submissions:(window.__submissionTrackerAPI?.getRecords?.()||state.submissions||[]).map(clone)
+      }),
+      classes:{
+        list:()=> (state.classCore||[]).map(c=>clone(normalizeClassProfile(c))),
+        getById:(id='')=>{const c=(state.classCore||[]).find(x=>String(x.classId||x.id)===String(id));return c?clone(normalizeClassProfile(c)):null},
+        getByName:(name='')=>{const c=classProfileByName(name);return c?clone(normalizeClassProfile(c)):null},
+        save:async rec=>{await syncClassProfile(clone(rec));emit('classes',{type:'save',classId:rec?.classId||rec?.id||''});return svc.classes.getById(rec?.classId||rec?.id||'')},
+        remove:async id=>{await deleteClassProfile(id);emit('classes',{type:'delete',classId:id});return true}
+      },
+      students:{
+        registry:()=>Object.values(syncIdentityV1FromClassCore().students||{}).map(clone),
+        byClass:(classRef='')=>{
+          const c=svc.classes.getById(classRef)||svc.classes.getByName(classRef);
+          return c?(c.students||[]).map(clone):[];
+        },
+        get:(classRef='',studentRef='')=>svc.students.byClass(classRef).find(s=>String(s.studentId||s.id)===String(studentRef)||s.name===String(studentRef))||null
+      },
+      enrollments:{
+        list:()=>Object.values(syncIdentityV1FromClassCore().enrollments||{}).map(clone),
+        byStudent:(studentId='')=>identityStudentHistory(studentId).map(clone)
+      },
+      pending:{
+        list:()=> (state.pendingItems||[]).map(clone),
+        get:(id='')=>clone((state.pendingItems||[]).find(x=>String(x.id)===String(id))||null),
+        save:async rec=>{
+          if(!rec?.id)throw new Error('pending id required');
+          const idx=state.pendingItems.findIndex(x=>String(x.id)===String(rec.id));
+          const next={...clone(rec),updatedAt:new Date().toISOString()};
+          if(idx>=0)state.pendingItems[idx]=next;else state.pendingItems.unshift(next);
+          saveLocalPending();await syncPendingSet(next);emit('pending',{type:'save',id:next.id});return clone(next)
+        },
+        remove:async id=>{await deletePendingItem(id,true);emit('pending',{type:'delete',id});return true}
+      },
+      submissions:{
+        list:()=> (window.__submissionTrackerAPI?.getRecords?.()||state.submissions||[]).map(clone),
+        get:(id='')=>clone(window.__submissionTrackerAPI?.getById?.(id)||(state.submissions||[]).find(x=>String(x.id)===String(id))||null)
+      },
+      subscribe:on,
+      emit,
+      audit:()=>({identity:identityAudit(),status:svc.getStatus()})
+    };
+
+    window.addEventListener('classCoreChanged',()=>emit('classes',{type:'external'}));
+    window.addEventListener('identityV1Changed',()=>emit('identity',{type:'external'}));
+    window.addEventListener('pendingItemsChanged',()=>emit('pending',{type:'external'}));
+    window.addEventListener('submission-pending-changed',()=>emit('submissions',{type:'external'}));
+    window.__schoolDataService=svc;
+    try{window.dispatchEvent(new CustomEvent('schoolDataServiceReady',{detail:svc.getStatus()}))}catch{}
+    return svc;
+  }
+
   function installClassCoreApi(){
     window.__classCoreAPI={
-      version:5,
-      getClasses:()=>state.classCore.map(c=>({
-        ...normalizeClassProfile(c),
-        students:normalizeClassProfile(c).students.map(s=>({...s}))
-      })),
-      getClassById:(classId='')=>{
-        const rec=state.classCore.find(c=>String(c.classId||c.id)===String(classId));
-        return rec?normalizeClassProfile(rec):null;
-      },
-      getClassByName:(name='')=>{
-        const rec=classProfileByName(name);
-        return rec?normalizeClassProfile(rec):null;
-      },
-      getStudents:(classRef='')=>{
-        const rec=state.classCore.find(c=>
-          String(c.classId||c.id)===String(classRef) ||
-          normalizeClassId(c.name)===normalizeClassId(classRef)
-        );
-        return rec?normalizeClassProfile(rec).students.map(s=>({...s})):[];
-      },
-      getStudent:(classRef='',studentRef='')=>{
-        const students=window.__classCoreAPI.getStudents(classRef);
-        return students.find(s=>
-          String(s.studentId||s.id)===String(studentRef) ||
-          s.name===String(studentRef)
-        )||null;
-      },
+      version:6,
+      getClasses:()=>window.__schoolDataService.classes.list(),
+      getClassById:(classId='')=>window.__schoolDataService.classes.getById(classId),
+      getClassByName:(name='')=>window.__schoolDataService.classes.getByName(name),
+      getStudents:(classRef='')=>window.__schoolDataService.students.byClass(classRef),
+      getStudent:(classRef='',studentRef='')=>window.__schoolDataService.students.get(classRef,studentRef),
       classIdForName,
       studentIdFor:(classRef='',studentName='')=>{
         const s=window.__classCoreAPI.getStudents(classRef).find(x=>x.name===String(studentName));
@@ -4862,8 +4928,8 @@
       getActiveClass:()=>getActiveClass(),
       setActiveClass:(name='')=>setActiveClass(name),
       getSchoolYear:()=>currentSchoolYear(),
-      getStudentRegistry:()=>Object.values(syncIdentityV1FromClassCore().students||{}).map(x=>({...x})),
-      getEnrollments:(studentId='')=>studentId?identityStudentHistory(studentId):Object.values(syncIdentityV1FromClassCore().enrollments||{}).map(x=>({...x})),
+      getStudentRegistry:()=>window.__schoolDataService.students.registry(),
+      getEnrollments:(studentId='')=>studentId?window.__schoolDataService.enrollments.byStudent(studentId):window.__schoolDataService.enrollments.list(),
       audit:()=>identityAudit(),
       mergeStudentIds:(sourceId,targetId)=>({sourceId,targetId}),
       cleanupDuplicateEnrollments:()=>dedupeIdentityEnrollments(),
@@ -4871,6 +4937,7 @@
     };
   }
 
+  installSchoolDataService();
   installClassCoreApi();
   
 
@@ -5159,7 +5226,7 @@
     m.id='pe-identity-v1-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog" style="width:min(900px,calc(100vw - 24px))">
-      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.5.8</small></h3>
+      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.6.0</small></h3>
       <p class="pe-note">studentId 永久跟學生；classId 代表某一學年嘅班級實體。01／02 等暫時班號唔會進入永久學生庫；改成真實姓名後會沿用原 studentId 自動升格。</p>
       <div class="pe-grid">
         <div class="pe-field">
@@ -5300,6 +5367,7 @@
     const m=ensureIdentityV1Modal();
     const store=syncIdentityV1FromClassCore();
     const audit=identityAudit();
+    setTimeout(()=>{const el=document.getElementById('pe-data-service-status');if(el){const s=window.__schoolDataService?.getStatus?.();el.textContent=s?.ready?'🧩 V2 共用資料服務：✓ 已啟用':'🧩 V2 共用資料服務：未啟用'}},0);
     m.querySelector('#pe-idv1-year').value=currentSchoolYear();
 
     const classes=activeIdentityClasses();
@@ -5323,7 +5391,7 @@
     if(audit.provisionalEnrollments)issues.push(`暫時班號名單：${audit.provisionalEnrollments}（不計入永久學生）`);
 
     m.querySelector('#pe-idv1-audit').innerHTML=`
-      <div class="pe-note">${audit.healthy?'✅ 現有 classId / studentId 核心關係正常。':'⚠️ 發現需要逐步整理嘅身份資料。'}</div>
+      <div class="pe-note">${audit.healthy?'✅ 現有 classId / studentId 核心關係正常。<br><span id="pe-data-service-status">🧩 V2 共用資料服務：檢查中…</span>':'⚠️ 發現需要逐步整理嘅身份資料。'}</div>
       <div style="margin-top:6px;font-size:9px;line-height:1.6">${issues.length?issues.map(x=>`• ${esc(x)}`).join('<br>'):'• 未發現 duplicate ID 或孤兒 student link。'}</div>
       <div class="pe-note" style="margin-top:6px">Legacy 追收仍以班號運作屬兼容狀態，V1 不會強行改寫舊紀錄；之後 V2 資料服務再逐步轉成 ID-based link。</div>`;
 
@@ -5344,7 +5412,7 @@
     m.id='pe-class-core-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>🏫 班別／學生中心 <small style="font-size:.62em;opacity:.55">v2.5.8</small></h3>
+      <h3>🏫 班別／學生中心 <small style="font-size:.62em;opacity:.55">v2.6.0</small></h3>
       <p class="pe-note">呢份學生資料係座位表、積分、追收及學生紀錄嘅共用核心。每個班別及學生而家都有固定 ID；改名唔會令資料斷開。學生名單每行一位。</p>
       <div class="pe-class-core-grid">
         <div>
