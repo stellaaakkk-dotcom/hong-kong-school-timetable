@@ -1,13 +1,7 @@
 {
-  "build": "2.7.5",
-  "cacheTag": "2750",
+  "build": "2.7.6",
+  "cacheTag": "2760",
   "released": "2026-10-05",
-  "purpose": "ipad-more-hotfix-and-submission-shortcut",
-  "dataServiceVersion": 9,
-  "changes": [
-    "fix iPad More menu immediately closing from outside-click handler",
-    "add Submission shortcut to iPad rail",
-    "use direct submission API from navigation",
-    "harden iPad rail and More sheet pointer/touch handling"
-  ]
+  "purpose": "dedicated-ipad-more-panel",
+  "dataServiceVersion": 9
 }

@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.7.5';
+  const VERSION = '2.7.6';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -264,6 +264,7 @@
 
 
       .pe-ipad-rail{display:none}
+      .pe-ipad-more-panel{display:none}
       @media(min-width:701px) and (max-width:1100px){
         .pe-desktop-more-toggle{display:none!important}
         .pe-ipad-rail{
@@ -280,6 +281,29 @@
         }
         .pe-ipad-rail .ico{display:block;font-size:17px;margin-bottom:2px}
         .pe-ipad-rail button.active{background:#fff0bc;color:#7d532f}
+        .pe-ipad-more-panel{
+          display:none;position:fixed;right:78px;top:50%;transform:translateY(-50%);
+          z-index:2147483600;width:330px;max-height:min(78vh,620px);overflow:auto;
+          box-sizing:border-box;padding:7px;gap:6px;border:1px solid #ddd0bd;border-radius:15px;
+          background:#fffdf8;box-shadow:0 10px 34px #0003;pointer-events:auto!important;
+          touch-action:manipulation;-webkit-overflow-scrolling:touch;
+        }
+        .pe-ipad-more-panel.open{display:grid!important;grid-template-columns:1fr!important}
+        .pe-ipad-more-panel .pe-more-group{
+          display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;
+          gap:4px!important;padding:6px!important;border:1px solid #e5dbd1!important;
+          border-radius:10px!important;background:#fff!important
+        }
+        .pe-ipad-more-panel .pe-more-group>b{
+          grid-column:1/-1!important;color:#936b4d!important;font-size:8px!important;
+          font-weight:900!important;padding:0 2px 2px!important;border-bottom:1px solid #f0e7da!important
+        }
+        .pe-ipad-more-panel button{
+          width:100%!important;min-height:42px!important;border:1px solid #e3d5c8!important;
+          border-radius:9px!important;background:#fff9ec!important;color:#6e4d35!important;
+          font-size:9px!important;font-weight:850!important;padding:7px 5px!important;
+          pointer-events:auto!important;touch-action:manipulation;-webkit-tap-highlight-color:transparent
+        }
         .pe-mobile-more{right:78px!important;bottom:auto!important;top:50%!important;transform:translateY(-50%);width:330px!important;z-index:2147483100!important;pointer-events:auto!important;touch-action:manipulation}
         .pe-dialog{width:min(820px,calc(100vw - 120px))}
         #submission-page .sub-wrap{max-width:920px;padding-right:66px}
@@ -315,7 +339,7 @@
         .pe-context-tools{bottom:78px!important}
       }
 
-      @media print{.pe-mobile-nav,.pe-mobile-more{display:none!important}}
+      @media print{.pe-mobile-nav,.pe-mobile-more,.pe-ipad-more-panel{display:none!important}}
 
 
       /* v1.8.4 compact grouped More menu */
@@ -4764,7 +4788,7 @@
         <div><b>🪑 座位／積分</b><small id="pe-seat-score-status">共用班級及學生資料</small></div>
         <button type="button" id="pe-seat-score-close">✕</button>
       </div>
-      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=2750"></iframe>
+      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=2760"></iframe>
     </div>`;
     document.body.appendChild(m);
     m.querySelector('#pe-seat-score-close').addEventListener('click',()=>closeSeatScore());
@@ -4925,8 +4949,8 @@
     m.id='pe-class-center-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>🏫 班級中心 <small style="font-size:.62em;opacity:.55">v2.7.5</small></h3>
-      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.7.5</span></p>
+      <h3>🏫 班級中心 <small style="font-size:.62em;opacity:.55">v2.7.6</small></h3>
+      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.7.6</span></p>
       <div class="pe-v2-tabs">
         <button type="button" data-class-center-tab="overview" class="active">總覽</button>
         <button type="button" data-class-center-tab="students">學生</button>
@@ -5584,7 +5608,7 @@
     m.id='pe-identity-v1-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog" style="width:min(900px,calc(100vw - 24px))">
-      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.7.5</small></h3>
+      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.7.6</small></h3>
       <p class="pe-note">studentId 永久跟學生；classId 代表某一學年嘅班級實體。01／02 等暫時班號唔會進入永久學生庫；改成真實姓名後會沿用原 studentId 自動升格。</p>
       <div class="pe-grid">
         <div class="pe-field">
@@ -5789,7 +5813,7 @@
     m.id='pe-class-core-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>🏫 班別／學生中心 <small style="font-size:.62em;opacity:.55">v2.7.5</small></h3>
+      <h3>🏫 班別／學生中心 <small style="font-size:.62em;opacity:.55">v2.7.6</small></h3>
       <p class="pe-note">呢份學生資料係座位表、積分、追收及學生紀錄嘅共用核心。每個班別及學生而家都有固定 ID；改名唔會令資料斷開。學生名單每行一位。</p>
       <div class="pe-class-core-grid">
         <div>
@@ -6903,6 +6927,55 @@
     }
   });
 
+  function closeIpadMore(){
+    document.getElementById('pe-ipad-more-panel')?.classList.remove('open');
+  }
+
+  function ensureIpadMorePanel(){
+    let panel=document.getElementById('pe-ipad-more-panel');
+    if(panel)return panel;
+    panel=document.createElement('div');
+    panel.id='pe-ipad-more-panel';
+    panel.className='pe-ipad-more-panel';
+    panel.innerHTML=`
+      <div class="pe-more-group"><b>今日</b>
+        <button type="button" id="pe-ipad-more-dashboard">☀ 今日工作台</button>
+        <button type="button" id="pe-ipad-more-inbox">📥 工作 Inbox</button>
+      </div>
+      <div class="pe-more-group"><b>班級</b>
+        <button type="button" id="pe-ipad-more-class-center">🏫 班級中心</button>
+        <button type="button" id="pe-ipad-more-workflow">🧭 課堂工作流</button>
+        <button type="button" id="pe-ipad-more-seat">🪑 座位／積分</button>
+      </div>
+      <div class="pe-more-group"><b>管理</b>
+        <button type="button" id="pe-ipad-more-workspace">🧰 工作台</button>
+        <button type="button" id="pe-ipad-more-search">🔎 全站搜尋</button>
+        <button type="button" id="pe-ipad-more-help">📖 使用教學</button>
+        <button type="button" id="pe-ipad-more-settings">⚙ 設定與管理</button>
+      </div>`;
+    document.body.appendChild(panel);
+    panel.querySelector('#pe-ipad-more-dashboard').addEventListener('click',()=>{
+      closeIpadMore();const p=ensureDashboard();p.classList.add('open');renderDashboard();
+    });
+    panel.querySelector('#pe-ipad-more-inbox').addEventListener('click',()=>{closeIpadMore();openInbox()});
+    panel.querySelector('#pe-ipad-more-class-center').addEventListener('click',()=>{closeIpadMore();openClassCenter()});
+    panel.querySelector('#pe-ipad-more-workflow').addEventListener('click',()=>{closeIpadMore();openWorkflow()});
+    panel.querySelector('#pe-ipad-more-seat').addEventListener('click',()=>{closeIpadMore();openSeatScore(getActiveClass())});
+    panel.querySelector('#pe-ipad-more-workspace').addEventListener('click',()=>{closeIpadMore();openWorkspace()});
+    panel.querySelector('#pe-ipad-more-search').addEventListener('click',()=>{closeIpadMore();openJournalSearch()});
+    panel.querySelector('#pe-ipad-more-help').addEventListener('click',()=>{closeIpadMore();openOnboarding()});
+    panel.querySelector('#pe-ipad-more-settings').addEventListener('click',()=>{closeIpadMore();openSettingsManager()});
+    return panel;
+  }
+
+  function toggleIpadMore(){
+    const panel=ensureIpadMorePanel();
+    const next=!panel.classList.contains('open');
+    closeMobileMore();
+    panel.classList.toggle('open',next);
+    return next;
+  }
+
   function ensureIpadRail(){
     let rail=document.getElementById('pe-ipad-rail');if(rail)return rail;
     rail=document.createElement('nav');
@@ -6916,13 +6989,27 @@
     rail.querySelector('[data-ipad="journal"]').addEventListener('click',()=>clickMainTab(['教學日誌','日誌']));
     rail.querySelector('[data-ipad="calendar"]').addEventListener('click',()=>clickMainTab(['月曆','月历']));
     rail.querySelector('[data-ipad="submission"]').addEventListener('click',openSubmissionFromNav);
-    rail.querySelector('[data-ipad="more"]').addEventListener('click',e=>{
+    const ipadMoreBtn=rail.querySelector('[data-ipad="more"]');
+    const openIpadMore=e=>{
+      e?.preventDefault?.();
+      e?.stopPropagation?.();
+      toggleIpadMore();
+    };
+    ipadMoreBtn.addEventListener('click',openIpadMore);
+    ipadMoreBtn.addEventListener('touchend',e=>{
       e.preventDefault();
       e.stopPropagation();
-      toggleMobileMore();
-    });
+      toggleIpadMore();
+    },{passive:false});
     return rail;
   }
+
+  document.addEventListener('click',e=>{
+    const panel=document.getElementById('pe-ipad-more-panel');
+    if(!panel?.classList.contains('open'))return;
+    if(e.target.closest('#pe-ipad-more-panel')||e.target.closest('[data-ipad="more"]'))return;
+    closeIpadMore();
+  },true);
 
   function updateIpadRailActive(){
     const rail=ensureIpadRail();
