@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.7.6';
+  const VERSION = '2.7.7';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -338,6 +338,37 @@
         .pe-dashboard{bottom:126px!important}
         .pe-context-tools{bottom:78px!important}
       }
+
+
+      html.pe-ipad-mode .pe-ipad-rail{
+        display:grid!important;position:fixed!important;right:12px!important;top:50%!important;
+        bottom:auto!important;transform:translateY(-50%)!important;z-index:2147483600!important;
+        gap:6px!important;padding:6px!important;border:1px solid #ddd0bd!important;border-radius:16px!important;
+        background:#fffdf8ee!important;backdrop-filter:blur(12px)!important;box-shadow:0 8px 26px #0002!important;
+        pointer-events:auto!important;touch-action:manipulation!important
+      }
+      html.pe-ipad-mode .pe-ipad-rail button{
+        display:block!important;width:60px!important;min-height:52px!important;border:0!important;border-radius:10px!important;
+        background:transparent!important;color:#705642!important;font-size:9px!important;font-weight:850!important;
+        line-height:1.15!important;pointer-events:auto!important;touch-action:manipulation!important
+      }
+      html.pe-ipad-mode .pe-ipad-rail .ico{display:block!important;font-size:17px!important;margin-bottom:2px!important}
+      html.pe-ipad-mode .pe-ipad-rail button.active{background:#fff0bc!important;color:#7d532f!important}
+      html.pe-ipad-mode .pe-mobile-nav,html.pe-ipad-mode .pe-desktop-more-toggle{display:none!important}
+      html.pe-ipad-mode .pe-ipad-more-panel{
+        display:none!important;position:fixed!important;right:84px!important;left:auto!important;top:50%!important;
+        bottom:auto!important;transform:translateY(-50%)!important;width:340px!important;max-height:min(76vh,620px)!important;
+        overflow:auto!important;z-index:2147483700!important;box-sizing:border-box!important;padding:7px!important;
+        border:1px solid #ddd0bd!important;border-radius:15px!important;background:#fffdf8!important;
+        box-shadow:0 10px 34px #0003!important;pointer-events:auto!important;touch-action:manipulation!important
+      }
+      html.pe-ipad-mode .pe-ipad-more-panel.open{display:grid!important;grid-template-columns:1fr!important;gap:6px!important}
+      html.pe-ipad-mode .pe-ipad-more-panel .pe-more-group{
+        display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:4px!important;padding:6px!important;
+        border:1px solid #e5dbd1!important;border-radius:10px!important;background:#fff!important
+      }
+      html.pe-ipad-mode .pe-ipad-more-panel .pe-more-group>b{grid-column:1/-1!important}
+      html.pe-ipad-mode .pe-dashboard-toggle{right:84px!important;bottom:18px!important}
 
       @media print{.pe-mobile-nav,.pe-mobile-more,.pe-ipad-more-panel{display:none!important}}
 
@@ -4788,7 +4819,7 @@
         <div><b>🪑 座位／積分</b><small id="pe-seat-score-status">共用班級及學生資料</small></div>
         <button type="button" id="pe-seat-score-close">✕</button>
       </div>
-      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=2760"></iframe>
+      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=2770"></iframe>
     </div>`;
     document.body.appendChild(m);
     m.querySelector('#pe-seat-score-close').addEventListener('click',()=>closeSeatScore());
@@ -4949,8 +4980,8 @@
     m.id='pe-class-center-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>🏫 班級中心 <small style="font-size:.62em;opacity:.55">v2.7.6</small></h3>
-      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.7.6</span></p>
+      <h3>🏫 班級中心 <small style="font-size:.62em;opacity:.55">v2.7.7</small></h3>
+      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.7.7</span></p>
       <div class="pe-v2-tabs">
         <button type="button" data-class-center-tab="overview" class="active">總覽</button>
         <button type="button" data-class-center-tab="students">學生</button>
@@ -5608,7 +5639,7 @@
     m.id='pe-identity-v1-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog" style="width:min(900px,calc(100vw - 24px))">
-      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.7.6</small></h3>
+      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.7.7</small></h3>
       <p class="pe-note">studentId 永久跟學生；classId 代表某一學年嘅班級實體。01／02 等暫時班號唔會進入永久學生庫；改成真實姓名後會沿用原 studentId 自動升格。</p>
       <div class="pe-grid">
         <div class="pe-field">
@@ -5813,7 +5844,7 @@
     m.id='pe-class-core-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>🏫 班別／學生中心 <small style="font-size:.62em;opacity:.55">v2.7.6</small></h3>
+      <h3>🏫 班別／學生中心 <small style="font-size:.62em;opacity:.55">v2.7.7</small></h3>
       <p class="pe-note">呢份學生資料係座位表、積分、追收及學生紀錄嘅共用核心。每個班別及學生而家都有固定 ID；改名唔會令資料斷開。學生名單每行一位。</p>
       <div class="pe-class-core-grid">
         <div>
@@ -6976,6 +7007,18 @@
     return next;
   }
 
+  function detectIpadMode(){
+    const ua=navigator.userAgent||'';
+    const platform=navigator.platform||'';
+    const touch=Number(navigator.maxTouchPoints||0);
+    const isIPad=/iPad/i.test(ua)||(platform==='MacIntel'&&touch>1);
+    document.documentElement.classList.toggle('pe-ipad-mode',isIPad);
+    return isIPad;
+  }
+  detectIpadMode();
+  window.addEventListener('resize',detectIpadMode,{passive:true});
+  window.addEventListener('orientationchange',()=>setTimeout(detectIpadMode,120),{passive:true});
+
   function ensureIpadRail(){
     let rail=document.getElementById('pe-ipad-rail');if(rail)return rail;
     rail=document.createElement('nav');
@@ -7066,6 +7109,17 @@
     });
     return nav;
   }
+
+  function ensureCorrectFloatingNav(){
+    if(detectIpadMode()){
+      ensureIpadRail();
+      document.getElementById('pe-mobile-nav')?.style.setProperty('display','none','important');
+      document.getElementById('pe-desktop-more-toggle')?.style.setProperty('display','none','important');
+    }
+  }
+  ensureCorrectFloatingNav();
+  setTimeout(ensureCorrectFloatingNav,250);
+  setTimeout(ensureCorrectFloatingNav,900);
 
   function updateMobileNavActive(){
     const nav=ensureMobileNav();

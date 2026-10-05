@@ -1,16 +1,12 @@
-香港教師教學日誌 v2.7.6 — iPad 專用 More 面板
+香港教師教學日誌 v2.7.7 — iPad 真實裝置模式修正
 
-今版不再讓 iPad 共用手機版 More。
-iPad「更多」改用獨立 #pe-ipad-more-panel，支援 click + touchend，
-並有自己嘅 z-index、pointer-events、outside-click。
+iPad Safari 桌面模式可能回報超過 1100px，舊版因此被誤判成桌面。
+今版改用 iPad / MacIntel + 多點觸控辨認真正 iPad。
 
-iPad 浮台：
+iPad 強制顯示：
 ☀ 今日｜📝 日誌｜📅 月曆｜📋 追收｜••• 更多
 
-「更多」內：
-今日工作台、工作 Inbox、班級中心、課堂工作流、座位／積分、
-工作台、全站搜尋、使用教學、設定與管理。
-
+More 面板固定喺右側浮台左邊，不再跌到文件底部。
 V2.5 診斷功能保留不變。
 
 部署：7 個執行檔 + README.txt。
