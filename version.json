@@ -1,13 +1,13 @@
 {
-  "build": "2.7.3",
-  "cacheTag": "2730",
-  "released": "2026-10-04",
-  "purpose": "pending-queue-first-plus-unified-cloud-status",
-  "dataServiceVersion": 8,
+  "build": "2.7.5",
+  "cacheTag": "2750",
+  "released": "2026-10-05",
+  "purpose": "ipad-more-hotfix-and-submission-shortcut",
+  "dataServiceVersion": 9,
   "changes": [
-    "Submission v2.7.2 queue-first retained",
-    "Pending now queue-first with timeout",
-    "pending count shown in original cloud connection status",
-    "legacy separate sync pill hidden"
+    "fix iPad More menu immediately closing from outside-click handler",
+    "add Submission shortcut to iPad rail",
+    "use direct submission API from navigation",
+    "harden iPad rail and More sheet pointer/touch handling"
   ]
 }

@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.7.3';
+  const VERSION = '2.7.5';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -266,11 +266,21 @@
       .pe-ipad-rail{display:none}
       @media(min-width:701px) and (max-width:1100px){
         .pe-desktop-more-toggle{display:none!important}
-        .pe-ipad-rail{display:grid;position:fixed;right:10px;top:50%;transform:translateY(-50%);z-index:2147482500;gap:6px;padding:6px;border:1px solid #ddd0bd;border-radius:16px;background:#fffdf8ee;backdrop-filter:blur(12px);box-shadow:0 8px 26px #0002}
-        .pe-ipad-rail button{width:58px;min-height:52px;border:0;border-radius:10px;background:transparent;color:#705642;font-size:9px;font-weight:850;line-height:1.15}
+        .pe-ipad-rail{
+          display:grid;position:fixed;right:10px;top:50%;transform:translateY(-50%);
+          z-index:2147483000;gap:6px;padding:6px;border:1px solid #ddd0bd;border-radius:16px;
+          background:#fffdf8ee;backdrop-filter:blur(12px);box-shadow:0 8px 26px #0002;
+          pointer-events:auto!important;touch-action:manipulation;
+        }
+        .pe-ipad-rail button{
+          width:58px;min-height:52px;border:0;border-radius:10px;background:transparent;
+          color:#705642;font-size:9px;font-weight:850;line-height:1.15;
+          pointer-events:auto!important;touch-action:manipulation;cursor:pointer;
+          -webkit-tap-highlight-color:transparent;
+        }
         .pe-ipad-rail .ico{display:block;font-size:17px;margin-bottom:2px}
         .pe-ipad-rail button.active{background:#fff0bc;color:#7d532f}
-        .pe-mobile-more{right:78px!important;bottom:auto!important;top:50%!important;transform:translateY(-50%);width:330px!important}
+        .pe-mobile-more{right:78px!important;bottom:auto!important;top:50%!important;transform:translateY(-50%);width:330px!important;z-index:2147483100!important;pointer-events:auto!important;touch-action:manipulation}
         .pe-dialog{width:min(820px,calc(100vw - 120px))}
         #submission-page .sub-wrap{max-width:920px;padding-right:66px}
         .sub-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -1358,6 +1368,91 @@
       legacyPending,
       legacySubmissions,
       healthy:!duplicateClassIds.length&&!duplicateCurrentStudents.length&&!orphanPending.length
+    };
+  }
+
+  function crossModuleDataAudit(){
+    const currentYear=currentSchoolYear();
+    const classes=(state.classCore||[])
+      .map(normalizeClassProfile)
+      .filter(c=>normalizeSchoolYear(c.schoolYear||currentYear)===currentYear&&!c.archived);
+
+    const classById=new Map(classes.map(c=>[String(c.classId||c.id||''),c]).filter(([id])=>id));
+    const classByName=new Map(classes.map(c=>[normalizeClassId(c.name),c]).filter(([name])=>name));
+
+    const knownStudentIds=new Set();
+    classes.forEach(c=>(c.students||[]).forEach(s=>{
+      const sid=String(s.studentId||s.id||'');
+      if(sid)knownStudentIds.add(sid);
+    }));
+
+    const pendingOrphans=(state.pendingItems||[])
+      .filter(x=>x.studentId&&!knownStudentIds.has(String(x.studentId)))
+      .map(x=>({id:x.id,title:x.title||'待辦',studentId:String(x.studentId)}));
+
+    const pendingClassMismatches=(state.pendingItems||[])
+      .map(x=>({x,scope:normalizedPendingScope(x)}))
+      .filter(({scope})=>scope?.type==='class')
+      .filter(({scope})=>{
+        const byId=scope.id&&classById.has(String(scope.id));
+        const byName=scope.name&&classByName.has(normalizeClassId(scope.name));
+        return !byId&&!byName;
+      })
+      .map(({x,scope})=>({id:x.id,title:x.title||'待辦',classId:scope.id||'',className:scope.name||''}));
+
+    const submissions=window.__submissionTrackerAPI?.getRecords?.()||state.submissions||[];
+    const submissionClassMismatches=submissions
+      .filter(r=>String(r.className||'').trim())
+      .filter(r=>!classByName.has(normalizeClassId(r.className)))
+      .map(r=>({id:r.id,name:r.name||r.type||'追收項目',className:r.className||''}));
+
+    let seatSnapshot=null;
+    try{seatSnapshot=window.__schoolDataService?.seat?.snapshot?.()||null}catch{}
+    const seatIssues={
+      ready:!!seatSnapshot,
+      classMismatch:false,
+      unknownStudentIds:[],
+      missingSeatStudents:[]
+    };
+
+    if(seatSnapshot){
+      const seatClassId=String(seatSnapshot.classId||'');
+      const seatClassName=normalizeClassId(seatSnapshot.className||'');
+      const core=classById.get(seatClassId)||classByName.get(seatClassName)||null;
+      seatIssues.classMismatch=!core;
+
+      if(core){
+        const coreIds=new Set((core.students||[]).map(s=>String(s.studentId||s.id||'')).filter(Boolean));
+        const seatIds=new Set((seatSnapshot.students||[]).map(s=>String(s.id||s.studentId||'')).filter(Boolean));
+        seatIssues.unknownStudentIds=[...seatIds].filter(id=>!coreIds.has(id));
+        seatIssues.missingSeatStudents=[...coreIds].filter(id=>!seatIds.has(id));
+      }
+    }
+
+    const criticalCount=
+      pendingOrphans.length+
+      pendingClassMismatches.length+
+      (seatIssues.classMismatch?1:0)+
+      seatIssues.unknownStudentIds.length;
+
+    const warningCount=
+      submissionClassMismatches.length+
+      seatIssues.missingSeatStudents.length+
+      (seatIssues.ready?0:1);
+
+    return {
+      checkedAt:new Date().toISOString(),
+      schoolYear:currentYear,
+      classCount:classes.length,
+      knownStudentCount:knownStudentIds.size,
+      pendingOrphans,
+      pendingClassMismatches,
+      submissionClassMismatches,
+      seat:seatIssues,
+      queuedWrites:totalPending(),
+      criticalCount,
+      warningCount,
+      healthy:criticalCount===0
     };
   }
 
@@ -4669,7 +4764,7 @@
         <div><b>🪑 座位／積分</b><small id="pe-seat-score-status">共用班級及學生資料</small></div>
         <button type="button" id="pe-seat-score-close">✕</button>
       </div>
-      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=2730"></iframe>
+      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=2750"></iframe>
     </div>`;
     document.body.appendChild(m);
     m.querySelector('#pe-seat-score-close').addEventListener('click',()=>closeSeatScore());
@@ -4830,8 +4925,8 @@
     m.id='pe-class-center-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>🏫 班級中心 <small style="font-size:.62em;opacity:.55">v2.7.3</small></h3>
-      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.7.3</span></p>
+      <h3>🏫 班級中心 <small style="font-size:.62em;opacity:.55">v2.7.5</small></h3>
+      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.7.5</span></p>
       <div class="pe-v2-tabs">
         <button type="button" data-class-center-tab="overview" class="active">總覽</button>
         <button type="button" data-class-center-tab="students">學生</button>
@@ -4992,7 +5087,7 @@
     let seatAdapter=null;
 
     const svc={
-      version:8,
+      version:9,
       schemaVersion:1,
       getStatus:()=>({
         ready:true,
@@ -5120,7 +5215,8 @@
       },
       subscribe:on,
       emit,
-      audit:()=>({identity:identityAudit(),status:svc.getStatus()})
+      crossModuleAudit:()=>clone(crossModuleDataAudit()),
+      audit:()=>({identity:identityAudit(),crossModule:crossModuleDataAudit(),status:svc.getStatus()})
     };
 
     window.addEventListener('classCoreChanged',()=>emit('classes',{type:'external'}));
@@ -5488,7 +5584,7 @@
     m.id='pe-identity-v1-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog" style="width:min(900px,calc(100vw - 24px))">
-      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.7.3</small></h3>
+      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.7.5</small></h3>
       <p class="pe-note">studentId 永久跟學生；classId 代表某一學年嘅班級實體。01／02 等暫時班號唔會進入永久學生庫；改成真實姓名後會沿用原 studentId 自動升格。</p>
       <div class="pe-grid">
         <div class="pe-field">
@@ -5504,6 +5600,7 @@
       <div class="pe-class-card">
         <h4>🩺 資料健康檢查</h4>
         <div id="pe-idv1-audit"></div>
+        <div id="pe-v25-cross-audit" style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--pe-theme-line,#eadfce)"></div>
         <div class="pe-actions" style="justify-content:flex-start">
           <button class="pe-btn" id="pe-idv1-run-audit">重新檢查</button>
           <button class="pe-btn" id="pe-idv1-resync">同步現有班級到身份層</button>
@@ -5657,6 +5754,24 @@
       <div style="margin-top:6px;font-size:9px;line-height:1.6">${issues.length?issues.map(x=>`• ${esc(x)}`).join('<br>'):'• 未發現 duplicate ID 或孤兒 student link。'}</div>
       <div class="pe-note" style="margin-top:6px">Legacy 追收仍以班號運作屬兼容狀態，V1 不會強行改寫舊紀錄；之後 V2 資料服務再逐步轉成 ID-based link。</div>`;
 
+    const cross=crossModuleDataAudit();
+    const crossIssues=[];
+    if(cross.pendingOrphans.length)crossIssues.push(`❗ Pending 孤兒 Student ID：${cross.pendingOrphans.length}`);
+    if(cross.pendingClassMismatches.length)crossIssues.push(`❗ Pending 班別未配對：${cross.pendingClassMismatches.length}`);
+    if(cross.seat.classMismatch)crossIssues.push('❗ 座位表目前班別搵唔返主系統班別');
+    if(cross.seat.unknownStudentIds.length)crossIssues.push(`❗ 座位表有主系統不存在嘅 Student ID：${cross.seat.unknownStudentIds.length}`);
+    if(cross.submissionClassMismatches.length)crossIssues.push(`⚠️ 追收未配對目前班別：${cross.submissionClassMismatches.length}`);
+    if(cross.seat.missingSeatStudents.length)crossIssues.push(`⚠️ 主系統學生未出現在目前座位表：${cross.seat.missingSeatStudents.length}`);
+    if(!cross.seat.ready)crossIssues.push('ℹ️ 座位表未開啟，今次未檢查座位資料');
+    if(cross.queuedWrites)crossIssues.push(`ℹ️ 尚有待同步寫入：${cross.queuedWrites}`);
+
+    const crossBox=m.querySelector('#pe-v25-cross-audit');
+    if(crossBox)crossBox.innerHTML=`
+      <div style="font-weight:900;font-size:10px;margin-bottom:5px">🔎 V2.5 跨模組一致性診斷</div>
+      <div class="pe-note">${cross.healthy?'✅ 未發現會令資料斷鏈嘅跨模組問題。':'⚠️ 發現需要檢查嘅跨模組連結。'} <span style="opacity:.65">嚴重 ${cross.criticalCount}｜提示 ${cross.warningCount}</span></div>
+      <div style="margin-top:6px;font-size:9px;line-height:1.65">${crossIssues.length?crossIssues.map(x=>`• ${esc(x)}`).join('<br>'):'• Pending、追收、座位表與主系統目前資料一致。'}</div>
+      <div class="pe-note" style="margin-top:5px">本版只診斷，不會自動修改任何 ID、班別、追收或座位資料。</div>`;
+
     renderIdentityRegistry();
   }
 
@@ -5674,7 +5789,7 @@
     m.id='pe-class-core-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>🏫 班別／學生中心 <small style="font-size:.62em;opacity:.55">v2.7.3</small></h3>
+      <h3>🏫 班別／學生中心 <small style="font-size:.62em;opacity:.55">v2.7.5</small></h3>
       <p class="pe-note">呢份學生資料係座位表、積分、追收及學生紀錄嘅共用核心。每個班別及學生而家都有固定 ID；改名唔會令資料斷開。學生名單每行一位。</p>
       <div class="pe-class-core-grid">
         <div>
@@ -6342,6 +6457,25 @@
     document.getElementById('pe-mobile-more')?.classList.remove('open');
   }
 
+  function toggleMobileMore(){
+    const sheet=ensureMobileMore();
+    const next=!sheet.classList.contains('open');
+    if(next)sheet.classList.add('open');
+    else sheet.classList.remove('open');
+    return next;
+  }
+
+  function openSubmissionFromNav(){
+    closeMobileMore();
+    const api=window.__submissionTrackerAPI;
+    if(api?.open){
+      api.open();
+      return true;
+    }
+    document.querySelector('.submission-launcher')?.click();
+    return true;
+  }
+
   function clickMainTab(words){
     const btn=findMainTabByKeywords(words);
     if(!btn)return false;
@@ -6771,14 +6905,40 @@
 
   function ensureIpadRail(){
     let rail=document.getElementById('pe-ipad-rail');if(rail)return rail;
-    rail=document.createElement('nav');rail.id='pe-ipad-rail';rail.className='pe-ipad-rail';rail.innerHTML=`<button data-ipad="today"><span class="ico">☀</span>今日</button><button data-ipad="journal"><span class="ico">📝</span>日誌</button><button data-ipad="calendar"><span class="ico">📅</span>月曆</button><button data-ipad="more"><span class="ico">•••</span>更多</button>`;document.body.appendChild(rail);
+    rail=document.createElement('nav');
+    rail.id='pe-ipad-rail';
+    rail.className='pe-ipad-rail';
+    rail.setAttribute('aria-label','iPad 快捷導覽');
+    rail.innerHTML=`<button type="button" data-ipad="today"><span class="ico">☀</span>今日</button><button type="button" data-ipad="journal"><span class="ico">📝</span>日誌</button><button type="button" data-ipad="calendar"><span class="ico">📅</span>月曆</button><button type="button" data-ipad="submission"><span class="ico">📋</span>追收</button><button type="button" data-ipad="more"><span class="ico">•••</span>更多</button>`;
+    document.body.appendChild(rail);
+
     rail.querySelector('[data-ipad="today"]').addEventListener('click',()=>clickMainTab(['今日課表','當日課表','今日']));
     rail.querySelector('[data-ipad="journal"]').addEventListener('click',()=>clickMainTab(['教學日誌','日誌']));
     rail.querySelector('[data-ipad="calendar"]').addEventListener('click',()=>clickMainTab(['月曆','月历']));
-    rail.querySelector('[data-ipad="more"]').addEventListener('click',()=>ensureMobileMore().classList.toggle('open'));
+    rail.querySelector('[data-ipad="submission"]').addEventListener('click',openSubmissionFromNav);
+    rail.querySelector('[data-ipad="more"]').addEventListener('click',e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      toggleMobileMore();
+    });
     return rail;
   }
-  function updateIpadRailActive(){const rail=ensureIpadRail();rail.querySelectorAll('button').forEach(b=>b.classList.remove('active'));if(isVisible(document.querySelector('.today-board')))rail.querySelector('[data-ipad="today"]')?.classList.add('active');else if(isVisible(document.querySelector('.journal-table')))rail.querySelector('[data-ipad="journal"]')?.classList.add('active');else if(isVisible(document.querySelector('.calendar-grid')))rail.querySelector('[data-ipad="calendar"]')?.classList.add('active')}
+
+  function updateIpadRailActive(){
+    const rail=ensureIpadRail();
+    rail.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+    if(document.getElementById('submission-page')?.classList.contains('active')){
+      rail.querySelector('[data-ipad="submission"]')?.classList.add('active');
+      return;
+    }
+    if(isVisible(document.querySelector('.today-board'))){
+      rail.querySelector('[data-ipad="today"]')?.classList.add('active');
+    }else if(isVisible(document.querySelector('.journal-table'))){
+      rail.querySelector('[data-ipad="journal"]')?.classList.add('active');
+    }else if(isVisible(document.querySelector('.calendar-grid'))){
+      rail.querySelector('[data-ipad="calendar"]')?.classList.add('active');
+    }
+  }
 
   function ensureDesktopMoreToggle(){
     let btn=document.getElementById('pe-desktop-more-toggle');
@@ -6788,7 +6948,7 @@
     btn.id='pe-desktop-more-toggle';
     btn.className='pe-desktop-more-toggle';
     btn.textContent='••• 更多';
-    btn.addEventListener('click',()=>ensureMobileMore().classList.toggle('open'));
+    btn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();toggleMobileMore()});
     document.body.appendChild(btn);
     return btn;
   }
@@ -6803,13 +6963,18 @@
     nav.querySelector('[data-mobile-nav="today"]').addEventListener('click',()=>clickMainTab(['今日課表','當日課表','今日']));
     nav.querySelector('[data-mobile-nav="journal"]').addEventListener('click',()=>clickMainTab(['教學日誌','日誌']));
     nav.querySelector('[data-mobile-nav="calendar"]').addEventListener('click',()=>clickMainTab(['月曆','月历']));
-    nav.querySelector('[data-mobile-nav="submission"]').addEventListener('click',()=>{closeMobileMore();document.querySelector('.submission-launcher')?.click()});
-    nav.querySelector('[data-mobile-nav="more"]').addEventListener('click',()=>ensureMobileMore().classList.toggle('open'));
+    nav.querySelector('[data-mobile-nav="submission"]').addEventListener('click',openSubmissionFromNav);
+    nav.querySelector('[data-mobile-nav="more"]').addEventListener('click',e=>{e.preventDefault();e.stopPropagation();toggleMobileMore()});
 
     document.addEventListener('click',e=>{
       const more=document.getElementById('pe-mobile-more');
       if(!more?.classList.contains('open'))return;
-      if(e.target.closest('#pe-mobile-more')||e.target.closest('[data-mobile-nav="more"]'))return;
+      if(
+        e.target.closest('#pe-mobile-more')||
+        e.target.closest('[data-mobile-nav="more"]')||
+        e.target.closest('[data-ipad="more"]')||
+        e.target.closest('#pe-desktop-more-toggle')
+      )return;
       closeMobileMore();
     });
     return nav;
