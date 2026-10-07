@@ -1,7 +1,15 @@
 {
-  "build": "2.7.8",
-  "cacheTag": "2780",
+  "build": "2.7.9",
+  "cacheTag": "2790",
   "released": "2026-10-08",
-  "purpose": "pwa-standalone-floating-navigation-fix",
-  "dataServiceVersion": 9
+  "purpose": "root-fix-pwa-nav-force-visibility-conflict",
+  "dataServiceVersion": 9,
+  "rootCause": "legacy forceNavVisibility ran every 1.8s and overrode standalone/iPad navigation with inline !important based on viewport width",
+  "fixes": [
+    "forceNavVisibility now prioritizes real iPad mode",
+    "forceNavVisibility then prioritizes standalone PWA mode",
+    "viewport-width rules only run for normal browser mode",
+    "installed Android/iPhone PWA keeps five-button bottom navigation",
+    "installed iPad keeps five-button right rail"
+  ]
 }
