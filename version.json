@@ -1,7 +1,7 @@
 {
-  "build": "2.7.7",
-  "cacheTag": "2770",
-  "released": "2026-10-05",
-  "purpose": "real-ipad-device-mode-layout-fix",
+  "build": "2.7.8",
+  "cacheTag": "2780",
+  "released": "2026-10-08",
+  "purpose": "pwa-standalone-floating-navigation-fix",
   "dataServiceVersion": 9
 }
