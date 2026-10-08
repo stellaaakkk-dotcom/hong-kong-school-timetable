@@ -1,16 +1,15 @@
 {
-  "build": "2.8.4",
-  "cacheTag": "2840",
+  "build": "2.8.5",
+  "cacheTag": "2850",
   "released": "2026-10-08",
-  "purpose": "followup-archive-cloud-persistence-and-record-id-fix",
+  "purpose": "followup-filter-overview-and-class-center-archive-status",
   "dataServiceVersion": 9,
-  "rootCause": "followupArchived/followupArchivedAt were omitted from Firestore cloudData, so snapshots reverted archive state",
   "changes": [
-    "persist followupArchived and followupArchivedAt to Firestore",
-    "archive buttons operate on explicit record IDs",
-    "add 不再追收 button directly to each active follow-up/ongoing record",
-    "legacy per-student closed states are treated as normal missing again",
-    "whole-record archive remains the only active archive model",
-    "retain old closed metadata/history for audit"
+    "fix 待追收 filter to include every non-archived record with active missing students, including overdue",
+    "remove 未能追收 as a top-level filter",
+    "add compact filtered overview cards with item name and 已交/欠交/未處理 counts",
+    "filtered overview cards open the exact record detail",
+    "Class Center submission counts recognize 不再追收",
+    "Class Center overview separates archived follow-ups from active unfinished follow-ups"
   ]
 }

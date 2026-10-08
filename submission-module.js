@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.8.4';
+  const VERSION = '2.8.5';
   const LOCAL_KEY = 'hk-school-submission-records-v1';
   const PENDING_KEY = 'hk-school-submission-pending-v1';
   const CLASS_PREF_KEY = 'hk-school-class-student-counts-v1';
@@ -191,9 +191,7 @@
   function recordStatusKey(r){
     if(isFollowupArchived(r))return 'archived';
     if(isCompleted(r))return 'done';
-    const active=activeMissingNumbers(r);
-    if(active.some(n=>r?.missingMeta?.[n]?.collectionStatus==='unable'))return 'unable';
-    if(active.length)return isExpired(r)?'expired':'followup';
+    if(needsFollowup(r))return 'followup';
     const count=Number(r?.studentCount)||30;
     const pending=Math.max(0,count-(r?.missing||[]).length-(r?.submitted||[]).length);
     return pending>0?'pending':'done';
@@ -202,7 +200,11 @@
     if(f.date==='today' && !isTodayRelevant(r))return false;
     if(f.className!=='all' && r.className!==f.className)return false;
     if(f.type!=='all' && r.type!==f.type)return false;
-    if(f.status!=='all' && recordStatusKey(r)!==f.status)return false;
+    if(f.status==='followup' && !needsFollowup(r))return false;
+    if(f.status==='pending' && recordStatusKey(r)!=='pending')return false;
+    if(f.status==='done' && !isCompleted(r))return false;
+    if(f.status==='expired' && (isFollowupArchived(r)||isCompleted(r)||!isExpired(r)))return false;
+    if(f.status==='archived' && !isFollowupArchived(r))return false;
     return true;
   }
 
@@ -651,6 +653,18 @@
       .sub-archive-card{border:1px solid #d7cdc2;border-radius:10px;background:#f5f1eb;padding:8px 9px;margin-top:6px}
       .sub-archive-card .head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
       .sub-archive-tag{display:inline-block;border:1px solid #cfc2b5;border-radius:999px;padding:3px 7px;background:#ece4dc;color:#75675a;font-size:9px;font-weight:850;white-space:nowrap}
+      .sub-filter-overview{display:grid;gap:6px;margin-top:7px}
+      .sub-filter-overview-card{width:100%;text-align:left;border:1px solid ${COLORS.line};border-radius:10px;background:#fffdf8;padding:8px 9px;color:${COLORS.caramelDark};cursor:pointer}
+      .sub-filter-overview-card:hover{background:#fff8ee}
+      .sub-filter-overview-card .top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+      .sub-filter-overview-card .name{font-size:11px;font-weight:850;min-width:0}
+      .sub-filter-overview-card .meta{font-size:8px;color:${COLORS.muted};margin-top:2px}
+      .sub-filter-counts{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;font-size:9px;font-weight:800}
+      .sub-filter-counts span{border:1px solid ${COLORS.line};border-radius:999px;padding:3px 6px;background:#fff}
+      .sub-filter-counts .done{color:${COLORS.success}}
+      .sub-filter-counts .missing{color:${COLORS.danger}}
+      .sub-filter-counts .pending{color:#75675a}
+
       @media(max-width:700px){.sub-filter-bar{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
       .sub-student.closed{border-color:#cabdb0;background:#eee7df;color:#7a6d61}
@@ -841,6 +855,28 @@
     if (el) el.textContent = state.pendingCount ? `⚠ 待同步 ${state.pendingCount}` : (state.usingFirestore ? '● Firestore 已同步' : '○ 本機暫存');
   }
 
+  function filterOverviewHtml(r){
+    const count=Math.max(0,Number(r?.studentCount)||0);
+    const missing=[...new Set((r?.missing||[]).map(Number).filter(n=>n>0))];
+    const submitted=[...new Set((r?.submitted||[]).map(Number).filter(n=>n>0&&!missing.includes(n)))];
+    const pending=Math.max(0,count-missing.length-submitted.length);
+    const archived=isFollowupArchived(r);
+    return `<button type="button" class="sub-filter-overview-card" data-summary-open="${esc(r.id)}">
+      <div class="top">
+        <div>
+          <div class="name">${esc(r.className)}｜${esc(r.name||r.type||'項目')}</div>
+          <div class="meta">${esc(r.type)}${r.dueDate?` ・ 繳交 ${fmtDate(r.dueDate)}`:''}${r.deadlineDate?` ・ 追收 ${fmtDate(r.deadlineDate)}`:''}</div>
+        </div>
+        ${archived?'<span class="sub-archive-tag">不再追收</span>':''}
+      </div>
+      <div class="sub-filter-counts">
+        <span class="done">已交 ${submitted.length}</span>
+        <span class="missing">欠交 ${missing.length}</span>
+        <span class="pending">未處理 ${pending}</span>
+      </div>
+    </button>`;
+  }
+
   function render() {
     const page = ensurePage();
     let r = active();
@@ -891,7 +927,6 @@
               <select id="sub-filter-status">
                 <option value="all" ${filters.status==='all'?'selected':''}>全部狀態</option>
                 <option value="followup" ${filters.status==='followup'?'selected':''}>待追收</option>
-                <option value="unable" ${filters.status==='unable'?'selected':''}>未能追收</option>
                 <option value="pending" ${filters.status==='pending'?'selected':''}>未處理</option>
                 <option value="done" ${filters.status==='done'?'selected':''}>已交齊</option>
                 <option value="expired" ${filters.status==='expired'?'selected':''}>已過期</option>
@@ -906,6 +941,9 @@
             </label>
           </div>
           <div class="sub-filter-summary">符合篩選：${visibleRecords.length} 項</div>
+          <div class="sub-filter-overview">
+            ${visibleRecords.length ? visibleRecords.map(filterOverviewHtml).join('') : '<div class="sub-empty">呢個篩選暫時冇追收項目。</div>'}
+          </div>
         </section>
 
         <section class="sub-bubble follow">
@@ -1112,6 +1150,14 @@
     document.getElementById('sub-active')?.addEventListener('change', e => {
       state.activeId = e.target.value;
       render();
+    });
+
+    document.querySelectorAll('[data-summary-open]').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        state.activeId=btn.dataset.summaryOpen;
+        render();
+        document.querySelector('.sub-bubble.status')?.scrollIntoView({behavior:'smooth',block:'start'});
+      });
     });
 
     document.querySelectorAll('[data-open]').forEach(btn => {
