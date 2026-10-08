@@ -1,15 +1,7 @@
 {
-  "build": "2.8.2",
-  "cacheTag": "2820",
+  "build": "2.8.3",
+  "cacheTag": "2830",
   "released": "2026-10-08",
-  "purpose": "submission-stop-followup-history",
-  "dataServiceVersion": 9,
-  "fixes": [
-    "add 不再追收 beside 已補交 and 未能追收",
-    "不再追收 preserves 欠交 truth but removes student from active follow-up",
-    "add per-record 追收歷史 with reason, note and closure date",
-    "add 重新追收 from history",
-    "closed follow-up students no longer appear in 今日追收 counts",
-    "preserve existing missing/submitted/pending data model"
-  ]
+  "purpose": "whole-followup-archive-and-filters",
+  "dataServiceVersion": 9
 }

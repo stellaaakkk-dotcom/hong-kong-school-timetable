@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.8.2';
+  const VERSION = '2.8.3';
   const LOCAL_KEY = 'hk-school-submission-records-v1';
   const PENDING_KEY = 'hk-school-submission-pending-v1';
   const CLASS_PREF_KEY = 'hk-school-class-student-counts-v1';
@@ -150,6 +150,10 @@
     return !!ref && ref < hkDateString();
   }
 
+  function isFollowupArchived(r){
+    return r?.followupArchived===true;
+  }
+
   function activeMissingNumbers(r){
     return (r?.missing||[]).filter(n=>r?.missingMeta?.[n]?.collectionStatus!=='closed');
   }
@@ -159,7 +163,43 @@
   }
 
   function needsFollowup(r){
-    return activeMissingNumbers(r).length>0;
+    return !isFollowupArchived(r) && activeMissingNumbers(r).length>0;
+  }
+
+  function isTodayRelevant(r){
+    if(isFollowupArchived(r))return false;
+    const today=hkDateString();
+    const ref=String(r?.dueDate||r?.deadlineDate||r?.issueDate||'');
+    return needsFollowup(r) && (!ref || ref<=today);
+  }
+
+  const FOLLOW_FILTER_KEY='hk-submission-filter-v1';
+  function loadFollowFilters(){
+    try{
+      return {...{date:'all',className:'all',status:'all',type:'all'},...(JSON.parse(localStorage.getItem(FOLLOW_FILTER_KEY)||'{}')||{})};
+    }catch{
+      return {date:'all',className:'all',status:'all',type:'all'};
+    }
+  }
+  function saveFollowFilters(v){
+    try{localStorage.setItem(FOLLOW_FILTER_KEY,JSON.stringify(v||{}))}catch{}
+  }
+  function recordStatusKey(r){
+    if(isFollowupArchived(r))return 'archived';
+    if(isCompleted(r))return 'done';
+    const active=activeMissingNumbers(r);
+    if(active.some(n=>r?.missingMeta?.[n]?.collectionStatus==='unable'))return 'unable';
+    if(active.length)return isExpired(r)?'expired':'followup';
+    const count=Number(r?.studentCount)||30;
+    const pending=Math.max(0,count-(r?.missing||[]).length-(r?.submitted||[]).length);
+    return pending>0?'pending':'done';
+  }
+  function recordMatchesFollowFilters(r,f){
+    if(f.date==='today' && !isTodayRelevant(r))return false;
+    if(f.className!=='all' && r.className!==f.className)return false;
+    if(f.type!=='all' && r.type!==f.type)return false;
+    if(f.status!=='all' && recordStatusKey(r)!==f.status)return false;
+    return true;
   }
 
   function normalizeRecord(r){
@@ -188,6 +228,8 @@
       issueDate:String(r?.issueDate||''),
       dueDate:String(r?.dueDate||''),
       deadlineDate:String(r?.deadlineDate||''),
+      followupArchived:r?.followupArchived===true,
+      followupArchivedAt:String(r?.followupArchivedAt||''),
       missing:[...new Set(missing)].sort((a,b)=>a-b),
       submitted,
       missingMeta:r?.missingMeta&&typeof r.missingMeta==='object'?r.missingMeta:{},
@@ -596,6 +638,15 @@
       .sub-follow-history summary{cursor:pointer;font-size:11px;font-weight:850;color:${COLORS.caramelDark}}
       .sub-follow-history-card{border:1px solid ${COLORS.line};border-radius:9px;background:#f8f4ee;padding:7px;margin-top:5px}
       .sub-follow-history-card .head{display:flex;justify-content:space-between;gap:6px;align-items:center}
+      .sub-filter-bar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:7px 0}
+      .sub-filter-bar label{display:grid;gap:3px;font-size:9px;font-weight:800;color:${COLORS.muted}}
+      .sub-filter-bar select{width:100%;min-width:0;border:1px solid ${COLORS.line};border-radius:8px;background:#fffdf8;padding:7px;font-size:10px;color:${COLORS.caramelDark}}
+      .sub-filter-summary{font-size:9px;color:${COLORS.muted};margin:2px 0 6px}
+      .sub-archive-card{border:1px solid #d7cdc2;border-radius:10px;background:#f5f1eb;padding:8px 9px;margin-top:6px}
+      .sub-archive-card .head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+      .sub-archive-tag{display:inline-block;border:1px solid #cfc2b5;border-radius:999px;padding:3px 7px;background:#ece4dc;color:#75675a;font-size:9px;font-weight:850;white-space:nowrap}
+      @media(max-width:700px){.sub-filter-bar{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
       .sub-student.closed{border-color:#cabdb0;background:#eee7df;color:#7a6d61}
 
       .sub-unable-note{font-size:8px;font-weight:800;color:#8a642d;margin-top:1px}
@@ -786,11 +837,17 @@
 
   function render() {
     const page = ensurePage();
-    const r = active();
-    const followups = state.records.filter(needsFollowup);
-    const current = state.records.filter(x => !isCompleted(x) && !isExpired(x));
-    const historyDone = state.records.filter(isCompleted);
-    const historyExpired = state.records.filter(x => !isCompleted(x) && isExpired(x));
+    let r = active();
+    const filters=loadFollowFilters();
+    const classes=[...new Set(state.records.map(x=>x.className).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-HK'));
+    const types=[...new Set(state.records.map(x=>x.type).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-HK'));
+    const visibleRecords=state.records.filter(x=>recordMatchesFollowFilters(x,filters));
+    if(r && !visibleRecords.some(x=>x.id===r.id))r=visibleRecords[0]||null;
+    const followups = visibleRecords.filter(needsFollowup);
+    const current = visibleRecords.filter(x => !isFollowupArchived(x) && !isCompleted(x) && !isExpired(x));
+    const historyDone = visibleRecords.filter(x => !isFollowupArchived(x) && isCompleted(x));
+    const historyExpired = visibleRecords.filter(x => !isFollowupArchived(x) && !isCompleted(x) && isExpired(x));
+    const historyArchived = visibleRecords.filter(isFollowupArchived);
 
     page.innerHTML = `
       <button type="button" class="submission-close" id="submission-close">✕ 關閉</button>
@@ -809,18 +866,54 @@
           </div>
         </section>
 
+        <section class="sub-bubble">
+          <div class="sub-title"><span class="sub-num">2</span> 追收篩選</div>
+          <div class="sub-filter-bar">
+            <label>日期
+              <select id="sub-filter-date">
+                <option value="all" ${filters.date==='all'?'selected':''}>全部</option>
+                <option value="today" ${filters.date==='today'?'selected':''}>今日要追收</option>
+              </select>
+            </label>
+            <label>班別
+              <select id="sub-filter-class">
+                <option value="all">全部班別</option>
+                ${classes.map(c=>`<option value="${esc(c)}" ${filters.className===c?'selected':''}>${esc(c)}</option>`).join('')}
+              </select>
+            </label>
+            <label>狀態
+              <select id="sub-filter-status">
+                <option value="all" ${filters.status==='all'?'selected':''}>全部狀態</option>
+                <option value="followup" ${filters.status==='followup'?'selected':''}>待追收</option>
+                <option value="unable" ${filters.status==='unable'?'selected':''}>未能追收</option>
+                <option value="pending" ${filters.status==='pending'?'selected':''}>未處理</option>
+                <option value="done" ${filters.status==='done'?'selected':''}>已交齊</option>
+                <option value="expired" ${filters.status==='expired'?'selected':''}>已過期</option>
+                <option value="archived" ${filters.status==='archived'?'selected':''}>不再追收</option>
+              </select>
+            </label>
+            <label>類別
+              <select id="sub-filter-type">
+                <option value="all">全部類別</option>
+                ${types.map(t=>`<option value="${esc(t)}" ${filters.type===t?'selected':''}>${esc(t)}</option>`).join('')}
+              </select>
+            </label>
+          </div>
+          <div class="sub-filter-summary">符合篩選：${visibleRecords.length} 項</div>
+        </section>
+
         <section class="sub-bubble follow">
-          <div class="sub-title"><span class="sub-num">2</span> 今日追收</div>
+          <div class="sub-title"><span class="sub-num">3</span> 今日追收</div>
           <div id="sub-follow-list">
             ${followups.length ? followups.map(x => followupHtml(x)).join('') : '<div class="sub-empty">今日沒有需要追收的項目。</div>'}
           </div>
         </section>
 
         <section class="sub-bubble status">
-          <div class="sub-title"><span class="sub-num">3</span> 繳交狀況</div>
+          <div class="sub-title"><span class="sub-num">4</span> 繳交狀況</div>
           ${state.records.length ? `
             <select id="sub-active" class="sub-select">
-              ${state.records.map(x => `<option value="${esc(x.id)}" ${x.id===r?.id?'selected':''}>${esc(x.className)}｜${esc(x.type)}｜${esc(x.name)}</option>`).join('')}
+              ${visibleRecords.map(x => `<option value="${esc(x.id)}" ${x.id===r?.id?'selected':''}>${isFollowupArchived(x)?'［不再追收］':''}${esc(x.className)}｜${esc(x.type)}｜${esc(x.name)}</option>`).join('')}
             </select>
             ${r ? statusHtml(r) : ''}
           ` : '<div class="sub-empty">尚未有作業／回條紀錄。</div>'}
@@ -832,12 +925,13 @@
         </section>
 
         <section class="sub-bubble">
-          <details class="sub-history">
-            <summary>查看過往紀錄（已交齊 ${historyDone.length}／已過期 ${historyExpired.length}）</summary>
+          <details class="sub-history" ${filters.status==='archived'?'open':''}>
+            <summary>查看追收歷史（已交齊 ${historyDone.length}／已過期 ${historyExpired.length}／不再追收 ${historyArchived.length}）</summary>
             <div style="margin-top:7px">
               ${historyDone.length ? `<div class="sub-meta">已交齊</div>${historyDone.map(x => recordHtml(x,'已交齊')).join('')}` : ''}
               ${historyExpired.length ? `<div class="sub-meta" style="margin-top:8px">已過期</div>${historyExpired.map(x => recordHtml(x,'已過期')).join('')}` : ''}
-              ${!historyDone.length && !historyExpired.length ? '<div class="sub-empty">暫時未有過往紀錄。</div>' : ''}
+              ${historyArchived.length ? `<div class="sub-meta" style="margin-top:8px">不再追收</div>${historyArchived.map(x => archivedRecordHtml(x)).join('')}` : ''}
+              ${!historyDone.length && !historyExpired.length && !historyArchived.length ? '<div class="sub-empty">暫時未有追收歷史。</div>' : ''}
             </div>
           </details>
         </section>
@@ -893,10 +987,10 @@
         ${unable.length?`<br><b style="color:#8a642d">未能追收 ${unable.length} 人：</b> ${unable.map(pad).join('、')}`:''}
         ${archived.length?`<br><b style="color:#75675a">不再追收 ${archived.length} 人：</b> ${archived.map(pad).join('、')}`:''}
       </div>
-      ${miss.length?`<div class="sub-missing-details" style="display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:6px!important">${miss.map(n=>{const meta=r.missingMeta?.[n]||{};const repeat=repeatMissingCount(r,n);return `<div class="sub-missing-card" style="min-width:0;border:1px solid ${COLORS.line};border-radius:10px;background:#fffdf8;padding:6px;display:grid;gap:5px"><div style="display:flex;justify-content:space-between;gap:4px;align-items:center"><b>${pad(n)}號</b>${repeat>1?`<span class="sub-repeat">累計 ${repeat} 次</span>`:''}</div><select style="width:100%;min-width:0" data-missing-reason="${n}"><option ${meta.reason==='未交'?'selected':''}>未交</option><option ${meta.reason==='病假'?'selected':''}>病假</option><option ${meta.reason==='缺席'?'selected':''}>缺席</option><option ${meta.reason==='忘記'?'selected':''}>忘記</option><option ${meta.reason==='其他'?'selected':''}>其他</option></select><input style="width:100%;min-width:0" data-missing-note="${n}" value="${esc(meta.note||'')}" placeholder="備註">${meta.collectionStatus==='unable'?`<div class="sub-unable-note">已標記：未能追收${meta.unableAt?` ・ ${fmtDate(meta.unableAt.slice(0,10))}`:''}</div>`:''}<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px"><button style="width:100%" class="sub-btn" data-returned="${n}">已補交</button><button style="width:100%" class="sub-btn sub-unable-btn ${meta.collectionStatus==='unable'?'active':''}" data-unable="${n}">${meta.collectionStatus==='unable'?'✓ 未能追收':'未能追收'}</button><button style="width:100%" class="sub-btn sub-close-follow-btn" data-close-follow="${n}">不再追收</button></div></div>`}).join('')}</div>`:'<div class="sub-empty">目前沒有待追收學生。</div>'}
+      ${miss.length?`<div class="sub-missing-details" style="display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:6px!important">${miss.map(n=>{const meta=r.missingMeta?.[n]||{};const repeat=repeatMissingCount(r,n);return `<div class="sub-missing-card" style="min-width:0;border:1px solid ${COLORS.line};border-radius:10px;background:#fffdf8;padding:6px;display:grid;gap:5px"><div style="display:flex;justify-content:space-between;gap:4px;align-items:center"><b>${pad(n)}號</b>${repeat>1?`<span class="sub-repeat">累計 ${repeat} 次</span>`:''}</div><select style="width:100%;min-width:0" data-missing-reason="${n}"><option ${meta.reason==='未交'?'selected':''}>未交</option><option ${meta.reason==='病假'?'selected':''}>病假</option><option ${meta.reason==='缺席'?'selected':''}>缺席</option><option ${meta.reason==='忘記'?'selected':''}>忘記</option><option ${meta.reason==='其他'?'selected':''}>其他</option></select><input style="width:100%;min-width:0" data-missing-note="${n}" value="${esc(meta.note||'')}" placeholder="備註">${meta.collectionStatus==='unable'?`<div class="sub-unable-note">已標記：未能追收${meta.unableAt?` ・ ${fmtDate(meta.unableAt.slice(0,10))}`:''}</div>`:''}<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px"><button style="width:100%" class="sub-btn" data-returned="${n}">已補交</button><button style="width:100%" class="sub-btn sub-unable-btn ${meta.collectionStatus==='unable'?'active':''}" data-unable="${n}">${meta.collectionStatus==='unable'?'✓ 未能追收':'未能追收'}</button></div></div>`}).join('')}</div>`:'<div class="sub-empty">目前沒有待追收學生。</div>'}
       ${archived.length?`
         <details class="sub-follow-history">
-          <summary>追收歷史（不再追收 ${archived.length} 人）</summary>
+          <summary>舊版個別停止追收（${archived.length} 人）</summary>
           <div>
             ${archived.map(n=>{const meta=r.missingMeta?.[n]||{};return `<div class="sub-follow-history-card"><div class="head"><b>${pad(n)}號｜不再追收</b><button class="sub-btn" data-reopen-follow="${n}">重新追收</button></div><div class="sub-meta">欠交原因：${esc(meta.reason||'未交')}${meta.note?` ・ 備註：${esc(meta.note)}`:''}${meta.closedAt?` ・ 結束：${fmtDate(meta.closedAt.slice(0,10))}`:''}</div></div>`}).join('')}
           </div>
@@ -904,8 +998,30 @@
       <div class="sub-actions">
         <button class="sub-btn" id="sub-all-done">全部已交</button>
         <button class="sub-btn danger" id="sub-all-missing">全部欠交</button>
+        ${isFollowupArchived(r)
+          ? '<button class="sub-btn" id="sub-reopen-record">重新追收</button>'
+          : '<button class="sub-btn sub-close-follow-btn" id="sub-archive-record">不再追收</button>'}
         <button class="sub-btn" id="sub-edit">編輯項目</button>
         <button class="sub-btn danger" id="sub-delete">刪除</button>
+      </div>`;
+  }
+
+  function archivedRecordHtml(r){
+    const miss=(r.missing||[]).length;
+    const unable=activeMissingNumbers(r).filter(n=>r?.missingMeta?.[n]?.collectionStatus==='unable').length;
+    return `
+      <div class="sub-archive-card">
+        <div class="head">
+          <div>
+            <div class="sub-item-title">${esc(r.className)}｜${esc(r.name)}</div>
+            <div class="sub-meta">${esc(r.type)} ・ 欠交 ${miss} 人${unable?` ・ 未能追收 ${unable} 人`:''}${r.followupArchivedAt?` ・ 封存 ${fmtDate(r.followupArchivedAt.slice(0,10))}`:''}</div>
+          </div>
+          <span class="sub-archive-tag">不再追收</span>
+        </div>
+        <div class="sub-actions">
+          <button class="sub-btn" data-open="${esc(r.id)}">查看</button>
+          <button class="sub-btn" data-reopen-record="${esc(r.id)}">重新追收</button>
+        </div>
       </div>`;
   }
 
@@ -922,7 +1038,10 @@
     let tagClass='';
 
     if(!label){
-      if(activeMiss){
+      if(isFollowupArchived(r)){
+        label='不再追收';
+        tagClass='pending';
+      }else if(activeMiss){
         label=`待追收 ${activeMiss}${archivedMiss?`／已結案 ${archivedMiss}`:''}`;
         tagClass='red';
       }else if(archivedMiss){
@@ -956,6 +1075,15 @@
 
   function wireEvents() {
     document.getElementById('submission-close')?.addEventListener('click', hidePage);
+    ['date','class','status','type'].forEach(key=>{
+      document.getElementById(`sub-filter-${key}`)?.addEventListener('change',()=>{
+        const f=loadFollowFilters();
+        if(key==='class')f.className=document.getElementById('sub-filter-class')?.value||'all';
+        else f[key]=document.getElementById(`sub-filter-${key}`)?.value||'all';
+        saveFollowFilters(f);
+        render();
+      });
+    });
     attachClassAutoFill('sub-class','sub-count');
     wireDueDateAuto('sub-issue','sub-due');
     document.getElementById('sub-create')?.addEventListener('click', async () => {
@@ -1049,29 +1177,27 @@
       await upsertRecord({...r,missingMeta:meta,studentHistory:hist});
     }));
 
-    document.querySelectorAll('[data-close-follow]').forEach(btn=>btn.addEventListener('click',async()=>{
-      const r=active();if(!r)return;
-      const n=Number(btn.dataset.closeFollow);
-      if(!(r.missing||[]).includes(n))return;
-      if(!confirm(`${pad(n)}號仍然會保留為欠交，但會停止出現在目前追收名單，並移到「追收歷史」。確定？`))return;
+    document.getElementById('sub-archive-record')?.addEventListener('click',async()=>{
+      const r=active();if(!r||isFollowupArchived(r))return;
+      if(!confirm(`「${r.name}」會整項移到「不再追收」歷史，並由今日追收／進行中移走。欠交資料會完整保留。確定？`))return;
       const now=new Date().toISOString();
-      const meta={...(r.missingMeta||{})};
-      const hist=[...(r.studentHistory||[])];
-      meta[n]={...(meta[n]||{}),collectionStatus:'closed',closedAt:now};
-      hist.push({student:n,action:'stop-followup',at:now});
-      await upsertRecord({...r,missingMeta:meta,studentHistory:hist});
-    }));
+      const hist=[...(r.studentHistory||[]),{action:'archive-followup-record',at:now}];
+      await upsertRecord({...r,followupArchived:true,followupArchivedAt:now,studentHistory:hist});
+    });
 
-    document.querySelectorAll('[data-reopen-follow]').forEach(btn=>btn.addEventListener('click',async()=>{
-      const r=active();if(!r)return;
-      const n=Number(btn.dataset.reopenFollow);
-      if(!(r.missing||[]).includes(n))return;
+    document.getElementById('sub-reopen-record')?.addEventListener('click',async()=>{
+      const r=active();if(!r||!isFollowupArchived(r))return;
       const now=new Date().toISOString();
-      const meta={...(r.missingMeta||{})};
-      const hist=[...(r.studentHistory||[])];
-      meta[n]={...(meta[n]||{}),collectionStatus:'',closedAt:'',reopenedAt:now};
-      hist.push({student:n,action:'reopen-followup',at:now});
-      await upsertRecord({...r,missingMeta:meta,studentHistory:hist});
+      const hist=[...(r.studentHistory||[]),{action:'reopen-followup-record',at:now}];
+      await upsertRecord({...r,followupArchived:false,followupArchivedAt:'',studentHistory:hist});
+    });
+
+    document.querySelectorAll('[data-reopen-record]').forEach(btn=>btn.addEventListener('click',async()=>{
+      const r=state.records.find(x=>x.id===btn.dataset.reopenRecord);if(!r)return;
+      state.activeId=r.id;
+      const now=new Date().toISOString();
+      const hist=[...(r.studentHistory||[]),{action:'reopen-followup-record',at:now}];
+      await upsertRecord({...r,followupArchived:false,followupArchivedAt:'',studentHistory:hist});
     }));
 
     document.querySelectorAll('[data-returned]').forEach(btn=>btn.addEventListener('click',async()=>{

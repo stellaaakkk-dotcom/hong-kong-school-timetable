@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.8.2';
+  const VERSION = '2.8.3';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -4945,7 +4945,7 @@
         <div><b>🪑 座位／積分</b><small id="pe-seat-score-status">共用班級及學生資料</small></div>
         <button type="button" id="pe-seat-score-close">✕</button>
       </div>
-      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=2820"></iframe>
+      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=2830"></iframe>
     </div>`;
     document.body.appendChild(m);
     m.querySelector('#pe-seat-score-close').addEventListener('click',()=>closeSeatScore());
@@ -5107,7 +5107,7 @@
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
       <h3>🏫 班級中心 <small style="font-size:.62em;opacity:.55">v2.8.1</small></h3>
-      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.8.2</span></p>
+      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.8.3</span></p>
       <div class="pe-v2-tabs">
         <button type="button" data-class-center-tab="overview" class="active">總覽</button>
         <button type="button" data-class-center-tab="students">學生</button>
@@ -5765,7 +5765,7 @@
     m.id='pe-identity-v1-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog" style="width:min(900px,calc(100vw - 24px))">
-      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.8.2</small></h3>
+      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.8.3</small></h3>
       <p class="pe-note">studentId 永久跟學生；classId 代表某一學年嘅班級實體。01／02 等暫時班號唔會進入永久學生庫；改成真實姓名後會沿用原 studentId 自動升格。</p>
       <div class="pe-grid">
         <div class="pe-field">
