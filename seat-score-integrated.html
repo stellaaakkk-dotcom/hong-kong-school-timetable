@@ -1431,6 +1431,40 @@ function registerSeatDataAdapter(){
    const svc=parentSchoolDataService();
    if(!svc?.seat?.registerAdapter)return false;
    svc.seat.registerAdapter({
+     activeClassId:()=>manager.activeClassId||'',
+     exportClassSnapshot:()=>({
+       schemaVersion:1,
+       classId:manager.activeClassId||'',
+       className:state.className||'',
+       rosterVersion:Number(state.rosterVersion)||1,
+       exportedAt:new Date().toISOString(),
+       classData:JSON.parse(JSON.stringify(state))
+     }),
+     importClassSnapshot:async payload=>{
+       const classId=String(payload?.classId||payload?.classData?.classId||'');
+       if(!classId||!payload?.classData)throw new Error('invalid cloud class snapshot');
+       let imported=normalizeClass(JSON.parse(JSON.stringify(payload.classData)));
+       imported.classId=classId;
+       manager.classes[classId]=imported;
+
+       // Reconcile names/student IDs against the main Class Core after cloud restore.
+       try{
+         const api=parentApi();
+         const core=api?.getClassById?.(classId);
+         if(core)syncOne(core);
+       }catch(e){
+         console.warn('[seat cloud] class core reconcile',e);
+       }
+
+       if(manager.classes[classId]){
+         manager.activeClassId=classId;
+         state=normalizeClass(manager.classes[classId]);
+       }
+       saveManager();
+       undoStack=[];
+       try{renderAll()}catch(e){console.warn('[seat cloud] render restore',e)}
+       return {ok:true,classId};
+     },
      snapshot:()=>({
        classId:manager.activeClassId||'',
        className:state.className||'',
@@ -3651,7 +3685,7 @@ const initialPanel=document.querySelector('.panel.active')?.id||'dashboardPanel'
 </script>
 <script>
 (function(){
-  const INTEGRATION_VERSION='2.8.6';
+  const INTEGRATION_VERSION='2.8.7';
 
   function parentApi(){
     try{

@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.8.6';
+  const VERSION = '2.8.7';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -30,7 +30,15 @@
     unsubPending: null,
     connectRetryTimer: null,
     connecting: false,
-    swControllerChanged: false
+    swControllerChanged: false,
+    cloudMirror: {
+      identityLastPush:'',
+      identityRemote:false,
+      seatLastPush:'',
+      seatRemote:false,
+      seatNeedsPull:false,
+      lastError:''
+    }
   };
 
   // Calendar sources mirrored from this timetable build so the Today dashboard
@@ -4948,7 +4956,7 @@
         <div><b>🪑 座位／積分</b><small id="pe-seat-score-status">共用班級及學生資料</small></div>
         <button type="button" id="pe-seat-score-close">✕</button>
       </div>
-      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=2860"></iframe>
+      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=2870"></iframe>
     </div>`;
     document.body.appendChild(m);
     m.querySelector('#pe-seat-score-close').addEventListener('click',()=>closeSeatScore());
@@ -5141,6 +5149,16 @@
       <div style="margin-top:8px;font-size:10px;line-height:1.7">${rows.map(x=>`• ${esc(x)}`).join('<br>')}</div>
       <div class="pe-note" style="margin-top:6px">只診斷，不會自動修改資料。座位檢查要先開過一次座位／積分模組。</div>
       <div class="pe-actions"><button type="button" class="pe-btn primary" id="pe-class-center-health-open">開啟完整健康檢查</button></div>
+    </div>
+    <div class="pe-class-card" style="margin-top:8px">
+      <h4 style="margin:0">☁ 雲端鏡像 Phase 1</h4>
+      <div class="pe-note" id="pe-cloud-mirror-text">身份層＋目前班別座位／積分／學生 Profile。保留本機資料作 fallback。</div>
+      <div class="pe-actions" style="justify-content:flex-start;flex-wrap:wrap">
+        <button type="button" class="pe-btn primary" id="pe-cloud-push-now">立即備份到雲端</button>
+        <button type="button" class="pe-btn" id="pe-cloud-pull-identity">從雲端載入身份層</button>
+        <button type="button" class="pe-btn" id="pe-cloud-pull-seat">從雲端載入目前班別座位／Profile</button>
+      </div>
+      <div class="pe-note" id="pe-cloud-mirror-detail" style="margin-top:6px">讀取雲端狀態中…</div>
     </div>`;
   }
 
@@ -5152,7 +5170,7 @@
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
       <h3>🏫 班級中心 <small style="font-size:.62em;opacity:.55">v2.8.1</small></h3>
-      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.8.6</span></p>
+      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.8.7</span></p>
       <div class="pe-v2-tabs">
         <button type="button" data-class-center-tab="overview" class="active">總覽</button>
         <button type="button" data-class-center-tab="students">學生</button>
@@ -5204,8 +5222,58 @@
 
       if(tab==='health'){
         body.innerHTML=healthSummaryHtml();
-        body.querySelector('#pe-class-center-health-open')?.addEventListener('click',()=>{
-          openIdentityV1();
+        body.querySelector('#pe-class-center-health-open')?.addEventListener('click',()=>openIdentityV1());
+
+        const detail=body.querySelector('#pe-cloud-mirror-detail');
+        const refreshCloudText=async()=>{
+          const svc=window.__schoolDataService;
+          if(!svc?.cloudMirror){
+            if(detail)detail.textContent='雲端鏡像服務未啟用。';
+            return;
+          }
+          try{
+            await svc.cloudMirror.pullIdentity(false);
+            if(svc.seat?.isReady?.())await svc.cloudMirror.pullSeat(false);
+          }catch{}
+          const s=svc.cloudMirror.status();
+          if(detail){
+            detail.textContent=!s.signedIn
+              ? '尚未登入：目前只會保留本機資料。'
+              : !s.seatReady
+                ? `身份雲端：${s.identityRemote?'已有資料':'未建立'}｜座位：請先開啟一次座位／積分`
+                : `身份雲端：${s.identityRemote?'已有資料':'未建立'}｜目前班別座位/Profile：${s.seatRemote?(s.seatNeedsPull?'有雲端資料待載入':'已建立'):'未建立'}${s.lastError?`｜最近錯誤：${s.lastError}`:''}`;
+          }
+        };
+        refreshCloudText();
+
+        body.querySelector('#pe-cloud-push-now')?.addEventListener('click',async()=>{
+          const svc=window.__schoolDataService;
+          if(!svc?.cloudMirror)return alert('雲端鏡像服務未啟用。');
+          if(!state.user)return alert('請先登入帳戶。');
+          if(!confirm('將目前本機身份資料，以及目前班別嘅座位／積分／Profile 備份到雲端？'))return;
+          const result=await svc.cloudMirror.pushAll(true);
+          alert(`身份：${result.identity?.ok?'已備份':'未完成'}\n座位/Profile：${result.seat?.ok?'已備份':result.seat?.reason==='seat-not-ready'?'請先開啟座位／積分':'未完成'}`);
+          refreshCloudText();
+        });
+
+        body.querySelector('#pe-cloud-pull-identity')?.addEventListener('click',async()=>{
+          const svc=window.__schoolDataService;
+          if(!svc?.cloudMirror)return;
+          if(!state.user)return alert('請先登入帳戶。');
+          if(!confirm('從雲端載入身份層？系統會以合併方式保留本機現有身份及雲端歷史資料。'))return;
+          const r=await svc.cloudMirror.pullIdentity(true);
+          alert(r.ok?'身份層已由雲端合併載入。':'雲端未有可載入嘅身份資料。');
+          refreshCloudText();
+        });
+
+        body.querySelector('#pe-cloud-pull-seat')?.addEventListener('click',async()=>{
+          const svc=window.__schoolDataService;
+          if(!svc?.seat?.isReady?.())return alert('請先開啟一次「座位／積分」，再返嚟載入。');
+          if(!state.user)return alert('請先登入帳戶。');
+          if(!confirm('從雲端載入目前班別嘅座位／積分／學生 Profile？本機目前班別資料會被雲端版本取代。'))return;
+          const r=await svc.cloudMirror.pullSeat(true);
+          alert(r.ok?'目前班別座位／Profile 已由雲端載入。':'雲端未有呢個班別嘅資料。');
+          refreshCloudText();
         });
         return;
       }
@@ -5304,6 +5372,200 @@
   }
 
 
+
+  const SEAT_CLOUD_KNOWN_KEY='hk-school-seat-cloud-known-v1';
+  let identityCloudTimer=null,seatCloudTimer=null;
+
+  function cloudMirrorReady(){
+    return !!(state.user&&state.firebaseReady&&window.firebase?.firestore);
+  }
+  function cloudRootCollection(name='appState'){
+    if(!cloudMirrorReady())return null;
+    return window.firebase.firestore().collection('users').doc(state.user.uid).collection(name);
+  }
+  function seatCloudDocId(classId=''){
+    return `class_${stableHash(String(classId||''))}`;
+  }
+  function loadSeatCloudKnown(){
+    try{return JSON.parse(localStorage.getItem(SEAT_CLOUD_KNOWN_KEY)||'{}')||{}}catch{return{}}
+  }
+  function saveSeatCloudKnown(map={}){
+    try{localStorage.setItem(SEAT_CLOUD_KNOWN_KEY,JSON.stringify(map||{}))}catch{}
+  }
+  function markSeatCloudKnown(classId='',updatedAt=''){
+    if(!classId)return;
+    const map=loadSeatCloudKnown();
+    map[String(classId)]=String(updatedAt||new Date().toISOString());
+    saveSeatCloudKnown(map);
+  }
+  function seatCloudIsKnown(classId=''){
+    return !!loadSeatCloudKnown()[String(classId||'')];
+  }
+
+  async function pushIdentityCloudMirror(){
+    if(!cloudMirrorReady())return {ok:false,reason:'not-ready'};
+    try{
+      const ref=cloudRootCollection('cloudMirror').doc('identity-v1');
+      const local=JSON.parse(JSON.stringify(loadIdentityV1()));
+      const snap=await ref.get();
+      const remote=snap.exists?(snap.data()?.payload||{}):{};
+      // Non-destructive merge: keep historical IDs that may exist only in cloud.
+      const merged={
+        ...emptyIdentityV1(),
+        ...remote,
+        ...local,
+        students:{...(remote.students||{}),...(local.students||{})},
+        classInstances:{...(remote.classInstances||{}),...(local.classInstances||{})},
+        enrollments:{...(remote.enrollments||{}),...(local.enrollments||{})},
+        currentSchoolYear:local.currentSchoolYear||remote.currentSchoolYear||defaultSchoolYear(),
+        updatedAt:new Date().toISOString()
+      };
+      await ref.set({
+        schemaVersion:1,
+        kind:'identity-v1',
+        updatedAt:merged.updatedAt,
+        payload:merged
+      },{merge:false});
+      state.cloudMirror.identityLastPush=merged.updatedAt;
+      state.cloudMirror.identityRemote=true;
+      state.cloudMirror.lastError='';
+      return {ok:true,updatedAt:merged.updatedAt};
+    }catch(err){
+      state.cloudMirror.lastError=String(err?.message||err);
+      console.warn('[cloud mirror] identity push',err);
+      return {ok:false,error:state.cloudMirror.lastError};
+    }
+  }
+
+  async function pullIdentityCloudMirror(apply=false){
+    if(!cloudMirrorReady())return {ok:false,reason:'not-ready'};
+    try{
+      const snap=await cloudRootCollection('cloudMirror').doc('identity-v1').get();
+      if(!snap.exists){
+        state.cloudMirror.identityRemote=false;
+        return {ok:false,reason:'not-found'};
+      }
+      const data=snap.data()||{},payload=data.payload;
+      state.cloudMirror.identityRemote=!!payload;
+      if(!payload||typeof payload!=='object')return {ok:false,reason:'invalid'};
+      if(apply){
+        const local=loadIdentityV1();
+        const merged={
+          ...emptyIdentityV1(),
+          ...payload,
+          students:{...(payload.students||{}),...(local.students||{})},
+          classInstances:{...(payload.classInstances||{}),...(local.classInstances||{})},
+          enrollments:{...(payload.enrollments||{}),...(local.enrollments||{})},
+          currentSchoolYear:local.currentSchoolYear||payload.currentSchoolYear||defaultSchoolYear(),
+          updatedAt:new Date().toISOString()
+        };
+        state.identityV1=merged;
+        try{localStorage.setItem(IDENTITY_V1_KEY,JSON.stringify(merged))}catch{}
+        try{window.dispatchEvent(new CustomEvent('identityV1Changed',{detail:{schoolYear:merged.currentSchoolYear,cloudRestore:true}}))}catch{}
+        try{renderIdentityV1()}catch{}
+      }
+      return {ok:true,updatedAt:data.updatedAt||'',applied:!!apply};
+    }catch(err){
+      state.cloudMirror.lastError=String(err?.message||err);
+      return {ok:false,error:state.cloudMirror.lastError};
+    }
+  }
+
+  async function probeSeatCloudMirror(){
+    const svc=window.__schoolDataService;
+    const adapter=svc?._getSeatAdapter?.();
+    if(!cloudMirrorReady()||!adapter?.activeClassId)return {ok:false,reason:'not-ready'};
+    const classId=String(adapter.activeClassId()||'');
+    if(!classId)return {ok:false,reason:'no-class'};
+    try{
+      const snap=await cloudRootCollection('seatProfileClasses').doc(seatCloudDocId(classId)).get();
+      state.cloudMirror.seatRemote=snap.exists;
+      state.cloudMirror.seatNeedsPull=!!(snap.exists&&!seatCloudIsKnown(classId));
+      return {ok:true,exists:snap.exists,needsPull:state.cloudMirror.seatNeedsPull,classId};
+    }catch(err){
+      state.cloudMirror.lastError=String(err?.message||err);
+      return {ok:false,error:state.cloudMirror.lastError};
+    }
+  }
+
+  async function pushSeatCloudMirror(force=false){
+    const svc=window.__schoolDataService;
+    const adapter=svc?._getSeatAdapter?.();
+    if(!cloudMirrorReady()||!adapter?.exportClassSnapshot||!adapter?.activeClassId)return {ok:false,reason:'not-ready'};
+    const classId=String(adapter.activeClassId()||'');
+    if(!classId)return {ok:false,reason:'no-class'};
+    try{
+      const ref=cloudRootCollection('seatProfileClasses').doc(seatCloudDocId(classId));
+      const remote=await ref.get();
+      // New/unknown device: do not overwrite an existing cloud class automatically.
+      if(remote.exists&&!force&&!seatCloudIsKnown(classId)){
+        state.cloudMirror.seatRemote=true;
+        state.cloudMirror.seatNeedsPull=true;
+        return {ok:false,reason:'remote-needs-pull',classId};
+      }
+      const payload=await adapter.exportClassSnapshot();
+      if(!payload?.classData)return {ok:false,reason:'empty'};
+      const updatedAt=new Date().toISOString();
+      await ref.set({
+        schemaVersion:1,
+        kind:'seat-profile-class',
+        classId,
+        className:payload.className||payload.classData?.className||'',
+        updatedAt,
+        payload
+      },{merge:false});
+      markSeatCloudKnown(classId,updatedAt);
+      state.cloudMirror.seatLastPush=updatedAt;
+      state.cloudMirror.seatRemote=true;
+      state.cloudMirror.seatNeedsPull=false;
+      state.cloudMirror.lastError='';
+      return {ok:true,classId,updatedAt};
+    }catch(err){
+      state.cloudMirror.lastError=String(err?.message||err);
+      console.warn('[cloud mirror] seat/profile push',err);
+      return {ok:false,error:state.cloudMirror.lastError};
+    }
+  }
+
+  async function pullSeatCloudMirror(apply=false){
+    const svc=window.__schoolDataService;
+    const adapter=svc?._getSeatAdapter?.();
+    if(!cloudMirrorReady()||!adapter?.importClassSnapshot||!adapter?.activeClassId)return {ok:false,reason:'not-ready'};
+    const classId=String(adapter.activeClassId()||'');
+    if(!classId)return {ok:false,reason:'no-class'};
+    try{
+      const snap=await cloudRootCollection('seatProfileClasses').doc(seatCloudDocId(classId)).get();
+      if(!snap.exists){
+        state.cloudMirror.seatRemote=false;
+        state.cloudMirror.seatNeedsPull=false;
+        return {ok:false,reason:'not-found',classId};
+      }
+      const data=snap.data()||{},payload=data.payload;
+      state.cloudMirror.seatRemote=true;
+      if(!payload?.classData)return {ok:false,reason:'invalid',classId};
+      if(apply){
+        await adapter.importClassSnapshot(payload);
+        markSeatCloudKnown(classId,data.updatedAt||new Date().toISOString());
+        state.cloudMirror.seatNeedsPull=false;
+      }else{
+        state.cloudMirror.seatNeedsPull=!seatCloudIsKnown(classId);
+      }
+      return {ok:true,classId,updatedAt:data.updatedAt||'',applied:!!apply};
+    }catch(err){
+      state.cloudMirror.lastError=String(err?.message||err);
+      return {ok:false,error:state.cloudMirror.lastError};
+    }
+  }
+
+  function scheduleIdentityCloudMirror(){
+    clearTimeout(identityCloudTimer);
+    identityCloudTimer=setTimeout(()=>{pushIdentityCloudMirror().catch(()=>{})},1400);
+  }
+  function scheduleSeatCloudMirror(){
+    clearTimeout(seatCloudTimer);
+    seatCloudTimer=setTimeout(()=>{pushSeatCloudMirror(false).catch(()=>{})},1400);
+  }
+
   function installSchoolDataService(){
     if(window.__schoolDataService?.version>=1)return window.__schoolDataService;
 
@@ -5324,7 +5586,7 @@
     let seatAdapter=null;
 
     const svc={
-      version:9,
+      version:10,
       schemaVersion:1,
       getStatus:()=>({
         ready:true,
@@ -5338,7 +5600,7 @@
         enrollmentCount:Object.keys(syncIdentityV1FromClassCore().enrollments||{}).length,
         queuedWrites:totalPending(),
         syncState:state.sync||'connecting',
-        writePaths:{classes:true,pending:true,submissions:true,profile:true,seat:true}
+        writePaths:{classes:true,pending:true,submissions:true,profile:true,seat:true,cloudMirror:true}
       }),
       snapshot:()=>({
         schoolYear:currentSchoolYear(),
@@ -5406,30 +5668,35 @@
         saveNote:async payload=>{
           if(!profileAdapter?.saveNote)throw new Error('profile adapter not ready');
           const result=await profileAdapter.saveNote(clone(payload||{}));
+          scheduleSeatCloudMirror();
           emit('profile',{type:'note-save',studentId:payload?.studentId||''});
           return clone(result||payload)
         },
         saveParentContact:async payload=>{
           if(!profileAdapter?.saveParentContact)throw new Error('profile adapter not ready');
           const result=await profileAdapter.saveParentContact(clone(payload||{}));
+          scheduleSeatCloudMirror();
           emit('profile',{type:'contact-save',studentId:payload?.studentId||''});
           return clone(result||payload)
         },
         saveEvent:async payload=>{
           if(!profileAdapter?.saveEvent)throw new Error('profile adapter not ready');
           const result=await profileAdapter.saveEvent(clone(payload||{}));
+          scheduleSeatCloudMirror();
           emit('profile',{type:'event-save',studentId:payload?.studentId||''});
           return clone(result||payload)
         },
         removeParentContact:async payload=>{
           if(!profileAdapter?.removeParentContact)throw new Error('profile adapter not ready');
           const result=await profileAdapter.removeParentContact(clone(payload||{}));
+          scheduleSeatCloudMirror();
           emit('profile',{type:'contact-delete',studentId:payload?.studentId||'',recordId:payload?.recordId||''});
           return clone(result||payload)
         },
         removeEvent:async payload=>{
           if(!profileAdapter?.removeEvent)throw new Error('profile adapter not ready');
           const result=await profileAdapter.removeEvent(clone(payload||{}));
+          scheduleSeatCloudMirror();
           emit('profile',{type:'event-delete',studentId:payload?.studentId||'',recordId:payload?.recordId||''});
           return clone(result||payload)
         }
@@ -5439,6 +5706,7 @@
           if(!adapter||typeof adapter!=='object')throw new Error('seat adapter required');
           seatAdapter=adapter;
           emit('seat',{type:'adapter-ready'});
+          setTimeout(()=>probeSeatCloudMirror().catch(()=>{}),300);
           return true
         },
         isReady:()=>!!seatAdapter,
@@ -5446,10 +5714,29 @@
         commit:async meta=>{
           if(!seatAdapter?.commit)throw new Error('seat adapter not ready');
           const result=await seatAdapter.commit(clone(meta||{}));
+          scheduleSeatCloudMirror();
           emit('seat',{type:'commit',reason:meta?.reason||'state-save',classId:meta?.classId||''});
           return clone(result||meta||{})
         }
       },
+      cloudMirror:{
+        status:()=>clone({
+          ...state.cloudMirror,
+          ready:cloudMirrorReady(),
+          signedIn:!!state.user,
+          seatReady:!!seatAdapter
+        }),
+        pushIdentity:()=>pushIdentityCloudMirror(),
+        pullIdentity:(apply=false)=>pullIdentityCloudMirror(!!apply),
+        pushSeat:(force=false)=>pushSeatCloudMirror(!!force),
+        pullSeat:(apply=false)=>pullSeatCloudMirror(!!apply),
+        pushAll:async(forceSeat=true)=>{
+          const identity=await pushIdentityCloudMirror();
+          const seat=seatAdapter?await pushSeatCloudMirror(!!forceSeat):{ok:false,reason:'seat-not-ready'};
+          return {identity,seat}
+        }
+      },
+      _getSeatAdapter:()=>seatAdapter,
       subscribe:on,
       emit,
       crossModuleAudit:()=>clone(crossModuleDataAudit()),
@@ -5457,7 +5744,10 @@
     };
 
     window.addEventListener('classCoreChanged',()=>emit('classes',{type:'external'}));
-    window.addEventListener('identityV1Changed',()=>emit('identity',{type:'external'}));
+    window.addEventListener('identityV1Changed',()=>{
+      emit('identity',{type:'external'});
+      scheduleIdentityCloudMirror();
+    });
     window.addEventListener('pendingItemsChanged',()=>emit('pending',{type:'external'}));
     window.addEventListener('submission-records-changed',e=>emit('submissions',{type:e.detail?.type||'external',id:e.detail?.id||''}));
     window.addEventListener('submission-pending-changed',()=>{
@@ -5465,6 +5755,18 @@
       setTimeout(updateSyncDisplay,0);
     });
     window.__schoolDataService=svc;
+    window.addEventListener('firebase-auth-state',()=>{
+      setTimeout(()=>{
+        pullIdentityCloudMirror(false).catch(()=>{});
+        probeSeatCloudMirror().catch(()=>{});
+      },700);
+    });
+    window.addEventListener('online',()=>{
+      setTimeout(()=>{
+        scheduleIdentityCloudMirror();
+        probeSeatCloudMirror().catch(()=>{});
+      },500);
+    });
     try{window.dispatchEvent(new CustomEvent('schoolDataServiceReady',{detail:svc.getStatus()}))}catch{}
     return svc;
   }
@@ -5821,7 +6123,7 @@
     m.id='pe-identity-v1-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog" style="width:min(900px,calc(100vw - 24px))">
-      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.8.6</small></h3>
+      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.8.7</small></h3>
       <p class="pe-note">studentId 永久跟學生；classId 代表某一學年嘅班級實體。01／02 等暫時班號唔會進入永久學生庫；改成真實姓名後會沿用原 studentId 自動升格。</p>
       <div class="pe-grid">
         <div class="pe-field">

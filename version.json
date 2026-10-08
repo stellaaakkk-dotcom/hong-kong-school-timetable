@@ -1,14 +1,15 @@
 {
-  "build": "2.8.6",
-  "cacheTag": "2860",
-  "released": "2026-10-08",
-  "purpose": "data-health-check-ui",
-  "dataServiceVersion": 9,
+  "build": "2.8.7",
+  "cacheTag": "2870",
+  "released": "2026-10-09",
+  "purpose": "cloud-mirror-phase-1-identity-seat-profile",
+  "dataServiceVersion": 10,
   "changes": [
-    "promote existing V2.5 cross-module audit into a visible Data Health Check",
-    "add Health Check tab in Class Center",
-    "add Health Check shortcut in Workspace",
-    "show identity, Pending, Submission, Seat and queued-write summary",
-    "keep diagnostic-only behavior with no automatic data changes"
+    "add Firestore cloud mirror for identity V1 with non-destructive merge",
+    "add per-class cloud mirror for seat, scores and student Profile data",
+    "auto-mirror seat/profile changes after a device has established cloud ownership",
+    "protect new/unknown devices from automatically overwriting existing cloud seat data",
+    "add manual cloud backup and restore controls in Class Center Health Check",
+    "keep localStorage as fallback"
   ]
 }
