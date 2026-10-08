@@ -1,14 +1,15 @@
 {
-  "build": "2.8.0",
-  "cacheTag": "2800",
+  "build": "2.8.1",
+  "cacheTag": "2810",
   "released": "2026-10-08",
-  "purpose": "activity-stats-quick-add-and-visible-update-ui",
+  "purpose": "submission-unable-to-collect-status",
   "dataServiceVersion": 9,
-  "features": [
-    "Activity Stats quick add with multiple dates in one save",
-    "Repeat activity action pre-fills category/title/note",
-    "Visible current version inside cloud status chip",
-    "Manual version check from version badge",
-    "New-version banner with explicit reload action instead of silent reload"
+  "fixes": [
+    "add 未能追收 action alongside 已補交 for missing students",
+    "未能追收 keeps the student in the missing list",
+    "store collectionStatus/unableAt in missingMeta",
+    "show 未能追收 count in missing summary",
+    "allow toggling 未能追收 back to normal follow-up",
+    "marking 已補交 clears 未能追收 status"
   ]
 }

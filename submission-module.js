@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.8.0';
+  const VERSION = '2.8.1';
   const LOCAL_KEY = 'hk-school-submission-records-v1';
   const PENDING_KEY = 'hk-school-submission-pending-v1';
   const CLASS_PREF_KEY = 'hk-school-class-student-counts-v1';
@@ -581,6 +581,10 @@
       .sub-missing-row b{font-size:10px}.sub-missing-row small{font-size:8px;color:${COLORS.muted}}
       .sub-missing-row select,.sub-missing-row input{min-width:0;border:1px solid ${COLORS.line};border-radius:7px;padding:6px;font-size:9px;background:#fffdf8}
       .sub-repeat{font-size:8px;color:${COLORS.danger};font-weight:800}
+      .sub-unable-btn{border-color:#d7c4a8!important;background:#fff8df!important;color:#8a642d!important}
+      .sub-unable-btn.active{background:#f3dfae!important;border-color:#c79f57!important;color:#6e4b16!important}
+      .sub-unable-note{font-size:8px;font-weight:800;color:#8a642d;margin-top:1px}
+
 
       .sub-follow-item,.sub-record{border:1px solid ${COLORS.line};border-radius:10px;background:#fffdf8;padding:8px 9px;margin-top:6px}
       .sub-follow-item{border-color:#e4d4c5;background:#faf5ee}
@@ -867,8 +871,9 @@
       <div class="sub-missing-summary">
         ${pendingCount?`<b>未處理 ${pendingCount} 人</b>`:'沒有未處理學生。'}
         ${miss.length?`<br><b style="color:${COLORS.danger}">欠交 ${miss.length} 人：</b> ${miss.map(pad).join('、')}`:''}
+        ${miss.filter(n=>r.missingMeta?.[n]?.collectionStatus==='unable').length?`<br><b style="color:#8a642d">未能追收 ${miss.filter(n=>r.missingMeta?.[n]?.collectionStatus==='unable').length} 人：</b> ${miss.filter(n=>r.missingMeta?.[n]?.collectionStatus==='unable').map(pad).join('、')}`:''}
       </div>
-      ${miss.length?`<div class="sub-missing-details" style="display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:6px!important">${miss.map(n=>{const meta=r.missingMeta?.[n]||{};const repeat=repeatMissingCount(r,n);return `<div class="sub-missing-card" style="min-width:0;border:1px solid ${COLORS.line};border-radius:10px;background:#fffdf8;padding:6px;display:grid;gap:5px"><div style="display:flex;justify-content:space-between;gap:4px;align-items:center"><b>${pad(n)}號</b>${repeat>1?`<span class="sub-repeat">累計 ${repeat} 次</span>`:''}</div><select style="width:100%;min-width:0" data-missing-reason="${n}"><option ${meta.reason==='未交'?'selected':''}>未交</option><option ${meta.reason==='病假'?'selected':''}>病假</option><option ${meta.reason==='缺席'?'selected':''}>缺席</option><option ${meta.reason==='忘記'?'selected':''}>忘記</option><option ${meta.reason==='其他'?'selected':''}>其他</option></select><input style="width:100%;min-width:0" data-missing-note="${n}" value="${esc(meta.note||'')}" placeholder="備註"><button style="width:100%" class="sub-btn" data-returned="${n}">已補交</button></div>`}).join('')}</div>`:''}
+      ${miss.length?`<div class="sub-missing-details" style="display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:6px!important">${miss.map(n=>{const meta=r.missingMeta?.[n]||{};const repeat=repeatMissingCount(r,n);return `<div class="sub-missing-card" style="min-width:0;border:1px solid ${COLORS.line};border-radius:10px;background:#fffdf8;padding:6px;display:grid;gap:5px"><div style="display:flex;justify-content:space-between;gap:4px;align-items:center"><b>${pad(n)}號</b>${repeat>1?`<span class="sub-repeat">累計 ${repeat} 次</span>`:''}</div><select style="width:100%;min-width:0" data-missing-reason="${n}"><option ${meta.reason==='未交'?'selected':''}>未交</option><option ${meta.reason==='病假'?'selected':''}>病假</option><option ${meta.reason==='缺席'?'selected':''}>缺席</option><option ${meta.reason==='忘記'?'selected':''}>忘記</option><option ${meta.reason==='其他'?'selected':''}>其他</option></select><input style="width:100%;min-width:0" data-missing-note="${n}" value="${esc(meta.note||'')}" placeholder="備註">${meta.collectionStatus==='unable'?`<div class="sub-unable-note">已標記：未能追收${meta.unableAt?` ・ ${fmtDate(meta.unableAt.slice(0,10))}`:''}</div>`:''}<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px"><button style="width:100%" class="sub-btn" data-returned="${n}">已補交</button><button style="width:100%" class="sub-btn sub-unable-btn ${meta.collectionStatus==='unable'?'active':''}" data-unable="${n}">${meta.collectionStatus==='unable'?'✓ 未能追收':'未能追收'}</button></div></div>`}).join('')}</div>`:''}
       <div class="sub-actions">
         <button class="sub-btn" id="sub-all-done">全部已交</button>
         <button class="sub-btn danger" id="sub-all-missing">全部欠交</button>
@@ -971,8 +976,8 @@
           // Red -> Green
           missing=missing.filter(x=>x!==n);
           if(!submitted.includes(n))submitted.push(n);
-          meta[n]={...(meta[n]||{}),returnedAt:now};
-          hist.push({student:n,action:'returned',at:now});
+          meta[n]={...(meta[n]||{}),returnedAt:now,collectionStatus:'',unableAt:''};
+      hist.push({student:n,action:'returned',at:now});
         }else if(isSubmitted){
           // Green -> Red
           submitted=submitted.filter(x=>x!==n);
@@ -993,6 +998,23 @@
 
     document.querySelectorAll('[data-missing-reason]').forEach(el=>el.addEventListener('change',async()=>{const r=active();if(!r)return;const n=Number(el.dataset.missingReason),meta={...(r.missingMeta||{})};meta[n]={...(meta[n]||{}),reason:el.value};await upsertRecord({...r,missingMeta:meta})}));
     document.querySelectorAll('[data-missing-note]').forEach(el=>el.addEventListener('change',async()=>{const r=active();if(!r)return;const n=Number(el.dataset.missingNote),meta={...(r.missingMeta||{})};meta[n]={...(meta[n]||{}),note:el.value};await upsertRecord({...r,missingMeta:meta})}));
+    document.querySelectorAll('[data-unable]').forEach(btn=>btn.addEventListener('click',async()=>{
+      const r=active();if(!r)return;
+      const n=Number(btn.dataset.unable);
+      if(!(r.missing||[]).includes(n))return;
+      const meta={...(r.missingMeta||{})};
+      const hist=[...(r.studentHistory||[])];
+      const now=new Date().toISOString();
+      const isUnable=meta[n]?.collectionStatus==='unable';
+      meta[n]={
+        ...(meta[n]||{}),
+        collectionStatus:isUnable?'':'unable',
+        unableAt:isUnable?'':now
+      };
+      hist.push({student:n,action:isUnable?'resume-followup':'unable-to-collect',at:now});
+      await upsertRecord({...r,missingMeta:meta,studentHistory:hist});
+    }));
+
     document.querySelectorAll('[data-returned]').forEach(btn=>btn.addEventListener('click',async()=>{
       const r=active();if(!r)return;
       const n=Number(btn.dataset.returned);
@@ -1003,7 +1025,7 @@
       submitted.sort((a,b)=>a-b);
       const meta={...(r.missingMeta||{})};
       const hist=[...(r.studentHistory||[])];
-      meta[n]={...(meta[n]||{}),returnedAt:now};
+      meta[n]={...(meta[n]||{}),returnedAt:now,collectionStatus:'',unableAt:''};
       hist.push({student:n,action:'returned',at:now});
       await upsertRecord({...r,missing,submitted,missingMeta:meta,studentHistory:hist});
     }));
