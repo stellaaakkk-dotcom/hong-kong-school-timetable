@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.8.3';
+  const VERSION = '2.8.4';
   const LOCAL_KEY = 'hk-school-submission-records-v1';
   const PENDING_KEY = 'hk-school-submission-pending-v1';
   const CLASS_PREF_KEY = 'hk-school-class-student-counts-v1';
@@ -155,11 +155,15 @@
   }
 
   function activeMissingNumbers(r){
-    return (r?.missing||[]).filter(n=>r?.missingMeta?.[n]?.collectionStatus!=='closed');
+    // v2.8.4 migration rule:
+    // old v2.8.2 per-student collectionStatus='closed' is treated as normal missing again.
+    // The old metadata stays in missingMeta/studentHistory for audit, but no longer hides the student.
+    return [...(r?.missing||[])];
   }
 
   function archivedMissingNumbers(r){
-    return (r?.missing||[]).filter(n=>r?.missingMeta?.[n]?.collectionStatus==='closed');
+    // Legacy per-student "不再追收" is retired. Whole-record archive is the only live archive model.
+    return [];
   }
 
   function needsFollowup(r){
@@ -445,6 +449,8 @@
           issueDate: r.issueDate,
           dueDate: r.dueDate,
           deadlineDate: r.deadlineDate,
+          followupArchived: r.followupArchived === true,
+          followupArchivedAt: r.followupArchivedAt || '',
           missing: r.missing,
           submitted: r.submitted || [],
           missingMeta: r.missingMeta || {},
@@ -953,7 +959,10 @@
           <span class="sub-tag red">欠交 ${miss.length}</span>
         </div>
         <div class="sub-meta" style="color:${COLORS.danger};margin-top:5px">班號：${miss.map(pad).join('、')}</div>
-        <div class="sub-actions"><button class="sub-btn" data-open="${esc(r.id)}">查看／追收</button></div>
+        <div class="sub-actions">
+          <button class="sub-btn" data-open="${esc(r.id)}">查看／追收</button>
+          <button class="sub-btn sub-close-follow-btn" data-archive-record="${esc(r.id)}">不再追收</button>
+        </div>
       </div>`;
   }
 
@@ -975,9 +984,8 @@
       </div>
       <div class="sub-students">
         ${Array.from({length:count},(_,i)=>i+1).map(n => {
-          const isClosed=archived.includes(n);
-          const cls=isClosed?'closed':allMiss.includes(n)?'missing':submitted.includes(n)?'submitted':'pending';
-          const label=isClosed?'欠交／不再追收':cls==='missing'?'欠交':cls==='submitted'?'已交':'未處理';
+          const cls=allMiss.includes(n)?'missing':submitted.includes(n)?'submitted':'pending';
+          const label=cls==='missing'?'欠交':cls==='submitted'?'已交':'未處理';
           return `<button class="sub-student ${cls}" data-student="${n}" aria-label="${n}號 ${label}" title="${label}">${pad(n)}</button>`;
         }).join('')}
       </div>
@@ -988,13 +996,6 @@
         ${archived.length?`<br><b style="color:#75675a">不再追收 ${archived.length} 人：</b> ${archived.map(pad).join('、')}`:''}
       </div>
       ${miss.length?`<div class="sub-missing-details" style="display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:6px!important">${miss.map(n=>{const meta=r.missingMeta?.[n]||{};const repeat=repeatMissingCount(r,n);return `<div class="sub-missing-card" style="min-width:0;border:1px solid ${COLORS.line};border-radius:10px;background:#fffdf8;padding:6px;display:grid;gap:5px"><div style="display:flex;justify-content:space-between;gap:4px;align-items:center"><b>${pad(n)}號</b>${repeat>1?`<span class="sub-repeat">累計 ${repeat} 次</span>`:''}</div><select style="width:100%;min-width:0" data-missing-reason="${n}"><option ${meta.reason==='未交'?'selected':''}>未交</option><option ${meta.reason==='病假'?'selected':''}>病假</option><option ${meta.reason==='缺席'?'selected':''}>缺席</option><option ${meta.reason==='忘記'?'selected':''}>忘記</option><option ${meta.reason==='其他'?'selected':''}>其他</option></select><input style="width:100%;min-width:0" data-missing-note="${n}" value="${esc(meta.note||'')}" placeholder="備註">${meta.collectionStatus==='unable'?`<div class="sub-unable-note">已標記：未能追收${meta.unableAt?` ・ ${fmtDate(meta.unableAt.slice(0,10))}`:''}</div>`:''}<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px"><button style="width:100%" class="sub-btn" data-returned="${n}">已補交</button><button style="width:100%" class="sub-btn sub-unable-btn ${meta.collectionStatus==='unable'?'active':''}" data-unable="${n}">${meta.collectionStatus==='unable'?'✓ 未能追收':'未能追收'}</button></div></div>`}).join('')}</div>`:'<div class="sub-empty">目前沒有待追收學生。</div>'}
-      ${archived.length?`
-        <details class="sub-follow-history">
-          <summary>舊版個別停止追收（${archived.length} 人）</summary>
-          <div>
-            ${archived.map(n=>{const meta=r.missingMeta?.[n]||{};return `<div class="sub-follow-history-card"><div class="head"><b>${pad(n)}號｜不再追收</b><button class="sub-btn" data-reopen-follow="${n}">重新追收</button></div><div class="sub-meta">欠交原因：${esc(meta.reason||'未交')}${meta.note?` ・ 備註：${esc(meta.note)}`:''}${meta.closedAt?` ・ 結束：${fmtDate(meta.closedAt.slice(0,10))}`:''}</div></div>`}).join('')}
-          </div>
-        </details>`:''}
       <div class="sub-actions">
         <button class="sub-btn" id="sub-all-done">全部已交</button>
         <button class="sub-btn danger" id="sub-all-missing">全部欠交</button>
@@ -1069,7 +1070,10 @@
           </div>
           <span class="sub-tag ${tagClass}">${esc(label)}</span>
         </div>
-        <div class="sub-actions"><button class="sub-btn" data-open="${esc(r.id)}">查看</button></div>
+        <div class="sub-actions">
+          <button class="sub-btn" data-open="${esc(r.id)}">查看</button>
+          ${!forced && !isFollowupArchived(r) && !isCompleted(r) ? `<button class="sub-btn sub-close-follow-btn" data-archive-record="${esc(r.id)}">不再追收</button>` : ''}
+        </div>
       </div>`;
   }
 
@@ -1177,13 +1181,23 @@
       await upsertRecord({...r,missingMeta:meta,studentHistory:hist});
     }));
 
-    document.getElementById('sub-archive-record')?.addEventListener('click',async()=>{
-      const r=active();if(!r||isFollowupArchived(r))return;
-      if(!confirm(`「${r.name}」會整項移到「不再追收」歷史，並由今日追收／進行中移走。欠交資料會完整保留。確定？`))return;
+    const archiveRecordById=async(recordId)=>{
+      const rec=state.records.find(x=>x.id===recordId);
+      if(!rec||isFollowupArchived(rec))return;
+      if(!confirm(`「${rec.name}」會整項移到「不再追收」歷史，並由今日追收／進行中移走。欠交資料會完整保留。確定？`))return;
       const now=new Date().toISOString();
-      const hist=[...(r.studentHistory||[]),{action:'archive-followup-record',at:now}];
-      await upsertRecord({...r,followupArchived:true,followupArchivedAt:now,studentHistory:hist});
+      const hist=[...(rec.studentHistory||[]),{action:'archive-followup-record',at:now}];
+      await upsertRecord({...rec,followupArchived:true,followupArchivedAt:now,studentHistory:hist});
+    };
+
+    document.getElementById('sub-archive-record')?.addEventListener('click',async()=>{
+      const rec=active();if(!rec)return;
+      await archiveRecordById(rec.id);
     });
+
+    document.querySelectorAll('[data-archive-record]').forEach(btn=>btn.addEventListener('click',async()=>{
+      await archiveRecordById(btn.dataset.archiveRecord);
+    }));
 
     document.getElementById('sub-reopen-record')?.addEventListener('click',async()=>{
       const r=active();if(!r||!isFollowupArchived(r))return;

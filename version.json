@@ -1,7 +1,16 @@
 {
-  "build": "2.8.3",
-  "cacheTag": "2830",
+  "build": "2.8.4",
+  "cacheTag": "2840",
   "released": "2026-10-08",
-  "purpose": "whole-followup-archive-and-filters",
-  "dataServiceVersion": 9
+  "purpose": "followup-archive-cloud-persistence-and-record-id-fix",
+  "dataServiceVersion": 9,
+  "rootCause": "followupArchived/followupArchivedAt were omitted from Firestore cloudData, so snapshots reverted archive state",
+  "changes": [
+    "persist followupArchived and followupArchivedAt to Firestore",
+    "archive buttons operate on explicit record IDs",
+    "add 不再追收 button directly to each active follow-up/ongoing record",
+    "legacy per-student closed states are treated as normal missing again",
+    "whole-record archive remains the only active archive model",
+    "retain old closed metadata/history for audit"
+  ]
 }
