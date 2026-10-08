@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.8.5';
+  const VERSION = '2.8.6';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -4948,7 +4948,7 @@
         <div><b>🪑 座位／積分</b><small id="pe-seat-score-status">共用班級及學生資料</small></div>
         <button type="button" id="pe-seat-score-close">✕</button>
       </div>
-      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=2850"></iframe>
+      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=2860"></iframe>
     </div>`;
     document.body.appendChild(m);
     m.querySelector('#pe-seat-score-close').addEventListener('click',()=>closeSeatScore());
@@ -5102,6 +5102,48 @@
 
 
 
+
+  function dataHealthSummary(){
+    let identity=null,cross=null;
+    try{identity=identityAudit()}catch{}
+    try{cross=crossModuleDataAudit()}catch{}
+    const critical=Number(cross?.criticalCount||0);
+    const warnings=Number(cross?.warningCount||0);
+    const identityHealthy=identity?.healthy!==false;
+    const seatReady=!!cross?.seat?.ready;
+    const queued=Number(cross?.queuedWrites||0);
+    const status=critical>0?'critical':(!identityHealthy||warnings>0||!seatReady||queued>0?'warn':'ok');
+    return {identity,cross,critical,warnings,identityHealthy,seatReady,queued,status};
+  }
+
+  function healthSummaryHtml(){
+    const h=dataHealthSummary();
+    const badge=h.status==='critical'
+      ? `<span style="font-weight:900;color:#9b4039">需要處理 ${h.critical}</span>`
+      : h.status==='warn'
+        ? `<span style="font-weight:900;color:#8a642d">有提示 ${h.warnings}</span>`
+        : `<span style="font-weight:900;color:#44753d">✓ 正常</span>`;
+    const rows=[];
+    rows.push(`身份／Enrollment：${h.identityHealthy?'正常':'需檢查'}`);
+    if(h.cross){
+      rows.push(`Pending：${h.cross.pendingOrphans?.length||0} 個孤兒 Student ID`);
+      rows.push(`追收：${h.cross.submissionClassMismatches?.length||0} 個班別未配對`);
+      rows.push(`座位：${h.seatReady?'已連接':'未開啟，未完成檢查'}`);
+      rows.push(`待同步：${h.queued}`);
+    }else{
+      rows.push('跨模組診斷暫時未能讀取');
+    }
+    return `<div class="pe-class-card">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+        <div><h4 style="margin:0">🩺 資料健康檢查</h4><div class="pe-note">班級、學生、Pending、追收、座位與同步一致性。</div></div>
+        ${badge}
+      </div>
+      <div style="margin-top:8px;font-size:10px;line-height:1.7">${rows.map(x=>`• ${esc(x)}`).join('<br>')}</div>
+      <div class="pe-note" style="margin-top:6px">只診斷，不會自動修改資料。座位檢查要先開過一次座位／積分模組。</div>
+      <div class="pe-actions"><button type="button" class="pe-btn primary" id="pe-class-center-health-open">開啟完整健康檢查</button></div>
+    </div>`;
+  }
+
   function ensureClassCenterModal(){
     let m=document.getElementById('pe-class-center-modal');
     if(m)return m;
@@ -5110,13 +5152,14 @@
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
       <h3>🏫 班級中心 <small style="font-size:.62em;opacity:.55">v2.8.1</small></h3>
-      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.8.5</span></p>
+      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.8.6</span></p>
       <div class="pe-v2-tabs">
         <button type="button" data-class-center-tab="overview" class="active">總覽</button>
         <button type="button" data-class-center-tab="students">學生</button>
         <button type="button" data-class-center-tab="homework">功課</button>
         <button type="button" data-class-center-tab="submission">追收</button>
         <button type="button" data-class-center-tab="seat">座位／積分</button>
+        <button type="button" data-class-center-tab="health">健康檢查</button>
       </div>
       <div id="pe-class-center-content"></div>
       <div class="pe-actions"><button class="pe-btn" id="pe-class-center-close">關閉</button></div>
@@ -5158,6 +5201,14 @@
       const body=out.querySelector('#pe-class-center-body');
       if(!cls){body.innerHTML='<div class="pe-note">暫時未有班別資料。</div>';return}
       setActiveClass(cls);
+
+      if(tab==='health'){
+        body.innerHTML=healthSummaryHtml();
+        body.querySelector('#pe-class-center-health-open')?.addEventListener('click',()=>{
+          openIdentityV1();
+        });
+        return;
+      }
 
       if(tab==='seat'){
         const rec=classProfileByName(cls);
@@ -5770,7 +5821,7 @@
     m.id='pe-identity-v1-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog" style="width:min(900px,calc(100vw - 24px))">
-      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.8.5</small></h3>
+      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.8.6</small></h3>
       <p class="pe-note">studentId 永久跟學生；classId 代表某一學年嘅班級實體。01／02 等暫時班號唔會進入永久學生庫；改成真實姓名後會沿用原 studentId 自動升格。</p>
       <div class="pe-grid">
         <div class="pe-field">
@@ -5953,10 +6004,10 @@
 
     const crossBox=m.querySelector('#pe-v25-cross-audit');
     if(crossBox)crossBox.innerHTML=`
-      <div style="font-weight:900;font-size:10px;margin-bottom:5px">🔎 V2.5 跨模組一致性診斷</div>
+      <div style="font-weight:900;font-size:10px;margin-bottom:5px">🩺 跨模組資料健康檢查</div>
       <div class="pe-note">${cross.healthy?'✅ 未發現會令資料斷鏈嘅跨模組問題。':'⚠️ 發現需要檢查嘅跨模組連結。'} <span style="opacity:.65">嚴重 ${cross.criticalCount}｜提示 ${cross.warningCount}</span></div>
       <div style="margin-top:6px;font-size:9px;line-height:1.65">${crossIssues.length?crossIssues.map(x=>`• ${esc(x)}`).join('<br>'):'• Pending、追收、座位表與主系統目前資料一致。'}</div>
-      <div class="pe-note" style="margin-top:5px">本版只診斷，不會自動修改任何 ID、班別、追收或座位資料。</div>`;
+      <div class="pe-note" style="margin-top:5px">只會檢查，不會自動修改任何 ID、班別、追收或座位資料。</div>`;
 
     renderIdentityRegistry();
   }
@@ -6690,6 +6741,7 @@
         <button class="pe-class-card" type="button" id="pe-v2-flow"><h4>🧭 課堂工作流</h4><div class="pe-note">一堂課集中睇上次進度、今堂功課及追收。</div></button>
         <button class="pe-class-card" type="button" id="pe-v2-inbox"><h4>📥 待處理／追收</h4><div class="pe-note">待辦、deadline、追收一次睇。</div></button>
         <button class="pe-class-card" type="button" id="pe-v2-homework"><h4>📚 功課管理</h4><div class="pe-note">查看功課紀錄及追收狀態。</div></button>
+        <button class="pe-class-card" type="button" id="pe-v2-health"><h4>🩺 資料健康檢查</h4><div class="pe-note">檢查身份、追收、座位同待同步資料。</div></button>
       </div>
       <div class="pe-actions"><button class="pe-btn" id="pe-v2-close">關閉</button></div>
     </div>`;
@@ -6700,6 +6752,17 @@
     m.querySelector('#pe-v2-flow').addEventListener('click',()=>{closeModal(m);openWorkflow()});
     m.querySelector('#pe-v2-inbox').addEventListener('click',()=>{closeModal(m);openInbox()});
     m.querySelector('#pe-v2-homework').addEventListener('click',()=>{closeModal(m);openHomeworkHistory()});
+    m.querySelector('#pe-v2-health')?.addEventListener('click',()=>{
+      closeModal(m);
+      openClassCenter();
+      setTimeout(()=>{
+        const cc=document.getElementById('pe-class-center-modal');
+        if(!cc)return;
+        cc.dataset.tab='health';
+        cc.querySelectorAll('[data-class-center-tab]').forEach(x=>x.classList.toggle('active',x.dataset.classCenterTab==='health'));
+        renderClassCenter();
+      },0);
+    });
     return m;
   }
 

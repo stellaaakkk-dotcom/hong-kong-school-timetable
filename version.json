@@ -1,15 +1,14 @@
 {
-  "build": "2.8.5",
-  "cacheTag": "2850",
+  "build": "2.8.6",
+  "cacheTag": "2860",
   "released": "2026-10-08",
-  "purpose": "followup-filter-overview-and-class-center-archive-status",
+  "purpose": "data-health-check-ui",
   "dataServiceVersion": 9,
   "changes": [
-    "fix 待追收 filter to include every non-archived record with active missing students, including overdue",
-    "remove 未能追收 as a top-level filter",
-    "add compact filtered overview cards with item name and 已交/欠交/未處理 counts",
-    "filtered overview cards open the exact record detail",
-    "Class Center submission counts recognize 不再追收",
-    "Class Center overview separates archived follow-ups from active unfinished follow-ups"
+    "promote existing V2.5 cross-module audit into a visible Data Health Check",
+    "add Health Check tab in Class Center",
+    "add Health Check shortcut in Workspace",
+    "show identity, Pending, Submission, Seat and queued-write summary",
+    "keep diagnostic-only behavior with no automatic data changes"
   ]
 }
