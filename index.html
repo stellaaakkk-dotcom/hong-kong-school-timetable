@@ -4,7 +4,6 @@ window.__HK_BUILD="2.8.0";
 (function(){
   const BUILD="2.8.0";
   const CHECK_KEY="hk-build-check-at";
-  const RELOAD_KEY="hk-build-reload-guard";
 
   function versionedUrl(version){
     const u=new URL(location.href);
@@ -12,41 +11,36 @@ window.__HK_BUILD="2.8.0";
     return u.href;
   }
 
-  async function checkFreshBuild(force){
+  function announce(latest){
+    const detail={current:BUILD,latest,url:versionedUrl(latest)};
+    window.__HK_LATEST_BUILD=latest;
+    window.__HK_UPDATE_DETAIL=detail;
+    try{window.dispatchEvent(new CustomEvent('hk-app-update-available',{detail}))}catch{}
+  }
+
+  async function checkFreshBuild(force=false){
     try{
       const now=Date.now();
       const last=Number(sessionStorage.getItem(CHECK_KEY)||0);
-      if(!force && now-last<15000)return;
+      if(!force && now-last<15000)return {current:BUILD,latest:window.__HK_LATEST_BUILD||BUILD,update:false};
       sessionStorage.setItem(CHECK_KEY,String(now));
-
       const res=await fetch("./version.json?ts="+now,{cache:"no-store"});
-      if(!res.ok)return;
+      if(!res.ok)return {current:BUILD,latest:BUILD,update:false};
       const meta=await res.json();
-      const latest=String(meta.build||"").trim();
-      if(!latest || latest===BUILD){
-        sessionStorage.removeItem(RELOAD_KEY);
-        return;
-      }
-
-      const already=sessionStorage.getItem(RELOAD_KEY);
-      window.__HK_LATEST_BUILD=latest;
-      window.__HK_UPDATE_AVAILABLE=latest;
-      if(already!==latest){
-        sessionStorage.setItem(RELOAD_KEY,latest);
-        try{window.dispatchEvent(new CustomEvent("hk-build-update-available",{detail:{latest,current:BUILD}}))}catch{}
-      }
+      const latest=String(meta.build||"").trim()||BUILD;
+      if(latest!==BUILD){announce(latest);return {current:BUILD,latest,update:true};}
+      window.__HK_LATEST_BUILD=BUILD;
+      return {current:BUILD,latest:BUILD,update:false};
     }catch(e){
-      // Offline / transient network errors must never block app startup.
+      return {current:BUILD,latest:BUILD,update:false,error:true};
     }
   }
 
-  // Fresh navigation.
+  window.__HK_CHECK_APP_UPDATE=checkFreshBuild;
+  window.__HK_RELOAD_TO_BUILD=function(latest){location.replace(versionedUrl(latest||window.__HK_LATEST_BUILD||BUILD));};
+
   checkFreshBuild(true);
-
-  // BFCache / tab restore.
   window.addEventListener("pageshow",e=>checkFreshBuild(!!e.persisted));
-
-  // Returning from background after deployment.
   document.addEventListener("visibilitychange",()=>{
     if(document.visibilityState==="visible")checkFreshBuild(false);
   });

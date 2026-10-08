@@ -2,13 +2,13 @@
   "build": "2.8.0",
   "cacheTag": "2800",
   "released": "2026-10-08",
-  "purpose": "activity-stats-quick-add-and-version-update-ui",
+  "purpose": "activity-stats-quick-add-and-visible-update-ui",
   "dataServiceVersion": 9,
-  "changes": [
-    "activity stats quick-add entry",
-    "repeat existing activity item to one or many dates",
-    "batch date paste support",
-    "visible current version badge",
-    "version.json update detection with explicit reload prompt"
+  "features": [
+    "Activity Stats quick add with multiple dates in one save",
+    "Repeat activity action pre-fills category/title/note",
+    "Visible current version inside cloud status chip",
+    "Manual version check from version badge",
+    "New-version banner with explicit reload action instead of silent reload"
   ]
 }
