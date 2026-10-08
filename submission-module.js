@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.8.1';
+  const VERSION = '2.8.2';
   const LOCAL_KEY = 'hk-school-submission-records-v1';
   const PENDING_KEY = 'hk-school-submission-pending-v1';
   const CLASS_PREF_KEY = 'hk-school-class-student-counts-v1';
@@ -150,8 +150,16 @@
     return !!ref && ref < hkDateString();
   }
 
+  function activeMissingNumbers(r){
+    return (r?.missing||[]).filter(n=>r?.missingMeta?.[n]?.collectionStatus!=='closed');
+  }
+
+  function archivedMissingNumbers(r){
+    return (r?.missing||[]).filter(n=>r?.missingMeta?.[n]?.collectionStatus==='closed');
+  }
+
   function needsFollowup(r){
-    return (r?.missing||[]).length>0;
+    return activeMissingNumbers(r).length>0;
   }
 
   function normalizeRecord(r){
@@ -583,6 +591,13 @@
       .sub-repeat{font-size:8px;color:${COLORS.danger};font-weight:800}
       .sub-unable-btn{border-color:#d7c4a8!important;background:#fff8df!important;color:#8a642d!important}
       .sub-unable-btn.active{background:#f3dfae!important;border-color:#c79f57!important;color:#6e4b16!important}
+      .sub-close-follow-btn{border-color:#d4b5b0!important;background:#fff3f0!important;color:#8b4f47!important}
+      .sub-follow-history{margin-top:9px;border-top:1px dashed ${COLORS.line};padding-top:8px}
+      .sub-follow-history summary{cursor:pointer;font-size:11px;font-weight:850;color:${COLORS.caramelDark}}
+      .sub-follow-history-card{border:1px solid ${COLORS.line};border-radius:9px;background:#f8f4ee;padding:7px;margin-top:5px}
+      .sub-follow-history-card .head{display:flex;justify-content:space-between;gap:6px;align-items:center}
+      .sub-student.closed{border-color:#cabdb0;background:#eee7df;color:#7a6d61}
+
       .sub-unable-note{font-size:8px;font-weight:800;color:#8a642d;margin-top:1px}
 
 
@@ -835,7 +850,7 @@
   }
 
   function followupHtml(r) {
-    const miss = r.missing || [];
+    const miss = activeMissingNumbers(r);
     return `
       <div class="sub-follow-item">
         <div class="sub-item-top">
@@ -849,31 +864,43 @@
   }
 
   function statusHtml(r) {
-    const miss = r.missing || [];
+    const allMiss = r.missing || [];
+    const miss = activeMissingNumbers(r);
+    const archived = archivedMissingNumbers(r);
     const submitted = r.submitted || [];
     const count = r.studentCount || 30;
-    const pendingCount=Math.max(0,count-miss.length-submitted.length);
+    const pendingCount=Math.max(0,count-allMiss.length-submitted.length);
+    const unable=miss.filter(n=>r.missingMeta?.[n]?.collectionStatus==='unable');
 
     return `
       <div class="sub-stats">
         <div class="sub-stat"><span>全班</span><b>${count}</b></div>
         <div class="sub-stat done"><span>已交</span><b>${submitted.length}</b></div>
-        <div class="sub-stat missing"><span>欠交</span><b>${miss.length}</b></div>
+        <div class="sub-stat missing"><span>欠交</span><b>${allMiss.length}</b></div>
         <div class="sub-stat"><span>未處理</span><b>${pendingCount}</b></div>
       </div>
       <div class="sub-students">
         ${Array.from({length:count},(_,i)=>i+1).map(n => {
-          const cls=miss.includes(n)?'missing':submitted.includes(n)?'submitted':'pending';
-          const label=cls==='missing'?'欠交':cls==='submitted'?'已交':'未處理';
+          const isClosed=archived.includes(n);
+          const cls=isClosed?'closed':allMiss.includes(n)?'missing':submitted.includes(n)?'submitted':'pending';
+          const label=isClosed?'欠交／不再追收':cls==='missing'?'欠交':cls==='submitted'?'已交':'未處理';
           return `<button class="sub-student ${cls}" data-student="${n}" aria-label="${n}號 ${label}" title="${label}">${pad(n)}</button>`;
         }).join('')}
       </div>
       <div class="sub-missing-summary">
         ${pendingCount?`<b>未處理 ${pendingCount} 人</b>`:'沒有未處理學生。'}
-        ${miss.length?`<br><b style="color:${COLORS.danger}">欠交 ${miss.length} 人：</b> ${miss.map(pad).join('、')}`:''}
-        ${miss.filter(n=>r.missingMeta?.[n]?.collectionStatus==='unable').length?`<br><b style="color:#8a642d">未能追收 ${miss.filter(n=>r.missingMeta?.[n]?.collectionStatus==='unable').length} 人：</b> ${miss.filter(n=>r.missingMeta?.[n]?.collectionStatus==='unable').map(pad).join('、')}`:''}
+        ${miss.length?`<br><b style="color:${COLORS.danger}">待追收 ${miss.length} 人：</b> ${miss.map(pad).join('、')}`:''}
+        ${unable.length?`<br><b style="color:#8a642d">未能追收 ${unable.length} 人：</b> ${unable.map(pad).join('、')}`:''}
+        ${archived.length?`<br><b style="color:#75675a">不再追收 ${archived.length} 人：</b> ${archived.map(pad).join('、')}`:''}
       </div>
-      ${miss.length?`<div class="sub-missing-details" style="display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:6px!important">${miss.map(n=>{const meta=r.missingMeta?.[n]||{};const repeat=repeatMissingCount(r,n);return `<div class="sub-missing-card" style="min-width:0;border:1px solid ${COLORS.line};border-radius:10px;background:#fffdf8;padding:6px;display:grid;gap:5px"><div style="display:flex;justify-content:space-between;gap:4px;align-items:center"><b>${pad(n)}號</b>${repeat>1?`<span class="sub-repeat">累計 ${repeat} 次</span>`:''}</div><select style="width:100%;min-width:0" data-missing-reason="${n}"><option ${meta.reason==='未交'?'selected':''}>未交</option><option ${meta.reason==='病假'?'selected':''}>病假</option><option ${meta.reason==='缺席'?'selected':''}>缺席</option><option ${meta.reason==='忘記'?'selected':''}>忘記</option><option ${meta.reason==='其他'?'selected':''}>其他</option></select><input style="width:100%;min-width:0" data-missing-note="${n}" value="${esc(meta.note||'')}" placeholder="備註">${meta.collectionStatus==='unable'?`<div class="sub-unable-note">已標記：未能追收${meta.unableAt?` ・ ${fmtDate(meta.unableAt.slice(0,10))}`:''}</div>`:''}<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px"><button style="width:100%" class="sub-btn" data-returned="${n}">已補交</button><button style="width:100%" class="sub-btn sub-unable-btn ${meta.collectionStatus==='unable'?'active':''}" data-unable="${n}">${meta.collectionStatus==='unable'?'✓ 未能追收':'未能追收'}</button></div></div>`}).join('')}</div>`:''}
+      ${miss.length?`<div class="sub-missing-details" style="display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:6px!important">${miss.map(n=>{const meta=r.missingMeta?.[n]||{};const repeat=repeatMissingCount(r,n);return `<div class="sub-missing-card" style="min-width:0;border:1px solid ${COLORS.line};border-radius:10px;background:#fffdf8;padding:6px;display:grid;gap:5px"><div style="display:flex;justify-content:space-between;gap:4px;align-items:center"><b>${pad(n)}號</b>${repeat>1?`<span class="sub-repeat">累計 ${repeat} 次</span>`:''}</div><select style="width:100%;min-width:0" data-missing-reason="${n}"><option ${meta.reason==='未交'?'selected':''}>未交</option><option ${meta.reason==='病假'?'selected':''}>病假</option><option ${meta.reason==='缺席'?'selected':''}>缺席</option><option ${meta.reason==='忘記'?'selected':''}>忘記</option><option ${meta.reason==='其他'?'selected':''}>其他</option></select><input style="width:100%;min-width:0" data-missing-note="${n}" value="${esc(meta.note||'')}" placeholder="備註">${meta.collectionStatus==='unable'?`<div class="sub-unable-note">已標記：未能追收${meta.unableAt?` ・ ${fmtDate(meta.unableAt.slice(0,10))}`:''}</div>`:''}<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px"><button style="width:100%" class="sub-btn" data-returned="${n}">已補交</button><button style="width:100%" class="sub-btn sub-unable-btn ${meta.collectionStatus==='unable'?'active':''}" data-unable="${n}">${meta.collectionStatus==='unable'?'✓ 未能追收':'未能追收'}</button><button style="width:100%" class="sub-btn sub-close-follow-btn" data-close-follow="${n}">不再追收</button></div></div>`}).join('')}</div>`:'<div class="sub-empty">目前沒有待追收學生。</div>'}
+      ${archived.length?`
+        <details class="sub-follow-history">
+          <summary>追收歷史（不再追收 ${archived.length} 人）</summary>
+          <div>
+            ${archived.map(n=>{const meta=r.missingMeta?.[n]||{};return `<div class="sub-follow-history-card"><div class="head"><b>${pad(n)}號｜不再追收</b><button class="sub-btn" data-reopen-follow="${n}">重新追收</button></div><div class="sub-meta">欠交原因：${esc(meta.reason||'未交')}${meta.note?` ・ 備註：${esc(meta.note)}`:''}${meta.closedAt?` ・ 結束：${fmtDate(meta.closedAt.slice(0,10))}`:''}</div></div>`}).join('')}
+          </div>
+        </details>`:''}
       <div class="sub-actions">
         <button class="sub-btn" id="sub-all-done">全部已交</button>
         <button class="sub-btn danger" id="sub-all-missing">全部欠交</button>
@@ -883,7 +910,10 @@
   }
 
   function recordHtml(r, forced='') {
-    const miss=(r.missing||[]).length;
+    const allMiss=(r.missing||[]).length;
+    const activeMiss=activeMissingNumbers(r).length;
+    const archivedMiss=archivedMissingNumbers(r).length;
+    const miss=allMiss;
     const submitted=(r.submitted||[]).length;
     const count=r.studentCount||30;
     const pending=Math.max(0,count-miss-submitted);
@@ -892,9 +922,12 @@
     let tagClass='';
 
     if(!label){
-      if(miss){
-        label=`欠交 ${miss}`;
+      if(activeMiss){
+        label=`待追收 ${activeMiss}${archivedMiss?`／已結案 ${archivedMiss}`:''}`;
         tagClass='red';
+      }else if(archivedMiss){
+        label=`欠交 ${archivedMiss}／不再追收`;
+        tagClass='pending';
       }else if(pending){
         label=`未處理 ${pending}`;
         tagClass='pending';
@@ -969,6 +1002,7 @@
         const hist=[...(r.studentHistory||[])];
         const now=new Date().toISOString();
 
+        if(r.missingMeta?.[n]?.collectionStatus==='closed')return;
         const isMissing=missing.includes(n);
         const isSubmitted=submitted.includes(n);
 
@@ -976,7 +1010,7 @@
           // Red -> Green
           missing=missing.filter(x=>x!==n);
           if(!submitted.includes(n))submitted.push(n);
-          meta[n]={...(meta[n]||{}),returnedAt:now,collectionStatus:'',unableAt:''};
+          meta[n]={...(meta[n]||{}),returnedAt:now,collectionStatus:'',unableAt:'',closedAt:''};
       hist.push({student:n,action:'returned',at:now});
         }else if(isSubmitted){
           // Green -> Red
@@ -1015,6 +1049,31 @@
       await upsertRecord({...r,missingMeta:meta,studentHistory:hist});
     }));
 
+    document.querySelectorAll('[data-close-follow]').forEach(btn=>btn.addEventListener('click',async()=>{
+      const r=active();if(!r)return;
+      const n=Number(btn.dataset.closeFollow);
+      if(!(r.missing||[]).includes(n))return;
+      if(!confirm(`${pad(n)}號仍然會保留為欠交，但會停止出現在目前追收名單，並移到「追收歷史」。確定？`))return;
+      const now=new Date().toISOString();
+      const meta={...(r.missingMeta||{})};
+      const hist=[...(r.studentHistory||[])];
+      meta[n]={...(meta[n]||{}),collectionStatus:'closed',closedAt:now};
+      hist.push({student:n,action:'stop-followup',at:now});
+      await upsertRecord({...r,missingMeta:meta,studentHistory:hist});
+    }));
+
+    document.querySelectorAll('[data-reopen-follow]').forEach(btn=>btn.addEventListener('click',async()=>{
+      const r=active();if(!r)return;
+      const n=Number(btn.dataset.reopenFollow);
+      if(!(r.missing||[]).includes(n))return;
+      const now=new Date().toISOString();
+      const meta={...(r.missingMeta||{})};
+      const hist=[...(r.studentHistory||[])];
+      meta[n]={...(meta[n]||{}),collectionStatus:'',closedAt:'',reopenedAt:now};
+      hist.push({student:n,action:'reopen-followup',at:now});
+      await upsertRecord({...r,missingMeta:meta,studentHistory:hist});
+    }));
+
     document.querySelectorAll('[data-returned]').forEach(btn=>btn.addEventListener('click',async()=>{
       const r=active();if(!r)return;
       const n=Number(btn.dataset.returned);
@@ -1025,7 +1084,7 @@
       submitted.sort((a,b)=>a-b);
       const meta={...(r.missingMeta||{})};
       const hist=[...(r.studentHistory||[])];
-      meta[n]={...(meta[n]||{}),returnedAt:now,collectionStatus:'',unableAt:''};
+      meta[n]={...(meta[n]||{}),returnedAt:now,collectionStatus:'',unableAt:'',closedAt:''};
       hist.push({student:n,action:'returned',at:now});
       await upsertRecord({...r,missing,submitted,missingMeta:meta,studentHistory:hist});
     }));

@@ -1,15 +1,15 @@
 {
-  "build": "2.8.1",
-  "cacheTag": "2810",
+  "build": "2.8.2",
+  "cacheTag": "2820",
   "released": "2026-10-08",
-  "purpose": "submission-unable-to-collect-status",
+  "purpose": "submission-stop-followup-history",
   "dataServiceVersion": 9,
   "fixes": [
-    "add 未能追收 action alongside 已補交 for missing students",
-    "未能追收 keeps the student in the missing list",
-    "store collectionStatus/unableAt in missingMeta",
-    "show 未能追收 count in missing summary",
-    "allow toggling 未能追收 back to normal follow-up",
-    "marking 已補交 clears 未能追收 status"
+    "add 不再追收 beside 已補交 and 未能追收",
+    "不再追收 preserves 欠交 truth but removes student from active follow-up",
+    "add per-record 追收歷史 with reason, note and closure date",
+    "add 重新追收 from history",
+    "closed follow-up students no longer appear in 今日追收 counts",
+    "preserve existing missing/submitted/pending data model"
   ]
 }
