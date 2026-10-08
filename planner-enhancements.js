@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '2.7.9';
+  const VERSION = '2.8.0';
   const ACTIVITY_LOCAL_KEY = 'hk-school-calendar-activity-logs-v1';
   const ACTIVITY_PENDING_KEY = 'hk-school-calendar-activity-pending-v1';
   const PENDING_LOCAL_KEY = 'hk-school-pending-items-v1';
@@ -70,6 +70,14 @@
     style.textContent = `
       .pe-sync-pill{position:fixed;right:12px;top:84px;z-index:2147481200;border:1px solid #d8e3df;border-radius:999px;background:#fff;color:#53665f;padding:5px 9px;font:800 9px "Noto Sans TC","PingFang HK","Microsoft JhengHei",sans-serif;box-shadow:0 3px 10px #0001;pointer-events:none}
       .pe-sync-pill.ok{background:#eef8ef;color:#4f7754;border-color:#cfe2d0}.pe-sync-pill.wait{background:#fff8dd;color:#806525;border-color:#ead9a2}.pe-sync-pill.off{background:#fff0ef;color:#a94e4e;border-color:#e6bcbc}
+      .pe-version-badge{position:fixed;right:8px;top:56px;z-index:2147482050;border:1px solid #dfd3c4;border-radius:999px;background:#fffdf8;color:#74563f;padding:3px 7px;font-size:8px;font-weight:850;box-shadow:0 2px 8px #0001;cursor:pointer}
+      .pe-version-badge.update{background:#fff0bc;border-color:#d5b25f;color:#704f25}
+      .pe-quick-date-row{display:flex;gap:6px;align-items:end;flex-wrap:wrap}
+      .pe-quick-date-row .pe-field{flex:1;min-width:180px}
+      .pe-date-chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+      .pe-date-chip{border:1px solid #ddcdb8;border-radius:999px;background:#fff8e8;color:#76513a;padding:4px 7px;font-size:8px;font-weight:800}
+      .pe-date-chip button{border:0;background:transparent;color:inherit;padding:0 0 0 5px;font-weight:900}
+      .pe-stat-row-actions{display:flex;gap:4px;flex-wrap:wrap}
       .pe-update-banner{display:none;position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:2147483900;width:min(520px,calc(100vw - 24px));border:1px solid #d8c29f;border-radius:13px;background:#fff8df;color:#5e4937;padding:9px 11px;box-shadow:0 8px 28px #0003;font-family:"Noto Sans TC","PingFang HK","Microsoft JhengHei",sans-serif}
       .pe-update-banner.show{display:flex;align-items:center;gap:9px}.pe-update-banner b{font-size:11px}.pe-update-banner span{font-size:9px;color:#806c5c;flex:1}.pe-update-banner button{border:0;border-radius:8px;background:#9b6a3f;color:#fff;padding:6px 9px;font-size:9px;font-weight:800}
 
@@ -1931,7 +1939,62 @@
     }
   }
 
+  function ensureVersionBadge(){
+    let el=document.getElementById('pe-version-badge');
+    if(el)return el;
+    el=document.createElement('button');
+    el.type='button';
+    el.id='pe-version-badge';
+    el.className='pe-version-badge';
+    el.textContent=`v${VERSION}`;
+    el.title='目前版本；按一下檢查更新';
+    el.addEventListener('click',()=>checkVersionMetadata(true));
+    document.body.appendChild(el);
+    return el;
+  }
+
+  function showVersionUpdate(latest){
+    if(!latest||latest===VERSION)return;
+    const badge=ensureVersionBadge();
+    badge.classList.add('update');
+    badge.textContent=`v${VERSION} → v${latest}`;
+    const banner=ensureUpdateBanner();
+    banner.classList.add('show');
+    banner.querySelector('b').textContent='✨ 偵測到新版';
+    banner.querySelector('span').textContent=`目前 v${VERSION}；新版 v${latest} 已推出。`;
+    const btn=banner.querySelector('button');
+    btn.textContent='立即重新載入';
+    btn.onclick=()=>{
+      const u=new URL(location.href);
+      u.searchParams.set('v',String(latest).replace(/\./g,''));
+      location.replace(u.href);
+    };
+  }
+
+  async function checkVersionMetadata(force=false){
+    try{
+      const now=Date.now();
+      if(!force && state.lastVersionCheck && now-state.lastVersionCheck<30000)return;
+      state.lastVersionCheck=now;
+      const res=await fetch(`./version.json?ts=${now}`,{cache:'no-store'});
+      if(!res.ok)return;
+      const meta=await res.json();
+      const latest=String(meta.build||'').trim();
+      if(latest&&latest!==VERSION)showVersionUpdate(latest);
+      else{
+        const badge=ensureVersionBadge();
+        badge.classList.remove('update');
+        badge.textContent=`v${VERSION}`;
+      }
+    }catch{}
+  }
+
   function installPwaUpdatePrompt() {
+    ensureVersionBadge();
+    if(window.__HK_UPDATE_AVAILABLE)showVersionUpdate(String(window.__HK_UPDATE_AVAILABLE));
+    window.addEventListener('hk-build-update-available',e=>showVersionUpdate(String(e.detail?.latest||'')));
+    checkVersionMetadata(true);
+    setInterval(()=>checkVersionMetadata(false),5*60*1000);
     if (!('serviceWorker' in navigator)) return;
     const banner = ensureUpdateBanner();
     navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -1959,7 +2022,7 @@
     let el=document.getElementById('pe-update-banner');
     if(!el){
       el=document.createElement('div'); el.id='pe-update-banner'; el.className='pe-update-banner';
-      el.innerHTML='<b>✨ 有新版本</b><span>新版已準備好。</span><button type="button">立即更新</button>';
+      el.innerHTML='<b>✨ 有新版本</b><span>新版已準備好。</span><button type="button">立即重新載入</button>';
       el.querySelector('button').addEventListener('click',()=>window.location.reload());
       document.body.appendChild(el);
     }
@@ -3597,11 +3660,135 @@
     updateSyncDisplay();
   }
 
+  function existingActivityCategories(){
+    return [...new Set((state.activities||[]).map(x=>(x.category||'').trim()).filter(Boolean))]
+      .sort((a,b)=>a.localeCompare(b,'zh-HK'));
+  }
+
+  function parseQuickActivityDates(){
+    const chips=[...document.querySelectorAll('#pe-quick-date-chips [data-date]')].map(x=>x.dataset.date);
+    const pasted=(document.getElementById('pe-quick-date-list')?.value||'')
+      .split(/[\s,，;；]+/).map(x=>x.trim()).filter(Boolean);
+    return [...new Set([...chips,...pasted])]
+      .filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x))
+      .sort();
+  }
+
+  function renderQuickActivityDateChips(){
+    const out=document.getElementById('pe-quick-date-chips');
+    if(!out)return;
+    let dates=[];
+    try{dates=JSON.parse(out.dataset.dates||'[]')}catch{}
+    out.innerHTML=dates.map(d=>`<span class="pe-date-chip" data-date="${esc(d)}">${esc(fmt(d))}<button type="button" data-remove-date="${esc(d)}">×</button></span>`).join('');
+    out.querySelectorAll('[data-remove-date]').forEach(btn=>btn.addEventListener('click',()=>{
+      const next=dates.filter(d=>d!==btn.dataset.removeDate);
+      out.dataset.dates=JSON.stringify(next);
+      renderQuickActivityDateChips();
+    }));
+  }
+
+  function addQuickActivityDate(){
+    const input=document.getElementById('pe-quick-date');
+    const out=document.getElementById('pe-quick-date-chips');
+    const date=input?.value||'';
+    if(!date||!out)return;
+    let dates=[];try{dates=JSON.parse(out.dataset.dates||'[]')}catch{}
+    if(!dates.includes(date))dates.push(date);
+    dates.sort();
+    out.dataset.dates=JSON.stringify(dates);
+    input.value='';
+    renderQuickActivityDateChips();
+  }
+
+  function ensureQuickActivityModal(){
+    let m=document.getElementById('pe-quick-activity-modal');
+    if(m)return m;
+    m=document.createElement('div');
+    m.id='pe-quick-activity-modal';
+    m.className='pe-modal';
+    m.innerHTML=`<div class="pe-dialog">
+      <h3>⚡ 快速新增活動紀錄</h3>
+      <p class="pe-note">一次設定活動資料，再加入一個或多個日期；毋須逐日返回月曆新增。</p>
+      <div class="pe-grid">
+        <div class="pe-field"><label>活動類別</label><input id="pe-quick-category" list="pe-quick-category-list" placeholder="例如：家長聯絡"></div>
+        <datalist id="pe-quick-category-list"></datalist>
+        <div class="pe-field"><label>活動名稱</label><input id="pe-quick-title" placeholder="例如：家長到校面談"></div>
+        <div class="pe-field pe-full"><label>備註（可留空）</label><textarea id="pe-quick-note"></textarea></div>
+      </div>
+      <div class="pe-quick-date-row">
+        <div class="pe-field"><label>加入日期</label><input id="pe-quick-date" type="date"></div>
+        <button class="pe-btn" type="button" id="pe-quick-add-date">＋ 加入日期</button>
+      </div>
+      <div id="pe-quick-date-chips" class="pe-date-chips" data-dates="[]"></div>
+      <div class="pe-field pe-full"><label>亦可一次貼上多個日期</label><textarea id="pe-quick-date-list" placeholder="每行一個日期，例如：\n2026-10-08\n2026-10-15\n2026-10-22"></textarea></div>
+      <div class="pe-actions"><button class="pe-btn" id="pe-quick-cancel">取消</button><button class="pe-btn primary" id="pe-quick-save">加入全部日期</button></div>
+    </div>`;
+    document.body.appendChild(m);
+    m.addEventListener('click',e=>{if(e.target===m)closeModal(m)});
+    m.querySelector('#pe-quick-cancel').addEventListener('click',()=>closeModal(m));
+    m.querySelector('#pe-quick-add-date').addEventListener('click',addQuickActivityDate);
+    m.querySelector('#pe-quick-date').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addQuickActivityDate()}});
+    m.querySelector('#pe-quick-save').addEventListener('click',saveQuickActivities);
+    return m;
+  }
+
+  function openQuickActivityModal(seed={}){
+    const m=ensureQuickActivityModal();
+    const cat=document.getElementById('pe-quick-category');
+    const title=document.getElementById('pe-quick-title');
+    const note=document.getElementById('pe-quick-note');
+    const list=document.getElementById('pe-quick-category-list');
+    if(list)list.innerHTML=existingActivityCategories().map(c=>`<option value="${esc(c)}"></option>`).join('');
+    cat.value=seed.category||document.getElementById('pe-stat-category')?.value||'';
+    title.value=seed.title||'';
+    note.value=seed.note||'';
+    document.getElementById('pe-quick-date').value='';
+    document.getElementById('pe-quick-date-list').value='';
+    const chips=document.getElementById('pe-quick-date-chips');
+    chips.dataset.dates='[]';
+    renderQuickActivityDateChips();
+    m.classList.add('open');
+  }
+
+  async function saveQuickActivities(){
+    const category=(document.getElementById('pe-quick-category')?.value||'').trim();
+    const title=(document.getElementById('pe-quick-title')?.value||'').trim();
+    const note=(document.getElementById('pe-quick-note')?.value||'').trim();
+    const dates=parseQuickActivityDates();
+    if(!category||!title)return alert('請填寫活動類別及活動名稱。');
+    if(!dates.length)return alert('請至少加入一個日期。');
+
+    const now=new Date().toISOString();
+    const records=dates.map((date,i)=>({
+      id:`act_${Date.now()}_${i}_${Math.random().toString(36).slice(2,7)}`,
+      date,category,title,note,createdAt:now,updatedAt:now
+    }));
+    state.activities.unshift(...records);
+    saveLocalActivities();
+    closeModal(document.getElementById('pe-quick-activity-modal'));
+    refreshCategoryList();
+    refreshStatsCategoryOptions();
+    renderStatsIfOpen();
+    renderDashboard();
+    renderCalendarActivityOverlay();
+
+    for(const rec of records){
+      const cloudData={date:rec.date,category,title,note,createdAt:now,updatedAt:now};
+      if(state.firebaseReady&&navigator.onLine){
+        try{
+          await activityCollection().doc(rec.id).set(cloudData);
+          saveActivityPending(loadActivityPending().filter(x=>!(x.op==='set'&&x.id===rec.id)));
+        }catch{queueActivityPending({op:'set',id:rec.id,data:cloudData})}
+      }else queueActivityPending({op:'set',id:rec.id,data:cloudData});
+    }
+    updateSyncDisplay();
+  }
+
   function ensureStatsModal(){
     let modal=document.getElementById('pe-stats-modal');if(modal)return modal;
     modal=document.createElement('div');modal.id='pe-stats-modal';modal.className='pe-modal';
-    modal.innerHTML=`<div class="pe-dialog"><h3>📊 活動紀錄統計</h3><p class="pe-note">按類別檢視出現次數、日期，亦可匯出 CSV 或列印／另存 PDF。</p><div class="pe-stat-toolbar"><select id="pe-stat-range"><option value="year">全學年</option><option value="term1">上學期</option><option value="term2">下學期</option><option value="month">本月</option></select><select id="pe-stat-category"><option value="">全部類型</option></select><input id="pe-stat-search" placeholder="搜尋類別／活動名稱"><div class="pe-stat-actions"><button id="pe-export-csv" title="匯出 CSV">CSV</button><button id="pe-print-stats" title="列印／儲存 PDF">PDF</button></div></div><div id="pe-stat-content"></div><div class="pe-actions"><button class="pe-btn" id="pe-manage-categories">管理活動類型</button><button class="pe-btn" id="pe-stat-close">關閉</button></div></div>`;
-    document.body.appendChild(modal);modal.addEventListener('click',e=>{if(e.target===modal)closeModal(modal)});modal.querySelector('#pe-stat-close').addEventListener('click',()=>closeModal(modal));modal.querySelector('#pe-manage-categories').addEventListener('click',openCategoryManager);modal.querySelector('#pe-stat-range').addEventListener('change',()=>{refreshStatsCategoryOptions();renderStats()});modal.querySelector('#pe-stat-category').addEventListener('change',renderStats);modal.querySelector('#pe-stat-search').addEventListener('input',renderStats);modal.querySelector('#pe-export-csv').addEventListener('click',exportActivitiesCsv);modal.querySelector('#pe-print-stats').addEventListener('click',printActivityStats);return modal;
+    modal.innerHTML=`<div class="pe-dialog"><h3>📊 活動紀錄統計</h3><p class="pe-note">按類別檢視出現次數、日期，亦可直接快速新增同一活動到多個日期。</p><div class="pe-actions" style="justify-content:flex-start;margin:0 0 8px"><button class="pe-btn primary" id="pe-stat-quick-add">＋ 快速新增活動</button></div><div class="pe-stat-toolbar"><select id="pe-stat-range"><option value="year">全學年</option><option value="term1">上學期</option><option value="term2">下學期</option><option value="month">本月</option></select><select id="pe-stat-category"><option value="">全部類型</option></select><input id="pe-stat-search" placeholder="搜尋類別／活動名稱"><div class="pe-stat-actions"><button id="pe-export-csv" title="匯出 CSV">CSV</button><button id="pe-print-stats" title="列印／儲存 PDF">PDF</button></div></div><div id="pe-stat-content"></div><div class="pe-actions"><button class="pe-btn" id="pe-manage-categories">管理活動類型</button><button class="pe-btn" id="pe-stat-close">關閉</button></div></div>`;
+    document.body.appendChild(modal);modal.addEventListener('click',e=>{if(e.target===modal)closeModal(modal)});modal.querySelector('#pe-stat-close').addEventListener('click',()=>closeModal(modal));modal.querySelector('#pe-stat-quick-add').addEventListener('click',()=>openQuickActivityModal());modal.querySelector('#pe-manage-categories').addEventListener('click',openCategoryManager);modal.querySelector('#pe-stat-range').addEventListener('change',()=>{refreshStatsCategoryOptions();renderStats()});modal.querySelector('#pe-stat-category').addEventListener('change',renderStats);modal.querySelector('#pe-stat-search').addEventListener('input',renderStats);modal.querySelector('#pe-export-csv').addEventListener('click',exportActivitiesCsv);modal.querySelector('#pe-print-stats').addEventListener('click',printActivityStats);return modal;
   }
   function schoolYearBounds(){const[y,m]=hkToday().split('-').map(Number),sy=m>=8?y:y-1;return{year:[`${sy}-08-01`,`${sy+1}-07-31`],term1:[`${sy}-08-01`,`${sy}-12-31`],term2:[`${sy+1}-01-01`,`${sy+1}-07-31`]}}
   function statsDateRange(){
@@ -3644,7 +3831,7 @@
       return !q||`${a.category||''} ${a.title||''} ${a.note||''}`.toLowerCase().includes(q);
     });
   }
-  function renderStats(){const out=document.getElementById('pe-stat-content');if(!out)return;const items=filteredActivities(),groups={};items.forEach(a=>(groups[(a.category||'未分類').trim()||'未分類']||=[]).push(a));const entries=Object.entries(groups).sort((a,b)=>b[1].length-a[1].length||a[0].localeCompare(b[0],'zh-HK'));out.innerHTML=entries.length?entries.map(([cat,arr])=>`<details class="pe-stat-group" open><summary><span>${esc(cat)}</span><span>${arr.length} 次</span></summary><div class="pe-stat-list">${arr.sort((a,b)=>a.date.localeCompare(b.date)).map(a=>`<div class="pe-stat-item"><b>${fmt(a.date)}</b><small><strong>${esc(a.title||'')}</strong>${a.note?`<br>${esc(a.note)}`:''}</small><span class="pe-stat-row-actions"><button data-edit-activity="${esc(a.id||'')}">修改</button><button data-delete-activity="${esc(a.id||'')}">刪除</button></span></div>`).join('')}</div></details>`).join(''):'<div class="pe-note">這個範圍暫時未有活動紀錄。</div>';out.querySelectorAll('[data-edit-activity]').forEach(b=>b.addEventListener('click',()=>openActivityEdit(b.dataset.editActivity)));out.querySelectorAll('[data-delete-activity]').forEach(b=>b.addEventListener('click',()=>deleteActivity(b.dataset.deleteActivity)))}
+  function renderStats(){const out=document.getElementById('pe-stat-content');if(!out)return;const items=filteredActivities(),groups={};items.forEach(a=>(groups[(a.category||'未分類').trim()||'未分類']||=[]).push(a));const entries=Object.entries(groups).sort((a,b)=>b[1].length-a[1].length||a[0].localeCompare(b[0],'zh-HK'));out.innerHTML=entries.length?entries.map(([cat,arr])=>`<details class="pe-stat-group" open><summary><span>${esc(cat)}</span><span>${arr.length} 次</span></summary><div class="pe-stat-list">${arr.sort((a,b)=>a.date.localeCompare(b.date)).map(a=>`<div class="pe-stat-item"><b>${fmt(a.date)}</b><small><strong>${esc(a.title||'')}</strong>${a.note?`<br>${esc(a.note)}`:''}</small><span class="pe-stat-row-actions"><button data-repeat-activity="${esc(a.id||'')}">＋再記錄</button><button data-edit-activity="${esc(a.id||'')}">修改</button><button data-delete-activity="${esc(a.id||'')}">刪除</button></span></div>`).join('')}</div></details>`).join(''):'<div class="pe-note">這個範圍暫時未有活動紀錄。</div>';out.querySelectorAll('[data-repeat-activity]').forEach(b=>b.addEventListener('click',()=>{const a=state.activities.find(x=>x.id===b.dataset.repeatActivity);if(a)openQuickActivityModal(a)}));out.querySelectorAll('[data-edit-activity]').forEach(b=>b.addEventListener('click',()=>openActivityEdit(b.dataset.editActivity)));out.querySelectorAll('[data-delete-activity]').forEach(b=>b.addEventListener('click',()=>deleteActivity(b.dataset.deleteActivity)))}
   function openStatsModal(){ensureStatsModal().classList.add('open');refreshStatsCategoryOptions();renderStats()}
   function renderStatsIfOpen(){if(document.getElementById('pe-stats-modal')?.classList.contains('open')){refreshStatsCategoryOptions();renderStats()}}
   async function deleteActivity(id,skipConfirm=false){
@@ -4846,7 +5033,7 @@
         <div><b>🪑 座位／積分</b><small id="pe-seat-score-status">共用班級及學生資料</small></div>
         <button type="button" id="pe-seat-score-close">✕</button>
       </div>
-      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=2790"></iframe>
+      <iframe id="pe-seat-score-frame" title="座位及積分系統" src="seat-score-integrated.html?v=2800"></iframe>
     </div>`;
     document.body.appendChild(m);
     m.querySelector('#pe-seat-score-close').addEventListener('click',()=>closeSeatScore());
@@ -5007,8 +5194,8 @@
     m.id='pe-class-center-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>🏫 班級中心 <small style="font-size:.62em;opacity:.55">v2.7.9</small></h3>
-      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.7.9</span></p>
+      <h3>🏫 班級中心 <small style="font-size:.62em;opacity:.55">v2.8.0</small></h3>
+      <p class="pe-note">班別、學生、功課、追收、座位／積分集中喺同一個入口。 <span style="opacity:.55">UI 2.8.0</span></p>
       <div class="pe-v2-tabs">
         <button type="button" data-class-center-tab="overview" class="active">總覽</button>
         <button type="button" data-class-center-tab="students">學生</button>
@@ -5666,7 +5853,7 @@
     m.id='pe-identity-v1-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog" style="width:min(900px,calc(100vw - 24px))">
-      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.7.9</small></h3>
+      <h3>🧬 身份與跨學年資料 V1 <small style="font-size:.6em;opacity:.55">build 2.8.0</small></h3>
       <p class="pe-note">studentId 永久跟學生；classId 代表某一學年嘅班級實體。01／02 等暫時班號唔會進入永久學生庫；改成真實姓名後會沿用原 studentId 自動升格。</p>
       <div class="pe-grid">
         <div class="pe-field">
@@ -5871,7 +6058,7 @@
     m.id='pe-class-core-modal';
     m.className='pe-modal';
     m.innerHTML=`<div class="pe-dialog">
-      <h3>🏫 班別／學生中心 <small style="font-size:.62em;opacity:.55">v2.7.9</small></h3>
+      <h3>🏫 班別／學生中心 <small style="font-size:.62em;opacity:.55">v2.8.0</small></h3>
       <p class="pe-note">呢份學生資料係座位表、積分、追收及學生紀錄嘅共用核心。每個班別及學生而家都有固定 ID；改名唔會令資料斷開。學生名單每行一位。</p>
       <div class="pe-class-core-grid">
         <div>
@@ -7386,6 +7573,8 @@
     ensureActivityModal();
     ensureActivityEditModal();
     ensureStatsModal();
+    ensureQuickActivityModal();
+    ensureVersionBadge();
     ensureSearchModal();
     ensureDoneModal();
     ensurePendingModal();
